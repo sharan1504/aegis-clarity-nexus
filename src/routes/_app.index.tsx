@@ -23,6 +23,7 @@ import {
 } from "recharts";
 
 import { PageHeader, SeverityBadge } from "@/components/layout/AppLayout";
+import { EmptyIntegrationsState, hasAnyConnected } from "@/components/EmptyIntegrationsState";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +51,7 @@ export const Route = createFileRoute("/_app/")({
 const CHART_COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
 
 function DashboardPage() {
+  const connected = hasAnyConnected();
   return (
     <div>
       <PageHeader
@@ -68,6 +70,11 @@ function DashboardPage() {
           </>
         }
       />
+
+      {!connected && <EmptyIntegrationsState />}
+      {connected && (
+      <>
+
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {kpis.map((k) => (
