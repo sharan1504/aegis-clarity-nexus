@@ -76,6 +76,7 @@ function AgentsPage() {
           </Card>
         ))}
       </div>
+      )}
     </div>
   );
 }
