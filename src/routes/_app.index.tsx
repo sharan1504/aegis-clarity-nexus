@@ -23,6 +23,7 @@ import {
 } from "recharts";
 
 import { PageHeader, SeverityBadge } from "@/components/layout/AppLayout";
+import { EmptyIntegrationsState, hasAnyConnected } from "@/components/EmptyIntegrationsState";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +51,7 @@ export const Route = createFileRoute("/_app/")({
 const CHART_COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
 
 function DashboardPage() {
+  const connected = hasAnyConnected();
   return (
     <div>
       <PageHeader
@@ -69,6 +71,11 @@ function DashboardPage() {
         }
       />
 
+      {!connected && <EmptyIntegrationsState />}
+      {connected && (
+      <>
+
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {kpis.map((k) => (
           <Card key={k.label} className="relative overflow-hidden">
@@ -78,24 +85,29 @@ function DashboardPage() {
               </CardDescription>
               <CardTitle className="text-3xl tracking-tight">{k.value}</CardTitle>
             </CardHeader>
-            <CardContent className="flex items-center justify-between pt-0">
-              <span
-                className={`inline-flex items-center gap-1 text-xs font-medium ${
-                  k.trend === "up"
-                    ? "text-success"
-                    : k.trend === "down"
-                      ? "text-destructive"
-                      : "text-muted-foreground"
-                }`}
-              >
-                {k.trend === "up" ? (
-                  <ArrowUpRight className="h-3.5 w-3.5" />
-                ) : (
-                  <ArrowDownRight className="h-3.5 w-3.5" />
-                )}
-                {k.delta}
-              </span>
-              <span className="text-xs text-muted-foreground">{k.hint}</span>
+            <CardContent className="pt-0">
+              {k.breakdown && (
+                <div className="mb-1.5 text-xs font-medium text-foreground/80">{k.breakdown}</div>
+              )}
+              <div className="flex items-center justify-between">
+                <span
+                  className={`inline-flex items-center gap-1 text-xs font-medium ${
+                    k.trend === "up"
+                      ? "text-success"
+                      : k.trend === "down"
+                        ? "text-destructive"
+                        : "text-muted-foreground"
+                  }`}
+                >
+                  {k.trend === "up" ? (
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                  ) : (
+                    <ArrowDownRight className="h-3.5 w-3.5" />
+                  )}
+                  {k.delta}
+                </span>
+                <span className="text-xs text-muted-foreground">{k.hint}</span>
+              </div>
             </CardContent>
             <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-primary/60 via-accent/60 to-transparent" />
           </Card>
@@ -297,6 +309,8 @@ function DashboardPage() {
           ))}
         </CardContent>
       </Card>
+      </>
+      )}
     </div>
   );
 }

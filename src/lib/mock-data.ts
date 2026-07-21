@@ -18,13 +18,14 @@ export interface Kpi {
   delta: string;
   trend: "up" | "down" | "flat";
   hint?: string;
+  breakdown?: string;
 }
 
 export const kpis: Kpi[] = [
-  { label: "Platform Health", value: "97.4%", delta: "+0.6%", trend: "up", hint: "Rolling 24h" },
-  { label: "Cost Savings (MTD)", value: "$284,120", delta: "+12.3%", trend: "up", hint: "Optimizations applied" },
-  { label: "Active Incidents", value: "7", delta: "-2", trend: "down", hint: "3 P1 / 4 P2" },
-  { label: "Security Alerts", value: "23", delta: "+5", trend: "up", hint: "9 require review" },
+  { label: "Platform Health", value: "97.4%", delta: "+0.6% vs yesterday", trend: "up", hint: "Rolling 24h" },
+  { label: "Cost Savings (MTD)", value: "$284,120", delta: "+12.3% vs last month", trend: "up", hint: "Optimizations applied" },
+  { label: "Active Incidents", value: "7", delta: "-2 vs yesterday", trend: "down", hint: "Open now", breakdown: "3 P1 · 4 P2" },
+  { label: "Security Alerts", value: "23", delta: "+5 vs last week", trend: "up", hint: "Last 7 days", breakdown: "9 require review" },
 ];
 
 export const healthTrend = [
@@ -195,7 +196,7 @@ export const agents: Agent[] = [
     name: "Knowledge Assistant",
     description: "Answers questions across Confluence, SharePoint, Jira, and ServiceNow KBs.",
     icon: BookOpen,
-    status: "beta",
+    status: "active",
     actionsThisWeek: 312,
     savings: "9.4K queries",
     category: "Productivity",
