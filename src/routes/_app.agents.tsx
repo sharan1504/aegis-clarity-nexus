@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Plus, Play, Pause } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/AppLayout";
+import { EmptyIntegrationsState, hasAnyConnected } from "@/components/EmptyIntegrationsState";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +13,7 @@ export const Route = createFileRoute("/_app/agents")({
 });
 
 function AgentsPage() {
+  const connected = hasAnyConnected();
   return (
     <div>
       <PageHeader
@@ -24,6 +26,12 @@ function AgentsPage() {
         }
       />
 
+      {!connected ? (
+        <EmptyIntegrationsState
+          title="Agents need a connected system"
+          description="Connect at least one integration to activate agents that monitor and act on your stack."
+        />
+      ) : (
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {agents.map((a) => (
           <Card key={a.id} className="flex flex-col transition hover:border-primary/40">
