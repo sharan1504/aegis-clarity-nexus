@@ -78,24 +78,29 @@ function DashboardPage() {
               </CardDescription>
               <CardTitle className="text-3xl tracking-tight">{k.value}</CardTitle>
             </CardHeader>
-            <CardContent className="flex items-center justify-between pt-0">
-              <span
-                className={`inline-flex items-center gap-1 text-xs font-medium ${
-                  k.trend === "up"
-                    ? "text-success"
-                    : k.trend === "down"
-                      ? "text-destructive"
-                      : "text-muted-foreground"
-                }`}
-              >
-                {k.trend === "up" ? (
-                  <ArrowUpRight className="h-3.5 w-3.5" />
-                ) : (
-                  <ArrowDownRight className="h-3.5 w-3.5" />
-                )}
-                {k.delta}
-              </span>
-              <span className="text-xs text-muted-foreground">{k.hint}</span>
+            <CardContent className="pt-0">
+              {k.breakdown && (
+                <div className="mb-1.5 text-xs font-medium text-foreground/80">{k.breakdown}</div>
+              )}
+              <div className="flex items-center justify-between">
+                <span
+                  className={`inline-flex items-center gap-1 text-xs font-medium ${
+                    k.trend === "up"
+                      ? "text-success"
+                      : k.trend === "down"
+                        ? "text-destructive"
+                        : "text-muted-foreground"
+                  }`}
+                >
+                  {k.trend === "up" ? (
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                  ) : (
+                    <ArrowDownRight className="h-3.5 w-3.5" />
+                  )}
+                  {k.delta}
+                </span>
+                <span className="text-xs text-muted-foreground">{k.hint}</span>
+              </div>
             </CardContent>
             <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-primary/60 via-accent/60 to-transparent" />
           </Card>
