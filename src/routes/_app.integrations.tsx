@@ -15,9 +15,11 @@ function statusUi(s: string) {
   if (s === "connected")
     return { label: "Connected", cls: "bg-success/15 text-success border-success/30", icon: CheckCircle2 };
   if (s === "action_required")
-    return { label: "Action required", cls: "bg-destructive/15 text-destructive border-destructive/30", icon: AlertTriangle };
+    return { label: "Action required", cls: "bg-warning/20 text-warning-foreground border-warning ring-2 ring-warning/40", icon: AlertTriangle };
   return { label: "Available", cls: "bg-muted text-muted-foreground border-border", icon: Plug };
 }
+
+const STATUS_ORDER: Record<string, number> = { action_required: 0, connected: 1, available: 2 };
 
 function IntegrationsPage() {
   return (
@@ -29,10 +31,12 @@ function IntegrationsPage() {
       />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {integrations.map((i) => {
+        {[...integrations]
+          .sort((a, b) => (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9))
+          .map((i) => {
           const s = statusUi(i.status);
           return (
-            <Card key={i.id}>
+            <Card key={i.id} className={i.status === "action_required" ? "border-warning/60" : undefined}>
               <CardHeader>
                 <div className="flex items-start gap-3">
                   <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-muted text-2xl">
