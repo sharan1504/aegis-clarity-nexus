@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -28,6 +29,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
   Table,
   TableBody,
   TableCell,
@@ -42,6 +50,7 @@ import {
   incidentsByService,
   kpis,
   recommendations,
+  securityAlerts,
 } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/_app/")({
@@ -50,8 +59,11 @@ export const Route = createFileRoute("/_app/")({
 
 const CHART_COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
 
+type DrillKey = "Active Incidents" | "Security Alerts" | "Cost Savings (MTD)" | "Platform Health";
+
 function DashboardPage() {
   const connected = hasAnyConnected();
+  const [drill, setDrill] = useState<DrillKey | null>(null);
   return (
     <div>
       <PageHeader
@@ -59,9 +71,7 @@ function DashboardPage() {
         description="Real-time executive view across all connected enterprise systems."
         actions={
           <>
-            <Button variant="outline" size="sm">
-              Export
-            </Button>
+            <Button variant="outline" size="sm">Export</Button>
             <Button size="sm" asChild>
               <Link to="/chat">
                 <Sparkles className="mr-1.5 h-4 w-4" /> Ask Aegis
@@ -74,43 +84,47 @@ function DashboardPage() {
       {!connected && <EmptyIntegrationsState />}
       {connected && (
       <>
-
-
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {kpis.map((k) => (
-          <Card key={k.label} className="relative overflow-hidden">
-            <CardHeader className="pb-2">
-              <CardDescription className="text-xs font-medium uppercase tracking-wider">
-                {k.label}
-              </CardDescription>
-              <CardTitle className="text-3xl tracking-tight">{k.value}</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              {k.breakdown && (
-                <div className="mb-1.5 text-xs font-medium text-foreground/80">{k.breakdown}</div>
-              )}
-              <div className="flex items-center justify-between">
-                <span
-                  className={`inline-flex items-center gap-1 text-xs font-medium ${
-                    k.trend === "up"
-                      ? "text-success"
-                      : k.trend === "down"
-                        ? "text-destructive"
-                        : "text-muted-foreground"
-                  }`}
-                >
-                  {k.trend === "up" ? (
-                    <ArrowUpRight className="h-3.5 w-3.5" />
-                  ) : (
-                    <ArrowDownRight className="h-3.5 w-3.5" />
-                  )}
-                  {k.delta}
-                </span>
-                <span className="text-xs text-muted-foreground">{k.hint}</span>
-              </div>
-            </CardContent>
-            <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-primary/60 via-accent/60 to-transparent" />
-          </Card>
+          <button
+            key={k.label}
+            onClick={() => setDrill(k.label as DrillKey)}
+            className="text-left"
+          >
+            <Card className="relative overflow-hidden transition hover:border-primary/40 hover:shadow-md">
+              <CardHeader className="pb-2">
+                <CardDescription className="text-xs font-medium uppercase tracking-wider">
+                  {k.label}
+                </CardDescription>
+                <CardTitle className="text-3xl tracking-tight">{k.value}</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                {k.breakdown && (
+                  <div className="mb-1.5 text-xs font-medium text-foreground/80">{k.breakdown}</div>
+                )}
+                <div className="flex items-center justify-between">
+                  <span
+                    className={`inline-flex items-center gap-1 text-xs font-medium ${
+                      k.trend === "up"
+                        ? "text-success"
+                        : k.trend === "down"
+                          ? "text-destructive"
+                          : "text-muted-foreground"
+                    }`}
+                  >
+                    {k.trend === "up" ? (
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                    ) : (
+                      <ArrowDownRight className="h-3.5 w-3.5" />
+                    )}
+                    {k.delta}
+                  </span>
+                  <span className="text-xs text-muted-foreground">{k.hint}</span>
+                </div>
+              </CardContent>
+              <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-primary/60 via-accent/60 to-transparent" />
+            </Card>
+          </button>
         ))}
       </div>
 
@@ -189,10 +203,7 @@ function DashboardPage() {
             <div className="mt-2 grid grid-cols-2 gap-1.5 text-xs">
               {costByCloud.map((c, i) => (
                 <div key={c.name} className="flex items-center gap-1.5">
-                  <span
-                    className="h-2 w-2 rounded-full"
-                    style={{ background: CHART_COLORS[i % CHART_COLORS.length] }}
-                  />
+                  <span className="h-2 w-2 rounded-full" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
                   <span className="text-muted-foreground">{c.name}</span>
                   <span className="ml-auto font-medium">${(c.value / 1000).toFixed(0)}K</span>
                 </div>
@@ -209,11 +220,11 @@ function DashboardPage() {
               <CardTitle className="text-base">Active Incidents</CardTitle>
               <CardDescription>Live from Genesys, AWS, Azure, ServiceNow, Salesforce</CardDescription>
             </div>
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" onClick={() => setDrill("Active Incidents")}>
               View all
             </Button>
           </CardHeader>
-          <CardContent className="px-0">
+          <CardContent className="px-0 overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -231,9 +242,7 @@ function DashboardPage() {
                     <TableCell className="font-mono text-xs">{i.id}</TableCell>
                     <TableCell className="max-w-[280px] truncate font-medium">{i.title}</TableCell>
                     <TableCell className="text-muted-foreground">{i.service}</TableCell>
-                    <TableCell>
-                      <SeverityBadge severity={i.severity} />
-                    </TableCell>
+                    <TableCell><SeverityBadge severity={i.severity} /></TableCell>
                     <TableCell className="capitalize text-muted-foreground">{i.status}</TableCell>
                     <TableCell className="text-right text-muted-foreground">{i.opened}</TableCell>
                   </TableRow>
@@ -254,15 +263,8 @@ function DashboardPage() {
                 <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} />
                 <YAxis stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} />
-                <Tooltip
-                  contentStyle={{
-                    background: "var(--popover)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 8,
-                    fontSize: 12,
-                  }}
-                />
-                <Bar dataKey="p1" stackId="a" fill="var(--destructive)" radius={[0, 0, 0, 0]} />
+                <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
+                <Bar dataKey="p1" stackId="a" fill="var(--destructive)" />
                 <Bar dataKey="p2" stackId="a" fill="var(--warning)" />
                 <Bar dataKey="p3" stackId="a" fill="var(--chart-2)" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -287,30 +289,97 @@ function DashboardPage() {
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {recommendations.slice(0, 4).map((r) => (
-            <div
+            <Link
               key={r.id}
+              to="/approvals"
               className="group flex items-start gap-3 rounded-lg border border-border bg-card p-3 transition hover:border-primary/40 hover:bg-accent/5"
             >
-              <div className="mt-0.5">
-                <SeverityBadge severity={r.severity} />
-              </div>
+              <div className="mt-0.5"><SeverityBadge severity={r.severity} /></div>
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-medium leading-snug">{r.title}</div>
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                  <span>{r.agent}</span>
-                  <span>•</span>
+                  <span>{r.agent}</span><span>•</span>
                   <span className="text-success font-medium">{r.impact}</span>
                 </div>
               </div>
-              <Button size="sm" variant="ghost" className="opacity-0 transition group-hover:opacity-100">
-                Review
-              </Button>
-            </div>
+              <span className="opacity-0 text-xs text-primary transition group-hover:opacity-100">Review →</span>
+            </Link>
           ))}
         </CardContent>
       </Card>
       </>
       )}
+
+      <KpiDrillSheet open={drill} onClose={() => setDrill(null)} />
     </div>
+  );
+}
+
+function KpiDrillSheet({ open, onClose }: { open: DrillKey | null; onClose: () => void }) {
+  return (
+    <Sheet open={!!open} onOpenChange={(v) => !v && onClose()}>
+      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>{open}</SheetTitle>
+          <SheetDescription>
+            {open === "Active Incidents" && "All open incidents across connected services."}
+            {open === "Security Alerts" && "Findings from the Security & Compliance agent."}
+            {open === "Cost Savings (MTD)" && "Optimizations applied this month."}
+            {open === "Platform Health" && "Signals contributing to your health score."}
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="mt-5 space-y-2">
+          {open === "Active Incidents" &&
+            incidents.map((i) => (
+              <div key={i.id} className="rounded-lg border border-border p-3 hover:border-primary/40 transition">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-xs text-muted-foreground">{i.id}</span>
+                  <SeverityBadge severity={i.severity} />
+                </div>
+                <div className="mt-1 text-sm font-medium">{i.title}</div>
+                <div className="mt-1 flex justify-between text-xs text-muted-foreground">
+                  <span>{i.service} · {i.owner}</span>
+                  <span className="capitalize">{i.status} · {i.opened}</span>
+                </div>
+              </div>
+            ))}
+
+          {open === "Security Alerts" &&
+            securityAlerts.map((a) => (
+              <div key={a.id} className="rounded-lg border border-border p-3 hover:border-primary/40 transition">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-xs text-muted-foreground">{a.id}</span>
+                  <SeverityBadge severity={a.severity} />
+                </div>
+                <div className="mt-1 text-sm font-medium">{a.title}</div>
+                <div className="mt-1 flex justify-between text-xs text-muted-foreground">
+                  <span>{a.service}</span>
+                  <span className="capitalize">{a.status} · {a.detected}</span>
+                </div>
+              </div>
+            ))}
+
+          {open === "Cost Savings (MTD)" &&
+            recommendations
+              .filter((r) => r.category === "Cost" || r.category === "License")
+              .map((r) => (
+                <div key={r.id} className="rounded-lg border border-border p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-muted-foreground">{r.agent}</span>
+                    <span className="text-xs font-semibold text-success">{r.impact}</span>
+                  </div>
+                  <div className="mt-1 text-sm font-medium">{r.title}</div>
+                </div>
+              ))}
+
+          {open === "Platform Health" && (
+            <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
+              Health score aggregates uptime, error budget, and integration health across all connected systems. Drill into individual services from the Incidents view.
+            </div>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }

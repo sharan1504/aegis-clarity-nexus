@@ -286,3 +286,105 @@ export const chatSuggestions = [
   "Create a Jira ticket for the Azure AD sign-in issue.",
   "Recommend cloud savings for our production workloads.",
 ];
+
+export interface SecurityAlert {
+  id: string;
+  title: string;
+  service: string;
+  severity: Severity;
+  status: "new" | "reviewing" | "acknowledged";
+  detected: string;
+}
+
+export const securityAlerts: SecurityAlert[] = [
+  { id: "SEC-2201", title: "IAM access key age > 180d (4 keys)", service: "AWS", severity: "critical", status: "new", detected: "8m ago" },
+  { id: "SEC-2199", title: "Public S3 bucket policy on log-archive", service: "AWS", severity: "high", status: "reviewing", detected: "42m ago" },
+  { id: "SEC-2198", title: "Guest user with Global Admin retained MFA bypass", service: "Entra ID", severity: "critical", status: "new", detected: "1h ago" },
+  { id: "SEC-2195", title: "OAuth app requesting Mail.ReadWrite for all users", service: "M365", severity: "high", status: "new", detected: "3h ago" },
+  { id: "SEC-2190", title: "Unusual API call pattern from ap-south-1", service: "AWS", severity: "medium", status: "reviewing", detected: "5h ago" },
+  { id: "SEC-2187", title: "ServiceNow admin login from unrecognized geo", service: "ServiceNow", severity: "high", status: "new", detected: "7h ago" },
+  { id: "SEC-2185", title: "Weak TLS ciphers on legacy load balancer", service: "AWS", severity: "medium", status: "acknowledged", detected: "12h ago" },
+  { id: "SEC-2180", title: "Slack workflow with external webhook missing sig verify", service: "Slack", severity: "medium", status: "reviewing", detected: "1d ago" },
+  { id: "SEC-2177", title: "Salesforce API user token unused 45d", service: "Salesforce", severity: "low", status: "acknowledged", detected: "1d ago" },
+];
+
+export interface AgentFinding {
+  id: string;
+  title: string;
+  detected: string;
+  severity: Severity;
+  impact: string;
+}
+
+export const agentFindings: Record<string, AgentFinding[]> = {
+  "agent-license": [
+    { id: "F-L001", title: "142 M365 E5 seats inactive > 90d", detected: "2h ago", severity: "high", impact: "$54.6K / yr" },
+    { id: "F-L002", title: "Salesforce Sales Cloud: 18 seats downgradable to Platform", detected: "6h ago", severity: "medium", impact: "$21.6K / yr" },
+    { id: "F-L003", title: "Zoom Pro seats duplicated with Teams Phone (26 users)", detected: "1d ago", severity: "medium", impact: "$4.2K / yr" },
+  ],
+  "agent-cost": [
+    { id: "F-C001", title: "38 EC2 m5.4xlarge under 15% CPU for 30d", detected: "1h ago", severity: "high", impact: "$18.4K / mo" },
+    { id: "F-C002", title: "RI coverage on RDS 62% — increase to 88%", detected: "4h ago", severity: "medium", impact: "$7.9K / mo" },
+    { id: "F-C003", title: "14 orphaned EBS volumes across 3 regions", detected: "1d ago", severity: "low", impact: "$1.1K / mo" },
+  ],
+  "agent-security": [
+    { id: "F-S001", title: "4 IAM keys older than 180d in prod account", detected: "8m ago", severity: "critical", impact: "Breach risk" },
+    { id: "F-S002", title: "Public S3 bucket policy detected on log-archive", detected: "42m ago", severity: "high", impact: "Data exposure" },
+    { id: "F-S003", title: "Guest user retained Global Admin role", detected: "1h ago", severity: "critical", impact: "Privilege risk" },
+  ],
+  "agent-ccx": [
+    { id: "F-X001", title: "EU-West peak 2–4pm EST understaffed by 6 agents", detected: "30m ago", severity: "medium", impact: "-38s AHT" },
+    { id: "F-X002", title: "Callback routing misconfigured for tier-2 tech", detected: "3h ago", severity: "low", impact: "+2% CSAT" },
+  ],
+  "agent-incident": [
+    { id: "F-I001", title: "Correlated INC-4821 to ExpressRoute path change 08:14 UTC", detected: "12m ago", severity: "critical", impact: "MTTR -34m" },
+    { id: "F-I002", title: "INC-4820 root cause: Azure AD conditional access policy drift", detected: "38m ago", severity: "high", impact: "MTTR -18m" },
+  ],
+  "agent-knowledge": [
+    { id: "F-K001", title: "Confluence page 'VPN onboarding' outdated — 312 queries this week", detected: "2h ago", severity: "low", impact: "Deflection +12%" },
+  ],
+  "agent-workflow": [
+    { id: "F-W001", title: "27 stale ServiceNow incidents auto-closable (>30d idle)", detected: "1h ago", severity: "low", impact: "Cleaner SLA" },
+    { id: "F-W002", title: "Jira → Slack escalation missing for P1 outages", detected: "5h ago", severity: "medium", impact: "MTTR -8m" },
+  ],
+};
+
+export interface ApprovalDetail {
+  rationale: string;
+  dataSources: string[];
+  rollback: string;
+  notify: string[];
+}
+
+export const approvalDetails: Record<string, ApprovalDetail> = {
+  "rec-001": {
+    rationale: "142 M365 E5 licenses have had no sign-in in >90d (Entra ID sign-in logs + license assignment API).",
+    dataSources: ["Entra ID sign-in logs", "M365 license assignment API", "HR active-employee roster"],
+    rollback: "Licenses are downgraded — not deleted. Re-assign from admin center within 30d, no data loss.",
+    notify: ["IT license owners", "Direct managers of affected users", "#it-licensing Slack"],
+  },
+  "rec-002": {
+    rationale: "38 m5.4xlarge instances averaged <15% CPU and <30% memory over the last 30 days.",
+    dataSources: ["CloudWatch metrics (30d)", "AWS Cost Explorer", "Compute Optimizer recommendations"],
+    rollback: "Rightsizing is scheduled via ASG rolling refresh. Roll back by reverting launch template version.",
+    notify: ["Cloud platform team", "Application owners (tag: owner)", "#cloud-finops Slack"],
+  },
+  "rec-003": {
+    rationale: "4 IAM access keys have not been rotated in >180 days and are attached to elevated policies.",
+    dataSources: ["AWS IAM credential report", "CloudTrail last-used timestamps"],
+    rollback: "New keys are generated first; old keys deactivated (not deleted) for 7d before removal.",
+    notify: ["Key owners via email", "Security on-call", "#security-alerts Slack"],
+  },
+  "rec-004": {
+    rationale: "Historical queue telemetry shows 2–4pm EST peak with abandon rate >8%; 6 additional agents needed.",
+    dataSources: ["Genesys queue telemetry (90d)", "WFM forecast", "Historical CSAT survey data"],
+    rollback: "Staffing template revert; changes are scheduled, not applied to live shifts.",
+    notify: ["Contact center supervisors", "WFM team"],
+  },
+  "rec-005": {
+    rationale: "27 ServiceNow incidents have had no activity for >30 days and are in resolved-adjacent states.",
+    dataSources: ["ServiceNow incident table", "Activity stream"],
+    rollback: "Tickets are closed with resolution note; reopen from ServiceNow UI at any time.",
+    notify: ["Ticket assignees", "#servicenow-ops Slack"],
+  },
+};

@@ -1,16 +1,34 @@
 import { Outlet } from "@tanstack/react-router";
-import { Bell, Moon, Search, Sun, User } from "lucide-react";
+import { Bell, Moon, Search, ShieldCheck, Sun } from "lucide-react";
 
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Toaster } from "@/components/ui/sonner";
 import { AppSidebar } from "./AppSidebar";
 import { useTheme } from "@/lib/theme";
+import { RoleProvider, ROLES, useRole } from "@/lib/rbac";
 
 export function AppLayout() {
+  return (
+    <RoleProvider>
+      <AppShell />
+    </RoleProvider>
+  );
+}
+
+function AppShell() {
   const { theme, toggle } = useTheme();
+  const { role, setRole } = useRole();
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-background">
@@ -29,6 +47,21 @@ export function AppLayout() {
               <Badge variant="outline" className="hidden gap-1.5 sm:flex">
                 <span className="h-1.5 w-1.5 rounded-full bg-success" /> All systems operational
               </Badge>
+              <div className="hidden items-center gap-1.5 md:flex">
+                <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
+                <Select value={role} onValueChange={(v) => setRole(v as typeof role)}>
+                  <SelectTrigger className="h-8 w-[110px] text-xs" aria-label="Switch role">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ROLES.map((r) => (
+                      <SelectItem key={r} value={r} className="text-xs">
+                        {r}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle theme">
                 {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </Button>
@@ -42,7 +75,7 @@ export function AppLayout() {
                 </Avatar>
                 <div className="hidden text-xs leading-tight sm:block">
                   <div className="font-medium">Amelia Ward</div>
-                  <div className="text-muted-foreground">Admin</div>
+                  <div className="text-muted-foreground">{role}</div>
                 </div>
               </div>
             </div>
@@ -53,6 +86,7 @@ export function AppLayout() {
           </main>
         </SidebarInset>
       </div>
+      <Toaster richColors position="bottom-right" />
     </SidebarProvider>
   );
 }
