@@ -95,6 +95,12 @@ function IntegrationsPage() {
                     <span
                       className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium ${s.cls}`}
                     >
+                      {i.status === "action_required" && (
+                        <span className="relative flex h-2 w-2">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-warning opacity-70" />
+                          <span className="relative inline-flex h-2 w-2 rounded-full bg-warning" />
+                        </span>
+                      )}
                       <s.icon className="h-3 w-3" /> {s.label}
                     </span>
                   </div>
