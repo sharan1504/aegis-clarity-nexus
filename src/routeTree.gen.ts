@@ -15,6 +15,7 @@ import { Route as AppIndexRouteImport } from './routes/_app.index'
 import { Route as AppUsersRouteImport } from './routes/_app.users'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppReportsRouteImport } from './routes/_app.reports'
+import { Route as AppMarketplaceRouteImport } from './routes/_app.marketplace'
 import { Route as AppIntegrationsRouteImport } from './routes/_app.integrations'
 import { Route as AppChatRouteImport } from './routes/_app.chat'
 import { Route as AppApprovalsRouteImport } from './routes/_app.approvals'
@@ -49,6 +50,11 @@ const AppReportsRoute = AppReportsRouteImport.update({
   path: '/reports',
   getParentRoute: () => AppRoute,
 } as any)
+const AppMarketplaceRoute = AppMarketplaceRouteImport.update({
+  id: '/marketplace',
+  path: '/marketplace',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppIntegrationsRoute = AppIntegrationsRouteImport.update({
   id: '/integrations',
   path: '/integrations',
@@ -77,6 +83,7 @@ export interface FileRoutesByFullPath {
   '/approvals': typeof AppApprovalsRoute
   '/chat': typeof AppChatRoute
   '/integrations': typeof AppIntegrationsRoute
+  '/marketplace': typeof AppMarketplaceRoute
   '/reports': typeof AppReportsRoute
   '/settings': typeof AppSettingsRoute
   '/users': typeof AppUsersRoute
@@ -87,6 +94,7 @@ export interface FileRoutesByTo {
   '/approvals': typeof AppApprovalsRoute
   '/chat': typeof AppChatRoute
   '/integrations': typeof AppIntegrationsRoute
+  '/marketplace': typeof AppMarketplaceRoute
   '/reports': typeof AppReportsRoute
   '/settings': typeof AppSettingsRoute
   '/users': typeof AppUsersRoute
@@ -100,6 +108,7 @@ export interface FileRoutesById {
   '/_app/approvals': typeof AppApprovalsRoute
   '/_app/chat': typeof AppChatRoute
   '/_app/integrations': typeof AppIntegrationsRoute
+  '/_app/marketplace': typeof AppMarketplaceRoute
   '/_app/reports': typeof AppReportsRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/users': typeof AppUsersRoute
@@ -114,6 +123,7 @@ export interface FileRouteTypes {
     | '/approvals'
     | '/chat'
     | '/integrations'
+    | '/marketplace'
     | '/reports'
     | '/settings'
     | '/users'
@@ -124,6 +134,7 @@ export interface FileRouteTypes {
     | '/approvals'
     | '/chat'
     | '/integrations'
+    | '/marketplace'
     | '/reports'
     | '/settings'
     | '/users'
@@ -136,6 +147,7 @@ export interface FileRouteTypes {
     | '/_app/approvals'
     | '/_app/chat'
     | '/_app/integrations'
+    | '/_app/marketplace'
     | '/_app/reports'
     | '/_app/settings'
     | '/_app/users'
@@ -191,6 +203,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppReportsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/marketplace': {
+      id: '/_app/marketplace'
+      path: '/marketplace'
+      fullPath: '/marketplace'
+      preLoaderRoute: typeof AppMarketplaceRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/integrations': {
       id: '/_app/integrations'
       path: '/integrations'
@@ -227,6 +246,7 @@ interface AppRouteChildren {
   AppApprovalsRoute: typeof AppApprovalsRoute
   AppChatRoute: typeof AppChatRoute
   AppIntegrationsRoute: typeof AppIntegrationsRoute
+  AppMarketplaceRoute: typeof AppMarketplaceRoute
   AppReportsRoute: typeof AppReportsRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppUsersRoute: typeof AppUsersRoute
@@ -238,6 +258,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppApprovalsRoute: AppApprovalsRoute,
   AppChatRoute: AppChatRoute,
   AppIntegrationsRoute: AppIntegrationsRoute,
+  AppMarketplaceRoute: AppMarketplaceRoute,
   AppReportsRoute: AppReportsRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppUsersRoute: AppUsersRoute,
