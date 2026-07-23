@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -25,6 +25,8 @@ import {
 
 import { PageHeader, SeverityBadge } from "@/components/layout/AppLayout";
 import { EmptyIntegrationsState, hasAnyConnected } from "@/components/EmptyIntegrationsState";
+import { WelcomeChecklist } from "@/components/WelcomeChecklist";
+import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -64,6 +66,11 @@ type DrillKey = "Active Incidents" | "Security Alerts" | "Cost Savings (MTD)" | 
 function DashboardPage() {
   const connected = hasAnyConnected();
   const [drill, setDrill] = useState<DrillKey | null>(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 900);
+    return () => clearTimeout(t);
+  }, []);
   return (
     <div>
       <PageHeader
@@ -81,9 +88,15 @@ function DashboardPage() {
         }
       />
 
-      {!connected && <EmptyIntegrationsState />}
-      {connected && (
+      <WelcomeChecklist />
+
+      {loading ? (
+        <DashboardSkeleton />
+      ) : !connected ? (
+        <EmptyIntegrationsState />
+      ) : (
       <>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {kpis.map((k) => (
           <button

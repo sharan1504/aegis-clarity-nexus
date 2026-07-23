@@ -174,8 +174,15 @@ function ApprovalsPage() {
                       </div>
                       <CardTitle className="mt-2 text-base">{r.title}</CardTitle>
                       <CardDescription className="mt-1">
-                        Estimated impact:{" "}
-                        <span className="font-medium text-success">{r.impact}</span>
+                        <span className="block text-foreground/80">
+                          <span className="font-medium text-foreground">Trigger:</span> {r.trigger}
+                        </span>
+                        <span className="mt-1 block">
+                          <span className="font-medium text-foreground">Rollback:</span> {r.rollbackSummary}
+                        </span>
+                        <span className="mt-1 block">
+                          Estimated impact: <span className="font-medium text-success">{r.impact}</span>
+                        </span>
                       </CardDescription>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">

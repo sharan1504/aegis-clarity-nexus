@@ -71,14 +71,20 @@ function AgentsPage() {
                 </CardHeader>
                 <CardContent className="mt-auto space-y-3">
                   <div className="grid grid-cols-3 gap-2 rounded-lg bg-muted/40 p-3 text-xs">
-                    <div>
+                    <button
+                      className="text-left transition hover:text-primary"
+                      onClick={(e) => { e.stopPropagation(); setSelected(a); }}
+                    >
                       <div className="text-muted-foreground">This week</div>
-                      <div className="mt-0.5 font-semibold text-foreground">{a.actionsThisWeek}</div>
-                    </div>
-                    <div>
+                      <div className="mt-0.5 font-semibold text-foreground hover:underline">{a.actionsThisWeek}</div>
+                    </button>
+                    <button
+                      className="text-left transition hover:text-primary"
+                      onClick={(e) => { e.stopPropagation(); setSelected(a); }}
+                    >
                       <div className="text-muted-foreground">Findings</div>
                       <div className="mt-0.5 font-semibold text-primary hover:underline">{findings.length}</div>
-                    </div>
+                    </button>
                     <div>
                       <div className="text-muted-foreground">Impact</div>
                       <div className="mt-0.5 font-semibold text-success">{a.savings}</div>
