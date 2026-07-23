@@ -61,6 +61,10 @@ export interface Recommendation {
   severity: Severity;
   agent: string;
   status: "pending" | "approved" | "rejected" | "applied";
+  /** Specific triggering data point shown in list preview */
+  trigger: string;
+  /** One-line rollback summary shown in list preview */
+  rollbackSummary: string;
 }
 
 export const recommendations: Recommendation[] = [
@@ -72,6 +76,8 @@ export const recommendations: Recommendation[] = [
     severity: "high",
     agent: "License Optimization",
     status: "pending",
+    trigger: "142 licenses last used > 90 days ago per M365 sync (2h ago)",
+    rollbackSummary: "Downgrade only — reassign from Admin Center within 30d, no data loss.",
   },
   {
     id: "rec-002",
@@ -81,6 +87,8 @@ export const recommendations: Recommendation[] = [
     severity: "high",
     agent: "Cloud Cost Optimization",
     status: "pending",
+    trigger: "38 instances averaged 12% CPU / 24% memory for 30d (CloudWatch)",
+    rollbackSummary: "ASG rolling refresh — revert launch template version to restore size.",
   },
   {
     id: "rec-003",
@@ -90,6 +98,8 @@ export const recommendations: Recommendation[] = [
     severity: "critical",
     agent: "Security & Compliance",
     status: "pending",
+    trigger: "4 keys aged 187–241d attached to elevated policies (IAM credential report)",
+    rollbackSummary: "New keys issued first; old keys deactivated 7d before deletion.",
   },
   {
     id: "rec-004",
@@ -99,6 +109,8 @@ export const recommendations: Recommendation[] = [
     severity: "medium",
     agent: "Contact Center Optimization",
     status: "pending",
+    trigger: "Abandon rate 8.4% during 2–4pm EST over last 14d; forecast short 6 agents",
+    rollbackSummary: "Scheduled staffing template — revert before shift start, no live impact.",
   },
   {
     id: "rec-005",
@@ -108,7 +120,31 @@ export const recommendations: Recommendation[] = [
     severity: "low",
     agent: "Workflow Automation",
     status: "approved",
+    trigger: "27 incidents idle 32–61d in resolved-adjacent states (ServiceNow activity stream)",
+    rollbackSummary: "Closed with resolution note — reopen anytime from ServiceNow UI.",
   },
+];
+
+export interface MarketplaceAgent {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  publisher: string;
+  installs: string;
+  status: "available" | "installed" | "request_access";
+  tags: string[];
+}
+
+export const marketplaceAgents: MarketplaceAgent[] = [
+  { id: "m-finops-forecast", name: "FinOps Forecasting Agent", description: "Projects cloud spend 90 days out using seasonality and workload signals.", category: "FinOps", publisher: "Aegis Labs", installs: "1.2K", status: "available", tags: ["AWS", "Azure", "GCP"] },
+  { id: "m-datadog-anomaly", name: "Datadog Anomaly Triage", description: "Clusters Datadog alerts into incident hypotheses and pages the right owner.", category: "Operations", publisher: "Aegis Labs", installs: "864", status: "available", tags: ["Datadog", "PagerDuty"] },
+  { id: "m-sox-controls", name: "SOX Controls Monitor", description: "Continuously tests SOX ITGC controls across Entra ID, Okta, and AWS.", category: "Compliance", publisher: "Trellix Partner", installs: "312", status: "request_access", tags: ["Compliance", "Enterprise"] },
+  { id: "m-hr-offboarding", name: "HR Offboarding Orchestrator", description: "Revokes SaaS access, reclaims licenses, and archives mailboxes on termination.", category: "Automation", publisher: "Aegis Labs", installs: "2.1K", status: "installed", tags: ["Workday", "M365", "Okta"] },
+  { id: "m-snowflake-cost", name: "Snowflake Warehouse Optimizer", description: "Auto-suspends idle warehouses and right-sizes based on query patterns.", category: "FinOps", publisher: "Snowflake Partner", installs: "578", status: "available", tags: ["Snowflake"] },
+  { id: "m-github-secret", name: "GitHub Secret Scanner Plus", description: "Rotates leaked credentials and opens a remediation PR within 60 seconds.", category: "Security", publisher: "Aegis Labs", installs: "1.9K", status: "available", tags: ["GitHub", "AWS"] },
+  { id: "m-zendesk-deflect", name: "Zendesk Deflection Agent", description: "Answers tier-1 tickets from KB with confidence scoring and human handoff.", category: "Productivity", publisher: "Zendesk Partner", installs: "743", status: "request_access", tags: ["Zendesk", "Confluence"] },
+  { id: "m-salesforce-hygiene", name: "Salesforce Data Hygiene", description: "Merges duplicate accounts, flags stale opportunities, enriches contacts.", category: "Operations", publisher: "Aegis Labs", installs: "421", status: "available", tags: ["Salesforce"] },
 ];
 
 export interface Incident {
