@@ -111,19 +111,48 @@ export function PageHeader({
   );
 }
 
+import { AlertOctagon, AlertTriangle, Info, Minus, ShieldAlert } from "lucide-react";
+
 export function SeverityBadge({ severity }: { severity: string }) {
-  const map: Record<string, string> = {
-    critical: "bg-destructive/15 text-destructive border-destructive/30",
-    high: "bg-warning/15 text-warning-foreground border-warning/40",
-    medium: "bg-info/15 text-info border-info/30",
-    low: "bg-muted text-muted-foreground border-border",
-    info: "bg-muted text-muted-foreground border-border",
+  const map: Record<string, { cls: string; Icon: React.ComponentType<{ className?: string }> }> = {
+    critical: { cls: "bg-destructive/15 text-destructive border-destructive/30", Icon: ShieldAlert },
+    high: { cls: "bg-warning/15 text-warning-foreground border-warning/40", Icon: AlertOctagon },
+    medium: { cls: "bg-info/15 text-info border-info/30", Icon: AlertTriangle },
+    low: { cls: "bg-muted text-muted-foreground border-border", Icon: Minus },
+    info: { cls: "bg-muted text-muted-foreground border-border", Icon: Info },
   };
+  const entry = map[severity] ?? map.info;
+  const { Icon } = entry;
   return (
     <span
-      className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium capitalize ${map[severity] ?? map.info}`}
+      className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium capitalize ${entry.cls}`}
     >
+      <Icon className="h-3 w-3" />
       {severity}
+    </span>
+  );
+}
+
+export function StatusPill({
+  tone = "neutral",
+  icon: Icon,
+  children,
+}: {
+  tone?: "success" | "warning" | "danger" | "info" | "neutral";
+  icon?: React.ComponentType<{ className?: string }>;
+  children: React.ReactNode;
+}) {
+  const map = {
+    success: "bg-success/15 text-success border-success/30",
+    warning: "bg-warning/20 text-warning-foreground border-warning/50",
+    danger: "bg-destructive/15 text-destructive border-destructive/30",
+    info: "bg-info/15 text-info border-info/30",
+    neutral: "bg-muted text-muted-foreground border-border",
+  } as const;
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium capitalize ${map[tone]}`}>
+      {Icon && <Icon className="h-3 w-3" />}
+      {children}
     </span>
   );
 }
