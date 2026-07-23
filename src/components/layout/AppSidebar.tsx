@@ -9,6 +9,7 @@ import {
   Users,
   Settings,
   Sparkles,
+  Store,
 } from "lucide-react";
 
 import {
@@ -31,6 +32,7 @@ const nav = [
     section: "AI Operations",
     items: [
       { title: "AI Agents", url: "/agents", icon: Bot },
+      { title: "Marketplace", url: "/marketplace", icon: Store },
       { title: "Chat Assistant", url: "/chat", icon: MessageSquare },
       { title: "Approval Center", url: "/approvals", icon: ShieldCheck },
     ],
