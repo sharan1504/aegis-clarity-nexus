@@ -1,5 +1,6 @@
 import { Outlet } from "@tanstack/react-router";
-import { Bell, Moon, Search, ShieldCheck, Sun } from "lucide-react";
+import { Moon, Search, ShieldCheck, Sun } from "lucide-react";
+import { NotificationCenter } from "@/components/NotificationCenter";
 
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Input } from "@/components/ui/input";
@@ -65,10 +66,7 @@ function AppShell() {
               <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle theme">
                 {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </Button>
-              <Button variant="ghost" size="icon" aria-label="Notifications" className="relative">
-                <Bell className="h-4 w-4" />
-                <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-destructive" />
-              </Button>
+              <NotificationCenter />
               <div className="ml-1 flex items-center gap-2 pl-2 border-l border-border">
                 <Avatar className="h-7 w-7">
                   <AvatarFallback className="bg-primary/15 text-primary text-xs">AW</AvatarFallback>
