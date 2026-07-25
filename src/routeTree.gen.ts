@@ -19,6 +19,7 @@ import { Route as AppMarketplaceRouteImport } from './routes/_app.marketplace'
 import { Route as AppIntegrationsRouteImport } from './routes/_app.integrations'
 import { Route as AppChatRouteImport } from './routes/_app.chat'
 import { Route as AppAgentsRouteImport } from './routes/_app.agents'
+import { Route as AppApprovalsIndexRouteImport } from './routes/_app.approvals.index'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -69,6 +70,11 @@ const AppAgentsRoute = AppAgentsRouteImport.update({
   path: '/agents',
   getParentRoute: () => AppRoute,
 } as any)
+const AppApprovalsIndexRoute = AppApprovalsIndexRouteImport.update({
+  id: '/approvals/',
+  path: '/approvals/',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -80,6 +86,7 @@ export interface FileRoutesByFullPath {
   '/reports': typeof AppReportsRoute
   '/settings': typeof AppSettingsRoute
   '/users': typeof AppUsersRoute
+  '/approvals/': typeof AppApprovalsIndexRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
@@ -91,6 +98,7 @@ export interface FileRoutesByTo {
   '/settings': typeof AppSettingsRoute
   '/users': typeof AppUsersRoute
   '/': typeof AppIndexRoute
+  '/approvals': typeof AppApprovalsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -104,6 +112,7 @@ export interface FileRoutesById {
   '/_app/settings': typeof AppSettingsRoute
   '/_app/users': typeof AppUsersRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/approvals/': typeof AppApprovalsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -117,6 +126,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/settings'
     | '/users'
+    | '/approvals/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
@@ -128,6 +138,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/users'
     | '/'
+    | '/approvals'
   id:
     | '__root__'
     | '/_app'
@@ -140,6 +151,7 @@ export interface FileRouteTypes {
     | '/_app/settings'
     | '/_app/users'
     | '/_app/'
+    | '/_app/approvals/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -219,6 +231,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAgentsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/approvals/': {
+      id: '/_app/approvals/'
+      path: '/approvals'
+      fullPath: '/approvals/'
+      preLoaderRoute: typeof AppApprovalsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -231,6 +250,7 @@ interface AppRouteChildren {
   AppSettingsRoute: typeof AppSettingsRoute
   AppUsersRoute: typeof AppUsersRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppApprovalsIndexRoute: typeof AppApprovalsIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -242,6 +262,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppSettingsRoute: AppSettingsRoute,
   AppUsersRoute: AppUsersRoute,
   AppIndexRoute: AppIndexRoute,
+  AppApprovalsIndexRoute: AppApprovalsIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
