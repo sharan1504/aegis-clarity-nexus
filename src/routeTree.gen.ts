@@ -20,6 +20,7 @@ import { Route as AppIntegrationsRouteImport } from './routes/_app.integrations'
 import { Route as AppChatRouteImport } from './routes/_app.chat'
 import { Route as AppAgentsRouteImport } from './routes/_app.agents'
 import { Route as AppApprovalsIndexRouteImport } from './routes/_app.approvals.index'
+import { Route as AppApprovalsIdRouteImport } from './routes/_app.approvals.$id'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -75,6 +76,11 @@ const AppApprovalsIndexRoute = AppApprovalsIndexRouteImport.update({
   path: '/approvals/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppApprovalsIdRoute = AppApprovalsIdRouteImport.update({
+  id: '/approvals/$id',
+  path: '/approvals/$id',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -86,6 +92,7 @@ export interface FileRoutesByFullPath {
   '/reports': typeof AppReportsRoute
   '/settings': typeof AppSettingsRoute
   '/users': typeof AppUsersRoute
+  '/approvals/$id': typeof AppApprovalsIdRoute
   '/approvals/': typeof AppApprovalsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -98,6 +105,7 @@ export interface FileRoutesByTo {
   '/settings': typeof AppSettingsRoute
   '/users': typeof AppUsersRoute
   '/': typeof AppIndexRoute
+  '/approvals/$id': typeof AppApprovalsIdRoute
   '/approvals': typeof AppApprovalsIndexRoute
 }
 export interface FileRoutesById {
@@ -112,6 +120,7 @@ export interface FileRoutesById {
   '/_app/settings': typeof AppSettingsRoute
   '/_app/users': typeof AppUsersRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/approvals/$id': typeof AppApprovalsIdRoute
   '/_app/approvals/': typeof AppApprovalsIndexRoute
 }
 export interface FileRouteTypes {
@@ -126,6 +135,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/settings'
     | '/users'
+    | '/approvals/$id'
     | '/approvals/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -138,6 +148,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/users'
     | '/'
+    | '/approvals/$id'
     | '/approvals'
   id:
     | '__root__'
@@ -151,6 +162,7 @@ export interface FileRouteTypes {
     | '/_app/settings'
     | '/_app/users'
     | '/_app/'
+    | '/_app/approvals/$id'
     | '/_app/approvals/'
   fileRoutesById: FileRoutesById
 }
@@ -238,6 +250,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppApprovalsIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/approvals/$id': {
+      id: '/_app/approvals/$id'
+      path: '/approvals/$id'
+      fullPath: '/approvals/$id'
+      preLoaderRoute: typeof AppApprovalsIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -250,6 +269,7 @@ interface AppRouteChildren {
   AppSettingsRoute: typeof AppSettingsRoute
   AppUsersRoute: typeof AppUsersRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppApprovalsIdRoute: typeof AppApprovalsIdRoute
   AppApprovalsIndexRoute: typeof AppApprovalsIndexRoute
 }
 
@@ -262,6 +282,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppSettingsRoute: AppSettingsRoute,
   AppUsersRoute: AppUsersRoute,
   AppIndexRoute: AppIndexRoute,
+  AppApprovalsIdRoute: AppApprovalsIdRoute,
   AppApprovalsIndexRoute: AppApprovalsIndexRoute,
 }
 
