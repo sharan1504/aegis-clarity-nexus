@@ -18,9 +18,7 @@ import { Route as AppReportsRouteImport } from './routes/_app.reports'
 import { Route as AppMarketplaceRouteImport } from './routes/_app.marketplace'
 import { Route as AppIntegrationsRouteImport } from './routes/_app.integrations'
 import { Route as AppChatRouteImport } from './routes/_app.chat'
-import { Route as AppApprovalsRouteImport } from './routes/_app.approvals'
 import { Route as AppAgentsRouteImport } from './routes/_app.agents'
-import { Route as AppApprovalsIndexRouteImport } from './routes/_app.approvals.index'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -66,34 +64,22 @@ const AppChatRoute = AppChatRouteImport.update({
   path: '/chat',
   getParentRoute: () => AppRoute,
 } as any)
-const AppApprovalsRoute = AppApprovalsRouteImport.update({
-  id: '/approvals',
-  path: '/approvals',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppAgentsRoute = AppAgentsRouteImport.update({
   id: '/agents',
   path: '/agents',
   getParentRoute: () => AppRoute,
-} as any)
-const AppApprovalsIndexRoute = AppApprovalsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AppApprovalsRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/auth': typeof AuthRoute
   '/agents': typeof AppAgentsRoute
-  '/approvals': typeof AppApprovalsRouteWithChildren
   '/chat': typeof AppChatRoute
   '/integrations': typeof AppIntegrationsRoute
   '/marketplace': typeof AppMarketplaceRoute
   '/reports': typeof AppReportsRoute
   '/settings': typeof AppSettingsRoute
   '/users': typeof AppUsersRoute
-  '/approvals/': typeof AppApprovalsIndexRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
@@ -105,14 +91,12 @@ export interface FileRoutesByTo {
   '/settings': typeof AppSettingsRoute
   '/users': typeof AppUsersRoute
   '/': typeof AppIndexRoute
-  '/approvals': typeof AppApprovalsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
   '/_app/agents': typeof AppAgentsRoute
-  '/_app/approvals': typeof AppApprovalsRouteWithChildren
   '/_app/chat': typeof AppChatRoute
   '/_app/integrations': typeof AppIntegrationsRoute
   '/_app/marketplace': typeof AppMarketplaceRoute
@@ -120,7 +104,6 @@ export interface FileRoutesById {
   '/_app/settings': typeof AppSettingsRoute
   '/_app/users': typeof AppUsersRoute
   '/_app/': typeof AppIndexRoute
-  '/_app/approvals/': typeof AppApprovalsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -128,14 +111,12 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/agents'
-    | '/approvals'
     | '/chat'
     | '/integrations'
     | '/marketplace'
     | '/reports'
     | '/settings'
     | '/users'
-    | '/approvals/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
@@ -147,13 +128,11 @@ export interface FileRouteTypes {
     | '/settings'
     | '/users'
     | '/'
-    | '/approvals'
   id:
     | '__root__'
     | '/_app'
     | '/auth'
     | '/_app/agents'
-    | '/_app/approvals'
     | '/_app/chat'
     | '/_app/integrations'
     | '/_app/marketplace'
@@ -161,7 +140,6 @@ export interface FileRouteTypes {
     | '/_app/settings'
     | '/_app/users'
     | '/_app/'
-    | '/_app/approvals/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -234,13 +212,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppChatRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/approvals': {
-      id: '/_app/approvals'
-      path: '/approvals'
-      fullPath: '/approvals'
-      preLoaderRoute: typeof AppApprovalsRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/agents': {
       id: '/_app/agents'
       path: '/agents'
@@ -248,31 +219,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAgentsRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/approvals/': {
-      id: '/_app/approvals/'
-      path: '/'
-      fullPath: '/approvals/'
-      preLoaderRoute: typeof AppApprovalsIndexRouteImport
-      parentRoute: typeof AppApprovalsRoute
-    }
   }
 }
 
-interface AppApprovalsRouteChildren {
-  AppApprovalsIndexRoute: typeof AppApprovalsIndexRoute
-}
-
-const AppApprovalsRouteChildren: AppApprovalsRouteChildren = {
-  AppApprovalsIndexRoute: AppApprovalsIndexRoute,
-}
-
-const AppApprovalsRouteWithChildren = AppApprovalsRoute._addFileChildren(
-  AppApprovalsRouteChildren,
-)
-
 interface AppRouteChildren {
   AppAgentsRoute: typeof AppAgentsRoute
-  AppApprovalsRoute: typeof AppApprovalsRouteWithChildren
   AppChatRoute: typeof AppChatRoute
   AppIntegrationsRoute: typeof AppIntegrationsRoute
   AppMarketplaceRoute: typeof AppMarketplaceRoute
@@ -284,7 +235,6 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAgentsRoute: AppAgentsRoute,
-  AppApprovalsRoute: AppApprovalsRouteWithChildren,
   AppChatRoute: AppChatRoute,
   AppIntegrationsRoute: AppIntegrationsRoute,
   AppMarketplaceRoute: AppMarketplaceRoute,
