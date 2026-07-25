@@ -1,5 +1,6 @@
 import { Outlet } from "@tanstack/react-router";
-import { Bell, Moon, Search, ShieldCheck, Sun } from "lucide-react";
+import { Moon, Search, ShieldCheck, Sun } from "lucide-react";
+import { NotificationCenter } from "@/components/NotificationCenter";
 
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Input } from "@/components/ui/input";
