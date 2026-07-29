@@ -46,7 +46,7 @@ function tick() {
   const records = state.records.map((r) => {
     if (r.id !== target.id) return r;
     const approvals = r.approvals.map((a) =>
-      a.id === nextApprover.id
+      a.team === nextApprover.team && a.approver === nextApprover.approver
         ? {
             ...a,
             status: "approved" as const,
@@ -67,8 +67,10 @@ function tick() {
         {
           ts: now,
           actor: nextApprover.approver,
-          event: `Approval recorded — ${nextApprover.group}`,
-          detail: allDone ? `All approvals complete · stage ${stage}` : undefined,
+          kind: "status" as const,
+          text: allDone
+            ? `Approval recorded — ${nextApprover.team}. All approvals complete, stage ${stage}.`
+            : `Approval recorded — ${nextApprover.team}.`,
         },
         ...r.timeline,
       ],
@@ -79,7 +81,8 @@ function tick() {
     id: `N-${Date.now()}`,
     kind: "approval_deadline",
     title: `Approval recorded on ${target.id}`,
-    body: `${nextApprover.approver} (${nextApprover.group}) signed off on "${target.title}".`,
+    body: `${nextApprover.approver} (${nextApprover.team}) signed off on "${target.title}".`,
+
     ts: "just now",
     unread: true,
     href: `/approvals/${target.id}`,
