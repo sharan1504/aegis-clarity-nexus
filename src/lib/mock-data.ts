@@ -288,6 +288,56 @@ export const reports: Report[] = [
   { id: "rep-inc", title: "Incident Trend & MTTR", category: "Operations", updated: "3d ago", owner: "Incident Agent" },
 ];
 
+export interface ReportRow {
+  metric: string;
+  value: string | number;
+  detail: string;
+}
+
+/** Executive report datasets used by the PDF / CSV / JSON exporters. */
+export const reportDatasets: Record<string, ReportRow[]> = {
+  "rep-lic": [
+    { metric: "Licenses under management", value: 12480, detail: "M365, Salesforce, Zoom, Adobe" },
+    { metric: "Assigned & active (30d)", value: 10982, detail: "88.0% utilization" },
+    { metric: "Unused >90 days", value: 842, detail: "Reclaim candidates" },
+    { metric: "Duplicate entitlements", value: 137, detail: "Users with overlapping SKUs" },
+    { metric: "Annualized savings opportunity (USD)", value: 412800, detail: "At current list pricing" },
+    { metric: "Reclaimed this month", value: 268, detail: "Via approved change records" },
+  ],
+  "rep-cost": [
+    { metric: "Cloud spend MTD (USD)", value: 1284000, detail: "AWS 62% · Azure 29% · GCP 9%" },
+    { metric: "Forecast end-of-month (USD)", value: 1710000, detail: "+4.2% vs prior month" },
+    { metric: "Idle / underutilized resources", value: 214, detail: "EC2, RDS, managed disks" },
+    { metric: "Right-sizing savings identified (USD)", value: 186400, detail: "Annualized" },
+    { metric: "Commitment coverage", value: "71%", detail: "Savings Plans + Reserved Instances" },
+    { metric: "Untagged spend (USD)", value: 92300, detail: "No cost-center allocation" },
+  ],
+  "rep-sec": [
+    { metric: "CIS v2.0 compliance score", value: "86%", detail: "+3 pts vs last scan" },
+    { metric: "Critical findings", value: 7, detail: "IAM key age, public S3, MFA gaps" },
+    { metric: "High findings", value: 24, detail: "Mostly network exposure" },
+    { metric: "MFA enforcement", value: "94%", detail: "312 users pending" },
+    { metric: "Mean time to remediate (days)", value: 4.6, detail: "Critical severity" },
+    { metric: "Controls automated", value: 61, detail: "Of 118 in scope" },
+  ],
+  "rep-ccx": [
+    { metric: "Contacts handled (week)", value: 48210, detail: "Voice 54% · Chat 31% · Email 15%" },
+    { metric: "Average handle time", value: "6m 12s", detail: "-18s week over week" },
+    { metric: "First contact resolution", value: "78%", detail: "Target 80%" },
+    { metric: "Service level (20s)", value: "82%", detail: "Below 85% target" },
+    { metric: "CSAT", value: 4.4, detail: "Out of 5, n=6,208" },
+    { metric: "Abandon rate", value: "4.1%", detail: "Peak 7.9% Monday 09:00" },
+  ],
+  "rep-inc": [
+    { metric: "Incidents opened (30d)", value: 412, detail: "P1 9 · P2 47 · P3 356" },
+    { metric: "Incidents closed (30d)", value: 398, detail: "96.6% closure rate" },
+    { metric: "MTTR — P1", value: "2h 14m", detail: "-22% vs prior period" },
+    { metric: "MTTR — all severities", value: "9h 41m", detail: "Includes low-priority backlog" },
+    { metric: "Repeat incidents", value: 33, detail: "Same CI within 14 days" },
+    { metric: "Auto-resolved by agents", value: 87, detail: "21% of total volume" },
+  ],
+};
+
 export interface User {
   id: string;
   name: string;
