@@ -1,8 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import {
+  ArrowDown,
   ArrowRight,
+  ArrowUp,
   Check,
+  ChevronsUpDown,
   Filter,
   ShieldAlert,
   ShieldCheck,
@@ -40,6 +43,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useRole } from "@/lib/rbac";
+import { useRealtime, updateRecords } from "@/lib/realtime";
 import {
   changeRecords as seed,
   CHANGE_STAGES,
@@ -54,7 +58,12 @@ interface ListSearch {
   mode: string;
   team: string;
   q: string;
+  sort: SortKey;
+  dir: "asc" | "desc";
 }
+
+type SortKey = "id" | "title" | "team" | "risk" | "stage" | "window";
+const SORT_KEYS: SortKey[] = ["id", "title", "team", "risk", "stage", "window"];
 
 export const Route = createFileRoute("/_app/approvals/")({
   validateSearch: (raw: Record<string, unknown>): ListSearch => ({
@@ -63,6 +72,8 @@ export const Route = createFileRoute("/_app/approvals/")({
     mode: typeof raw.mode === "string" ? raw.mode : "all",
     team: typeof raw.team === "string" ? raw.team : "all",
     q: typeof raw.q === "string" ? raw.q : "",
+    sort: SORT_KEYS.includes(raw.sort as SortKey) ? (raw.sort as SortKey) : "id",
+    dir: raw.dir === "desc" ? "desc" : "asc",
   }),
   component: ChangeListPage,
 });
@@ -80,7 +91,7 @@ function ChangeListPage() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const { can, role } = useRole();
-  const [items, setItems] = useState<ChangeRecord[]>(seed);
+  const { records: items, connected, lastEventAt } = useRealtime();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulk, setBulk] = useState<null | "approve" | "reject">(null);
 
@@ -90,7 +101,8 @@ function ChangeListPage() {
     navigate({ search: (prev: ListSearch) => ({ ...prev, [k]: v }) });
 
   const filtered = useMemo(() => {
-    return items.filter((c) => {
+    const riskRank: Record<string, number> = { Low: 0, Medium: 1, High: 2, Critical: 3 };
+    const matched = items.filter((c) => {
       if (search.stage !== "all" && c.stage !== search.stage) return false;
       if (search.risk !== "all" && c.risk.tier !== search.risk) return false;
       if (search.mode !== "all" && c.executionMode !== search.mode) return false;
@@ -100,12 +112,64 @@ function ChangeListPage() {
         return (
           c.id.toLowerCase().includes(q) ||
           c.title.toLowerCase().includes(q) ||
+          c.ownerTeam.toLowerCase().includes(q) ||
           c.agent.toLowerCase().includes(q)
         );
       }
       return true;
     });
+
+    const value = (c: ChangeRecord) => {
+      switch (search.sort) {
+        case "title":
+          return c.title.toLowerCase();
+        case "team":
+          return c.ownerTeam.toLowerCase();
+        case "risk":
+          return riskRank[c.risk.tier] ?? -1;
+        case "stage":
+          return CHANGE_STAGES.indexOf(c.stage);
+        case "window":
+          return c.window.start;
+        default:
+          return c.id.toLowerCase();
+      }
+    };
+
+    return [...matched].sort((a, b) => {
+      const av = value(a);
+      const bv = value(b);
+      const cmp = av < bv ? -1 : av > bv ? 1 : 0;
+      return search.dir === "desc" ? -cmp : cmp;
+    });
   }, [items, search]);
+
+  const toggleSort = (key: SortKey) =>
+    navigate({
+      search: (prev: ListSearch) => ({
+        ...prev,
+        sort: key,
+        dir: prev.sort === key && prev.dir === "asc" ? "desc" : "asc",
+      }),
+    });
+
+  const SortHead = ({ label, sortKey, className }: { label: string; sortKey: SortKey; className?: string }) => {
+    const active = search.sort === sortKey;
+    const Icon = !active ? ChevronsUpDown : search.dir === "asc" ? ArrowUp : ArrowDown;
+    return (
+      <TableHead className={className}>
+        <button
+          type="button"
+          onClick={() => toggleSort(sortKey)}
+          className={`inline-flex items-center gap-1 transition-colors hover:text-foreground ${active ? "text-foreground" : ""}`}
+          aria-label={`Sort by ${label}`}
+        >
+          {label}
+          <Icon className="h-3 w-3 opacity-70" />
+        </button>
+      </TableHead>
+    );
+  };
 
   const toggle = (id: string) => {
     setSelected((s) => {
@@ -122,7 +186,7 @@ function ChangeListPage() {
 
   const doBulk = (action: "approve" | "reject") => {
     const ids = Array.from(selected);
-    setItems((xs) =>
+    updateRecords((xs) =>
       xs.map((x) =>
         ids.includes(x.id)
           ? {
@@ -173,15 +237,26 @@ function ChangeListPage() {
           <input
             value={search.q}
             onChange={(e) => set("q", e.target.value)}
-            placeholder="Search CHG ID, title, agent…"
+            placeholder="Search CHG ID, title, owner team, agent…"
             className="h-8 w-[240px] rounded-md border border-input bg-background px-3 text-xs outline-none focus:border-primary"
           />
           <FilterSelect label="Stage" value={search.stage} onChange={(v) => set("stage", v)} options={["all", ...CHANGE_STAGES]} />
           <FilterSelect label="Risk" value={search.risk} onChange={(v) => set("risk", v)} options={["all", "Low", "Medium", "High", "Critical"]} />
           <FilterSelect label="Mode" value={search.mode} onChange={(v) => set("mode", v)} options={["all", "Manual", "Assisted", "Automatic"]} />
           <FilterSelect label="Team" value={search.team} onChange={(v) => set("team", v)} options={["all", ...teams]} />
-          <div className="ml-auto text-xs text-muted-foreground">
-            {filtered.length} of {items.length} records
+          <div className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5">
+              <span className={`h-1.5 w-1.5 rounded-full ${connected ? "animate-pulse bg-success" : "bg-muted-foreground/50"}`} />
+              {connected ? "Live" : "Offline"}
+              {lastEventAt && (
+                <span className="font-mono text-[10px] opacity-70">
+                  · updated {new Date(lastEventAt).toLocaleTimeString()}
+                </span>
+              )}
+            </span>
+            <span>
+              {filtered.length} of {items.length} records
+            </span>
           </div>
         </CardContent>
       </Card>
@@ -224,13 +299,13 @@ function ChangeListPage() {
                     aria-label="Select all"
                   />
                 </TableHead>
-                <TableHead className="min-w-[130px]">Change ID</TableHead>
-                <TableHead>Title</TableHead>
-                <TableHead>Stage</TableHead>
-                <TableHead>Risk</TableHead>
+                <SortHead label="Change ID" sortKey="id" className="min-w-[130px]" />
+                <SortHead label="Title" sortKey="title" />
+                <SortHead label="Stage" sortKey="stage" />
+                <SortHead label="Risk" sortKey="risk" />
                 <TableHead>Mode</TableHead>
-                <TableHead>Window</TableHead>
-                <TableHead>Owner team</TableHead>
+                <SortHead label="Window" sortKey="window" />
+                <SortHead label="Owner team" sortKey="team" />
                 <TableHead>Approvals</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
