@@ -11,7 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { reports, type Report } from "@/lib/mock-data";
+import { reports, reportDatasets, type Report } from "@/lib/mock-data";
 import { EmptyIntegrationsState, hasAnyConnected } from "@/components/EmptyIntegrationsState";
 
 export const Route = createFileRoute("/_app/reports")({
@@ -19,14 +19,8 @@ export const Route = createFileRoute("/_app/reports")({
 });
 
 function sampleRows(r: Report) {
-  // Mock report data — replace with real generator per report type.
-  return [
-    { metric: "Total scanned", value: 1284, category: r.category },
-    { metric: "Findings", value: 42, category: r.category },
-    { metric: "Savings identified (USD)", value: 54600, category: r.category },
-    { metric: "Owner", value: r.owner, category: r.category },
-    { metric: "Last updated", value: r.updated, category: r.category },
-  ];
+  const rows = reportDatasets[r.id] ?? [];
+  return rows.map((row) => ({ ...row, category: r.category }));
 }
 
 function download(filename: string, content: string, mime: string) {
@@ -48,9 +42,9 @@ function exportJson(r: Report) {
 
 function exportCsv(r: Report) {
   const rows = sampleRows(r);
-  const header = "metric,value,category";
+  const header = "metric,value,detail,category";
   const body = rows
-    .map((row) => `"${row.metric}","${row.value}","${row.category}"`)
+    .map((row) => `"${row.metric}","${row.value}","${row.detail}","${row.category}"`)
     .join("\n");
   download(`${r.id}.csv`, `${header}\n${body}`, "text/csv");
 }
@@ -71,8 +65,8 @@ function exportPdf(r: Report) {
     </style></head><body>
     <h1>${r.title}</h1>
     <div class="meta">${r.category} • Owner: ${r.owner} • Updated ${r.updated} • Generated ${new Date().toLocaleString()}</div>
-    <table><thead><tr><th>Metric</th><th>Value</th><th>Category</th></tr></thead><tbody>
-    ${rows.map((row) => `<tr><td>${row.metric}</td><td>${row.value}</td><td>${row.category}</td></tr>`).join("")}
+    <table><thead><tr><th>Metric</th><th>Value</th><th>Detail</th></tr></thead><tbody>
+    ${rows.map((row) => `<tr><td>${row.metric}</td><td>${row.value}</td><td>${row.detail}</td></tr>`).join("")}
     </tbody></table>
     <script>window.onload=()=>{window.print();}</script>
     </body></html>`);
@@ -115,8 +109,11 @@ function ReportsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex gap-2">
-                <Button size="sm" variant="outline" className="flex-1">
-                  Open
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => exportPdf(r)}>
+                  <FileText className="mr-1.5 h-4 w-4" /> PDF
+                </Button>
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => exportCsv(r)}>
+                  <FileSpreadsheet className="mr-1.5 h-4 w-4" /> CSV
                 </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>

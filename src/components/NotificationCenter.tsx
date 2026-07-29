@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { AlertOctagon, Bell, CheckCheck, Clock, ShieldAlert } from "lucide-react";
 
@@ -9,7 +8,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { notifications as seed, type Notification, type NotificationKind } from "@/lib/change-data";
+import type { Notification, NotificationKind } from "@/lib/change-data";
+import {
+  markAllNotificationsRead,
+  markNotificationRead,
+  useRealtime,
+} from "@/lib/realtime";
 
 const kindMeta: Record<NotificationKind, { icon: React.ComponentType<{ className?: string }>; tone: string }> = {
   approval_deadline: { icon: Clock, tone: "text-warning-foreground" },
@@ -19,12 +23,12 @@ const kindMeta: Record<NotificationKind, { icon: React.ComponentType<{ className
 };
 
 export function NotificationCenter() {
-  const [items, setItems] = useState<Notification[]>(seed);
+  const { notifications: items, connected } = useRealtime();
   const unread = items.filter((n) => n.unread).length;
 
-  const markAll = () => setItems((xs) => xs.map((n) => ({ ...n, unread: false })));
-  const readOne = (id: string) =>
-    setItems((xs) => xs.map((n) => (n.id === id ? { ...n, unread: false } : n)));
+  const markAll = () => markAllNotificationsRead();
+  const readOne = (id: string) => markNotificationRead(id);
+
 
   const render = (list: Notification[]) => (
     <div className="max-h-[420px] space-y-1 overflow-y-auto">
@@ -78,9 +82,13 @@ export function NotificationCenter() {
         <div className="flex items-center justify-between border-b border-border px-3 py-2">
           <div>
             <div className="text-sm font-semibold">Notifications</div>
-            <div className="text-[11px] text-muted-foreground">
-              {unread} unread · email + in-app alerts
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${connected ? "animate-pulse bg-success" : "bg-muted-foreground/50"}`}
+              />
+              {unread} unread · {connected ? "live" : "offline"} · email + in-app
             </div>
+
           </div>
           <Button size="sm" variant="ghost" onClick={markAll} className="text-xs">
             <CheckCheck className="mr-1 h-3.5 w-3.5" /> Mark all read
