@@ -82,9 +82,13 @@ export function NotificationCenter() {
         <div className="flex items-center justify-between border-b border-border px-3 py-2">
           <div>
             <div className="text-sm font-semibold">Notifications</div>
-            <div className="text-[11px] text-muted-foreground">
-              {unread} unread · email + in-app alerts
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${connected ? "animate-pulse bg-success" : "bg-muted-foreground/50"}`}
+              />
+              {unread} unread · {connected ? "live" : "offline"} · email + in-app
             </div>
+
           </div>
           <Button size="sm" variant="ghost" onClick={markAll} className="text-xs">
             <CheckCheck className="mr-1 h-3.5 w-3.5" /> Mark all read
