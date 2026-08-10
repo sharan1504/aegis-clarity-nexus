@@ -1,0 +1,178 @@
+{
+  "version": 1,
+  "sdk_version": "0.26.1",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://zvvtvhocznuemcshkdla.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "aegis-operations-hub",
+      "version": "0.1.0",
+      "title": "Aegis Operations Hub"
+    },
+    "tools": [
+      {
+        "name": "get_operations_overview",
+        "title": "Get operations overview",
+        "description": "Get the executive dashboard snapshot: platform health, cost savings, active incidents, security alerts, plus health/cost trend, cost by cloud, and incidents by service.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_change_records",
+        "title": "List change records",
+        "description": "List change records from the Aegis Change Control Center, with optional filtering by lifecycle stage, risk tier, execution mode, or owning team.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "stage": {
+              "description": "Lifecycle stage, e.g. 'Team Approvals'.",
+              "type": "string"
+            },
+            "risk": {
+              "description": "Risk tier: Low, Medium, High, or Critical.",
+              "type": "string"
+            },
+            "executionMode": {
+              "description": "Execution mode: Manual, Assisted, or Automatic.",
+              "type": "string"
+            },
+            "ownerTeam": {
+              "description": "Owning team name (substring match).",
+              "type": "string"
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_change_record",
+        "title": "Get change record",
+        "description": "Get the full change record for a Change ID, including AI reasoning, risk factors, approvals, rollback plan, validations, timeline, audit hashes, and external tickets.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "Change ID, e.g. CHG0012345."
+            }
+          },
+          "required": [
+            "id"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_agents",
+        "title": "List AI agents",
+        "description": "List the Aegis AI operations agents with status, domain, action counts, and (optionally) their recent findings.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "includeFindings": {
+              "description": "Include each agent's recent findings. Defaults to false.",
+              "type": "boolean"
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_integrations",
+        "title": "List integrations",
+        "description": "List the Aegis platform integrations (Genesys, AWS, Azure, Microsoft 365, Jira, ServiceNow, Salesforce, Slack, GitHub, ...) with connection status, auth type, and last sync.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "status": {
+              "description": "Filter by status: connected, available, or action_required.",
+              "type": "string"
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_incidents_and_alerts",
+        "title": "List incidents and security alerts",
+        "description": "List open operational incidents and security alerts, optionally filtered by severity (critical, high, medium, low, info).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "severity": {
+              "description": "Filter both lists by severity.",
+              "type": "string"
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_reports_and_recommendations",
+        "title": "List reports and AI recommendations",
+        "description": "List available executive reports (with their dataset rows) and the pending AI recommendations that feed the Change Control Center.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "reportId": {
+              "description": "Return only this report's rows, e.g. license-utilization.",
+              "type": "string"
+            }
+          }
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
