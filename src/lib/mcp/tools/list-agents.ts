@@ -22,7 +22,7 @@ export default defineTool({
     const rows = agents.map((a) => {
       const { icon: _icon, ...rest } = a as unknown as Record<string, unknown>;
       return includeFindings
-        ? { ...rest, findings: agentFindings[a.name] ?? [] }
+        ? { ...rest, findings: agentFindings[a.id] ?? [] }
         : rest;
     });
 
