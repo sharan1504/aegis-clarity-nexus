@@ -50,7 +50,7 @@ function ChangeDetailPage() {
       <div>
         <PageHeader title="Change record not found" description={`No record matches ID ${id}.`} />
         <Button asChild variant="outline">
-          <Link to="/approvals">
+          <Link to="/approvals" search={{ stage: "all", risk: "all", mode: "all", team: "all", q: "", sort: "id", dir: "asc" }}>
             <ArrowLeft className="mr-1.5 h-4 w-4" /> Back to Change Control Center
           </Link>
         </Button>
@@ -97,7 +97,7 @@ function ChangeDetailPage() {
     <div>
       <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground">
         <Button variant="ghost" size="sm" asChild className="-ml-2">
-          <Link to="/approvals">
+          <Link to="/approvals" search={{ stage: "all", risk: "all", mode: "all", team: "all", q: "", sort: "id", dir: "asc" }}>
             <ArrowLeft className="mr-1.5 h-3.5 w-3.5" /> Change Control Center
           </Link>
         </Button>
