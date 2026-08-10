@@ -295,7 +295,7 @@ function DashboardPage() {
             <CardDescription>Actions proposed by your agents — awaiting approval</CardDescription>
           </div>
           <Button size="sm" variant="outline" asChild>
-            <Link to="/approvals" search={{}}>
+            <Link to="/approvals" search={{ stage: "all", risk: "all", mode: "all", team: "all", q: "", sort: "id", dir: "asc" }}>
               <CheckCircle2 className="mr-1.5 h-4 w-4" /> Approval Center
             </Link>
           </Button>
@@ -305,7 +305,7 @@ function DashboardPage() {
             <Link
               key={r.id}
               to="/approvals"
-              search={{}}
+              search={{ stage: "all", risk: "all", mode: "all", team: "all", q: "", sort: "id", dir: "asc" }}
               className="group flex items-start gap-3 rounded-lg border border-border bg-card p-3 transition hover:border-primary/40 hover:bg-accent/5"
             >
               <div className="mt-0.5"><SeverityBadge severity={r.severity} /></div>
