@@ -20,7 +20,7 @@ export default defineTool({
       return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
     }
     const rows = agents.map((a) => {
-      const { icon: _icon, ...rest } = a as Record<string, unknown> & { icon?: unknown };
+      const { icon: _icon, ...rest } = a as unknown as Record<string, unknown>;
       return includeFindings
         ? { ...rest, findings: agentFindings[a.name] ?? [] }
         : rest;
