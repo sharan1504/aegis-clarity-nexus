@@ -305,6 +305,7 @@ function DashboardPage() {
             <Link
               key={r.id}
               to="/approvals"
+              search={{}}
               className="group flex items-start gap-3 rounded-lg border border-border bg-card p-3 transition hover:border-primary/40 hover:bg-accent/5"
             >
               <div className="mt-0.5"><SeverityBadge severity={r.severity} /></div>
