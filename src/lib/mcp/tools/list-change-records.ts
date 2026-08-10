@@ -36,7 +36,7 @@ export default defineTool({
           ownerTeam: r.ownerTeam,
           agent: r.agent,
           window: `${r.window.start} → ${r.window.end}`,
-          approvals: `${progress.approved} of ${progress.total} approvals`,
+          approvals: `${progress.done} of ${progress.total} approvals`,
         };
       });
 

@@ -295,7 +295,7 @@ function DashboardPage() {
             <CardDescription>Actions proposed by your agents — awaiting approval</CardDescription>
           </div>
           <Button size="sm" variant="outline" asChild>
-            <Link to="/approvals">
+            <Link to="/approvals" search={{}}>
               <CheckCircle2 className="mr-1.5 h-4 w-4" /> Approval Center
             </Link>
           </Button>
