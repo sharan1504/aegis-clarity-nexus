@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
 import { Loader2, ShieldCheck, Sparkles } from "lucide-react";
 import { useState } from "react";
 
@@ -84,7 +84,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 function ConsentPage() {
   const loaded = Route.useLoaderData();
   const { authorization_id } = Route.useSearch();
-  const router = Route.useRouter();
+  const router = useRouter();
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,7 +95,7 @@ function ConsentPage() {
 
   const clientName =
     loaded.details?.client?.name ?? loaded.details?.client?.client_name ?? "an application";
-  const scopes = (loaded.details?.scope ?? "").split(/\s+/).filter(Boolean);
+  const scopes: string[] = (loaded.details?.scope ?? "").split(/\s+/).filter(Boolean);
 
   async function decide(approve: boolean) {
     setBusy(true);
