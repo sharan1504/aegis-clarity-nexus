@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import {
   changeRecords as seedRecords,
   notifications as seedNotifications,
@@ -105,19 +106,19 @@ async function seedTenant(tenantId: string, userId: string) {
         title: r.title,
         stage: r.stage,
         severity: r.severity,
-        risk: r.risk,
+        risk: r.risk as unknown as Json,
         execution_mode: r.executionMode,
         owner_team: r.ownerTeam,
         requester: r.requester,
         category: r.category,
         agent: r.agent,
-        change_window: r.window,
+        change_window: r.window as unknown as Json,
         business_impact: r.businessImpact,
         ai_reasoning: r.aiReasoning,
-        rollback_steps: r.rollbackSteps,
-        validations: r.validations,
-        external_tickets: r.externalTickets,
-        timeline: r.timeline,
+        rollback_steps: r.rollbackSteps as unknown as Json,
+        validations: r.validations as unknown as Json,
+        external_tickets: r.externalTickets as unknown as Json,
+        timeline: r.timeline as unknown as Json,
       })),
     )
     .select("id, change_id");
