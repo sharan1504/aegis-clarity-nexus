@@ -1,5 +1,5 @@
-import { Outlet } from "@tanstack/react-router";
-import { Moon, Search, ShieldCheck, Sun } from "lucide-react";
+import { Outlet, useNavigate } from "@tanstack/react-router";
+import { LogOut, Moon, Search, ShieldCheck, Sun } from "lucide-react";
 import { NotificationCenter } from "@/components/NotificationCenter";
 
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -18,18 +18,38 @@ import { Toaster } from "@/components/ui/sonner";
 import { AppSidebar } from "./AppSidebar";
 import { useTheme } from "@/lib/theme";
 import { RoleProvider, ROLES, useRole } from "@/lib/rbac";
+import { TenantProvider, useTenantContext } from "@/lib/tenant";
+import { supabase } from "@/integrations/supabase/client";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function AppLayout() {
   return (
-    <RoleProvider>
-      <AppShell />
-    </RoleProvider>
+    <TenantProvider>
+      <RoleProvider>
+        <AppShell />
+      </RoleProvider>
+    </TenantProvider>
   );
 }
 
 function AppShell() {
   const { theme, toggle } = useTheme();
   const { role, setRole } = useRole();
+  const { user, tenantName, loading } = useTenantContext();
+  const navigate = useNavigate();
+
+  const initials = (user?.email ?? "AW")
+    .replace(/@.*$/, "")
+    .split(/[.\-_]/)
+    .map((part) => part.charAt(0).toUpperCase())
+    .slice(0, 2)
+    .join("");
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    navigate({ to: "/auth" });
+  };
+
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-background">
@@ -46,7 +66,8 @@ function AppShell() {
             </div>
             <div className="ml-auto flex items-center gap-2">
               <Badge variant="outline" className="hidden gap-1.5 sm:flex">
-                <span className="h-1.5 w-1.5 rounded-full bg-success" /> All systems operational
+                <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                {tenantName ? `${tenantName} workspace` : "All systems operational"}
               </Badge>
               <div className="hidden items-center gap-1.5 md:flex">
                 <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
@@ -69,18 +90,38 @@ function AppShell() {
               <NotificationCenter />
               <div className="ml-1 flex items-center gap-2 pl-2 border-l border-border">
                 <Avatar className="h-7 w-7">
-                  <AvatarFallback className="bg-primary/15 text-primary text-xs">AW</AvatarFallback>
+                  <AvatarFallback className="bg-primary/15 text-primary text-xs">
+                    {initials || "AW"}
+                  </AvatarFallback>
                 </Avatar>
-                <div className="hidden text-xs leading-tight sm:block">
-                  <div className="font-medium">Amelia Ward</div>
+                <div className="hidden max-w-[160px] text-xs leading-tight sm:block">
+                  <div className="truncate font-medium">{user?.email ?? "Signed out"}</div>
                   <div className="text-muted-foreground">{role}</div>
                 </div>
+                {user && (
+                  <Button variant="ghost" size="icon" onClick={signOut} aria-label="Sign out">
+                    <LogOut className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
             </div>
           </header>
 
           <main className="flex-1 p-6">
-            <Outlet />
+            {loading ? (
+              <div className="space-y-4">
+                <Skeleton className="h-9 w-64" />
+                <Skeleton className="h-4 w-96" />
+                <div className="grid gap-4 md:grid-cols-4">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <Skeleton key={i} className="h-28" />
+                  ))}
+                </div>
+                <Skeleton className="h-72" />
+              </div>
+            ) : (
+              <Outlet />
+            )}
           </main>
         </SidebarInset>
       </div>

@@ -22,6 +22,8 @@ export type ExecutionMode = "Manual" | "Assisted" | "Automatic";
 export type RiskTier = "Low" | "Medium" | "High" | "Critical";
 
 export interface ChangeApproval {
+  /** DB row id when the record is loaded from Lovable Cloud. */
+  rowId?: string;
   team: string;
   approver: string;
   role: string;
@@ -57,6 +59,8 @@ export interface ValidationCheck {
 }
 
 export interface ChangeRecord {
+  /** DB row id (uuid) when the record is loaded from Lovable Cloud. */
+  rowId?: string;
   id: string;                      // e.g., CHG0012345
   title: string;
   stage: ChangeStage;
