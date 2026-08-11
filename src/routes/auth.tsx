@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
 
 export const Route = createFileRoute("/auth")({
   component: AuthPage,
@@ -14,6 +17,47 @@ export const Route = createFileRoute("/auth")({
 function AuthPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      if (mode === "signin") {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { emailRedirectTo: `${window.location.origin}/` },
+        });
+        if (error) throw error;
+        toast.success("Workspace created", {
+          description: "Your tenant is being provisioned with reference data.",
+        });
+      }
+      navigate({ to: "/" });
+    } catch (err) {
+      toast.error("Could not sign in", {
+        description: err instanceof Error ? err.message : "Please try again.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const google = async () => {
+    try {
+      await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
+    } catch (err) {
+      toast.error("Google sign-in unavailable", {
+        description: err instanceof Error ? err.message : "Please try email sign-in.",
+      });
+    }
+  };
 
   return (
     <div className="grid min-h-screen grid-cols-1 lg:grid-cols-2">
@@ -53,30 +97,59 @@ function AuthPage() {
             <CardDescription>Welcome back — use your work account to continue.</CardDescription>
           </CardHeader>
           <CardContent>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                setLoading(true);
-                setTimeout(() => navigate({ to: "/" }), 500);
-              }}
-              className="space-y-4"
-            >
+            <form onSubmit={submit} className="space-y-4">
               <div className="grid gap-2">
                 <Label htmlFor="email">Work email</Label>
-                <Input id="email" type="email" required defaultValue="amelia.ward@contoso.com" />
+                <Input
+                  id="email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@company.com"
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="password">Password</Label>
-                <Input id="password" type="password" required defaultValue="••••••••••" />
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  minLength={8}
+                  autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="At least 8 characters"
+                />
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Signing in…" : "Sign in"}
+                {loading
+                  ? mode === "signin"
+                    ? "Signing in…"
+                    : "Creating workspace…"
+                  : mode === "signin"
+                    ? "Sign in"
+                    : "Create account"}
               </Button>
-              <Button type="button" variant="outline" className="w-full">
-                Continue with SSO
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={loading}
+                onClick={google}
+              >
+                Continue with Google
               </Button>
               <p className="text-center text-xs text-muted-foreground">
-                No account? <Link to="/" className="text-primary hover:underline">Explore the demo</Link>
+                {mode === "signin" ? "No account yet?" : "Already have an account?"}{" "}
+                <button
+                  type="button"
+                  className="text-primary hover:underline"
+                  onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+                >
+                  {mode === "signin" ? "Create one" : "Sign in"}
+                </button>
               </p>
             </form>
           </CardContent>
