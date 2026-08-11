@@ -208,3 +208,27 @@ export function useTenant(): TenantContextValue {
 
   return state;
 }
+
+const TenantContext = createContext<TenantContextValue>({
+  user: null,
+  tenantId: null,
+  tenantName: null,
+  roles: [],
+  loading: true,
+});
+
+/** Provides session + tenant state and keeps Realtime bound to the active tenant. */
+export function TenantProvider({ children }: { children: ReactNode }) {
+  const value = useTenant();
+
+  useEffect(() => {
+    if (value.tenantId) initRealtime(value.tenantId);
+    else if (!value.loading) teardownRealtime();
+  }, [value.tenantId, value.loading]);
+
+  return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;
+}
+
+export function useTenantContext() {
+  return useContext(TenantContext);
+}
