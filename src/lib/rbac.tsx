@@ -30,7 +30,7 @@ const MATRIX: Record<Role, Permission[]> = {
     "integrations.configure",
     "reports.export",
   ],
-  Analyst: ["approvals.reject", "reports.export"],
+  Analyst: ["approvals.reject"],
   Viewer: [],
 };
 
