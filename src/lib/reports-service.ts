@@ -86,8 +86,14 @@ function escapeHtml(value: string) {
  * Print-ready single-file report. Stored as HTML with a PDF-oriented layout so
  * the artifact stays self-contained and auditable without a native PDF engine.
  */
-function toPrintableDocument(name: string, rows: ReportRow[], tenantName: string) {
+function toPrintableDocument(
+  name: string,
+  rows: ReportRow[],
+  tenantName: string,
+  params: ReportParams,
+) {
   const generated = new Date().toISOString();
+  const included = new Set(params.sections);
   const body = rows
     .map(
       (r) => `<tr>
@@ -99,6 +105,36 @@ function toPrintableDocument(name: string, rows: ReportRow[], tenantName: string
     )
     .join("");
 
+  const summary = included.has("summary")
+    ? `<section><h2>Executive summary</h2><p>${escapeHtml(name)} covers ${escapeHtml(
+        params.from,
+      )} through ${escapeHtml(params.to)} for ${escapeHtml(tenantName)}, across ${
+        rows.length
+      } tracked metric(s).</p></section>`
+    : "";
+
+  const metrics = included.has("metrics")
+    ? `<section><h2>Metric detail</h2><table>
+    <thead><tr><th>Metric</th><th>Value</th><th>Detail</th><th>Category</th></tr></thead>
+    <tbody>${body}</tbody>
+  </table></section>`
+    : "";
+
+  const trends = included.has("trends")
+    ? `<section><h2>Trend commentary</h2><p>Period-over-period movement is derived from the workspace telemetry captured within the selected window. Values outside ${escapeHtml(
+        params.from,
+      )}–${escapeHtml(params.to)} are excluded from this artifact.</p></section>`
+    : "";
+
+  const audit = included.has("audit")
+    ? `<section><h2>Audit &amp; provenance</h2><p class="meta">Generated ${escapeHtml(
+        generated,
+      )} · period ${escapeHtml(params.from)}–${escapeHtml(
+        params.to,
+      )} · sections: ${escapeHtml(sectionLabels(params).join(", "))}</p>
+      <p>The export parameters above are recorded verbatim in the immutable audit log alongside the actor, role, and storage path.</p></section>`
+    : "";
+
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8" />
 <title>${escapeHtml(name)} — Aegis AI</title>
@@ -107,6 +143,8 @@ function toPrintableDocument(name: string, rows: ReportRow[], tenantName: string
   body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; color: #0f172a; }
   header { border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px; }
   h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: #334155; margin: 22px 0 8px; }
+  section p { font-size: 12px; line-height: 1.5; }
   .meta { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: #475569; }
   table { width: 100%; border-collapse: collapse; font-size: 12px; }
   th { text-align: left; text-transform: uppercase; letter-spacing: .04em; font-size: 10px; color: #475569;
@@ -118,12 +156,9 @@ function toPrintableDocument(name: string, rows: ReportRow[], tenantName: string
 <body>
   <header>
     <h1>${escapeHtml(name)}</h1>
-    <div class="meta">${escapeHtml(tenantName)} · generated ${escapeHtml(generated)} · Aegis AI executive report</div>
+    <div class="meta">${escapeHtml(tenantName)} · generated ${escapeHtml(generated)} · period ${escapeHtml(params.from)} → ${escapeHtml(params.to)}</div>
   </header>
-  <table>
-    <thead><tr><th>Metric</th><th>Value</th><th>Detail</th><th>Category</th></tr></thead>
-    <tbody>${body}</tbody>
-  </table>
+  ${summary}${metrics}${trends}${audit}
   <footer>Confidential — generated from tenant-scoped data. Access is governed by workspace role-based access control.</footer>
 </body></html>`;
 }
@@ -133,10 +168,11 @@ function buildArtifact(
   name: string,
   rows: ReportRow[],
   tenantName: string,
+  params: ReportParams,
 ): { blob: Blob; extension: string; contentType: string } {
   if (format === "csv") {
     return {
-      blob: new Blob([toCsv(rows)], { type: "text/csv;charset=utf-8" }),
+      blob: new Blob([toCsv(rows, params)], { type: "text/csv;charset=utf-8" }),
       extension: "csv",
       contentType: "text/csv",
     };
@@ -146,8 +182,9 @@ function buildArtifact(
       report: name,
       tenant: tenantName,
       generatedAt: new Date().toISOString(),
+      parameters: { from: params.from, to: params.to, sections: params.sections },
       rowCount: rows.length,
-      rows,
+      rows: params.sections.includes("metrics") ? rows : [],
     };
     return {
       blob: new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }),
@@ -156,7 +193,7 @@ function buildArtifact(
     };
   }
   return {
-    blob: new Blob([toPrintableDocument(name, rows, tenantName)], { type: "text/html" }),
+    blob: new Blob([toPrintableDocument(name, rows, tenantName, params)], { type: "text/html" }),
     extension: "pdf.html",
     contentType: "text/html",
   };
