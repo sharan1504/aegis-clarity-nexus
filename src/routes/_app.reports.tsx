@@ -112,7 +112,7 @@ function ReportsPage() {
   const navigate = useNavigate({ from: Route.fullPath });
   const { export: deepLinkId } = Route.useSearch();
   const canExport = can("reports.export");
-  const isAdmin = role === "admin";
+  const isAdmin = role === "Admin";
 
   const purge = useServerFn(purgeExpiredReports);
   const readRetention = useServerFn(getReportRetentionDays);
