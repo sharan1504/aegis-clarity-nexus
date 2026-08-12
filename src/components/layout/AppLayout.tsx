@@ -34,7 +34,7 @@ export function AppLayout() {
 
 function AppShell() {
   const { theme, toggle } = useTheme();
-  const { role, setRole } = useRole();
+  const { role } = useRole();
   const { user, tenantName, loading } = useTenantContext();
   const navigate = useNavigate();
 
@@ -71,19 +71,11 @@ function AppShell() {
               </Badge>
               <div className="hidden items-center gap-1.5 md:flex">
                 <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
-                <Select value={role} onValueChange={(v) => setRole(v as typeof role)}>
-                  <SelectTrigger className="h-8 w-[110px] text-xs" aria-label="Switch role">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ROLES.map((r) => (
-                      <SelectItem key={r} value={r} className="text-xs">
-                        {r}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Badge variant="outline" className="h-8 px-2 text-xs font-medium" title="Role assigned in your workspace">
+                  {role}
+                </Badge>
               </div>
+
               <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle theme">
                 {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </Button>
