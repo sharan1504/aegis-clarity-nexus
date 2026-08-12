@@ -43,7 +43,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useRole } from "@/lib/rbac";
-import { useRealtime, updateRecords } from "@/lib/realtime";
+import { useRealtime } from "@/lib/realtime";
+import { bulkDecideChanges } from "@/lib/change-service";
+import { useTenantContext } from "@/lib/tenant";
 import {
   changeRecords as seed,
   CHANGE_STAGES,
@@ -94,6 +96,8 @@ function ChangeListPage() {
   const { records: items, connected, lastEventAt } = useRealtime();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulk, setBulk] = useState<null | "approve" | "reject">(null);
+  const [busy, setBusy] = useState(false);
+  const { tenantId, user } = useTenantContext();
 
   const teams = useMemo(() => Array.from(new Set(seed.map((c) => c.ownerTeam))), []);
 
@@ -414,7 +418,8 @@ function ChangeListPage() {
             </Button>
             <Button
               variant={bulk === "reject" ? "destructive" : "default"}
-              onClick={() => bulk && doBulk(bulk)}
+              disabled={busy}
+              onClick={() => bulk && void doBulk(bulk)}
             >
               Confirm {bulk}
             </Button>
