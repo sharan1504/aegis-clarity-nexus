@@ -10,8 +10,10 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 
+import { pageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/auth")({
+  head: () => pageHead({ path: "/auth", title: "Sign in — Aegis AI", description: "Sign in to Aegis AI with email or Google to access your enterprise AI operations workspace.", noindex: true }),
   component: AuthPage,
 });
 

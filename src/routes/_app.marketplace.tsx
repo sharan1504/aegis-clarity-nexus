@@ -17,8 +17,10 @@ import {
 } from "@/components/ui/select";
 import { marketplaceAgents, type MarketplaceAgent } from "@/lib/mock-data";
 import { useRole } from "@/lib/rbac";
+import { pageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/_app/marketplace")({
+  head: () => pageHead({ path: "/marketplace", title: "Agent Marketplace — Aegis AI", description: "Browse the catalog of enterprise AI agents for FinOps, security, licensing, and service desk work, then install or request access." }),
   component: MarketplacePage,
 });
 

@@ -35,8 +35,10 @@ import {
   type ChangeStage,
 } from "@/lib/change-data";
 import { RiskChip, ModeChip } from "./_app.approvals.index";
+import { pageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/_app/approvals/$id")({
+  head: ({ params }) => pageHead({ path: `/approvals/${params.id}`, title: "Change Record Detail — Aegis AI", description: "Inspect AI reasoning, risk factors, approvals, rollback plans, validation, and immutable audit history for a single change record." }),
   component: ChangeDetailPage,
 });
 

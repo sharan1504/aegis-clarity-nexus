@@ -17,8 +17,10 @@ import {
 } from "@/components/ui/sheet";
 import { agentFindings, agents, type Agent } from "@/lib/mock-data";
 import { useRole } from "@/lib/rbac";
+import { pageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/_app/agents")({
+  head: () => pageHead({ path: "/agents", title: "AI Agents & Findings — Aegis AI", description: "Run, pause, and audit specialised AI agents for incidents, licensing, cloud cost, and security, and drill into every finding they raise." }),
   component: AgentsPage,
 });
 
@@ -97,6 +99,7 @@ function AgentsPage() {
                         size="sm"
                         variant="ghost"
                         disabled={!can("agents.pause")}
+                        aria-label={a.status === "active" ? `Pause ${a.name}` : `Resume ${a.name}`}
                         onClick={() =>
                           toast.success(a.status === "active" ? `Paused ${a.name}` : `Resumed ${a.name}`)
                         }

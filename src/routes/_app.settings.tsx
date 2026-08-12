@@ -8,8 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { useTheme } from "@/lib/theme";
+import { pageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/_app/settings")({
+  head: () => pageHead({ path: "/settings", title: "Workspace Settings — Aegis AI", description: "Manage appearance, tenant preferences, retention, and platform configuration for your Aegis AI workspace." }),
   component: SettingsPage,
 });
 

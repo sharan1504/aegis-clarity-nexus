@@ -15,8 +15,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { integrations as seed, type Integration } from "@/lib/mock-data";
+import { pageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/_app/integrations")({
+  head: () => pageHead({ path: "/integrations", title: "Integrations & Setup Wizard — Aegis AI", description: "Connect Microsoft 365, AWS, Azure, ServiceNow, and more, and resolve integrations that need action with a guided setup wizard." }),
   component: IntegrationsPage,
 });
 
