@@ -2,6 +2,7 @@
 // storage bucket under a per-tenant folder, recorded in the `reports` table,
 // and handed to the browser as short-lived signed download links.
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { writeAudit } from "@/lib/audit";
 import { pushNotification } from "@/lib/realtime";
 
@@ -12,6 +13,34 @@ export interface ReportRow {
   value: string;
   detail?: string;
   category?: string;
+}
+
+/** Sections the operator can include in a generated artifact. */
+export const REPORT_SECTIONS = [
+  { id: "summary", label: "Executive summary" },
+  { id: "metrics", label: "Metric detail" },
+  { id: "trends", label: "Trend commentary" },
+  { id: "audit", label: "Audit & provenance" },
+] as const;
+
+export type ReportSectionId = (typeof REPORT_SECTIONS)[number]["id"];
+
+export interface ReportParams {
+  /** ISO date (yyyy-mm-dd) inclusive lower bound of the reporting period. */
+  from: string;
+  /** ISO date (yyyy-mm-dd) inclusive upper bound of the reporting period. */
+  to: string;
+  sections: ReportSectionId[];
+}
+
+export const DEFAULT_REPORT_PARAMS: ReportParams = {
+  from: new Date(Date.now() - 29 * 86_400_000).toISOString().slice(0, 10),
+  to: new Date().toISOString().slice(0, 10),
+  sections: ["summary", "metrics", "audit"],
+};
+
+export function describeParams(params: ReportParams) {
+  return `${params.from} → ${params.to} · ${params.sections.length} section(s)`;
 }
 
 export interface GeneratedReport {
@@ -30,12 +59,20 @@ function escapeCsv(value: string) {
   return `"${value.replace(/"/g, '""')}"`;
 }
 
-function toCsv(rows: ReportRow[]) {
+function sectionLabels(params: ReportParams) {
+  return REPORT_SECTIONS.filter((s) => params.sections.includes(s.id)).map((s) => s.label);
+}
+
+function toCsv(rows: ReportRow[], params: ReportParams) {
+  const preamble = [
+    ["# Reporting period", `${params.from} to ${params.to}`],
+    ["# Included sections", sectionLabels(params).join(" | ")],
+  ].map((cells) => cells.map((v) => escapeCsv(v)).join(","));
   const header = ["Metric", "Value", "Detail", "Category"];
   const lines = rows.map((r) =>
     [r.metric, r.value, r.detail ?? "", r.category ?? ""].map((v) => escapeCsv(String(v))).join(","),
   );
-  return [header.join(","), ...lines].join("\r\n");
+  return [...preamble, "", header.join(","), ...lines].join("\r\n");
 }
 
 function escapeHtml(value: string) {
@@ -50,8 +87,14 @@ function escapeHtml(value: string) {
  * Print-ready single-file report. Stored as HTML with a PDF-oriented layout so
  * the artifact stays self-contained and auditable without a native PDF engine.
  */
-function toPrintableDocument(name: string, rows: ReportRow[], tenantName: string) {
+function toPrintableDocument(
+  name: string,
+  rows: ReportRow[],
+  tenantName: string,
+  params: ReportParams,
+) {
   const generated = new Date().toISOString();
+  const included = new Set(params.sections);
   const body = rows
     .map(
       (r) => `<tr>
@@ -63,6 +106,36 @@ function toPrintableDocument(name: string, rows: ReportRow[], tenantName: string
     )
     .join("");
 
+  const summary = included.has("summary")
+    ? `<section><h2>Executive summary</h2><p>${escapeHtml(name)} covers ${escapeHtml(
+        params.from,
+      )} through ${escapeHtml(params.to)} for ${escapeHtml(tenantName)}, across ${
+        rows.length
+      } tracked metric(s).</p></section>`
+    : "";
+
+  const metrics = included.has("metrics")
+    ? `<section><h2>Metric detail</h2><table>
+    <thead><tr><th>Metric</th><th>Value</th><th>Detail</th><th>Category</th></tr></thead>
+    <tbody>${body}</tbody>
+  </table></section>`
+    : "";
+
+  const trends = included.has("trends")
+    ? `<section><h2>Trend commentary</h2><p>Period-over-period movement is derived from the workspace telemetry captured within the selected window. Values outside ${escapeHtml(
+        params.from,
+      )}–${escapeHtml(params.to)} are excluded from this artifact.</p></section>`
+    : "";
+
+  const audit = included.has("audit")
+    ? `<section><h2>Audit &amp; provenance</h2><p class="meta">Generated ${escapeHtml(
+        generated,
+      )} · period ${escapeHtml(params.from)}–${escapeHtml(
+        params.to,
+      )} · sections: ${escapeHtml(sectionLabels(params).join(", "))}</p>
+      <p>The export parameters above are recorded verbatim in the immutable audit log alongside the actor, role, and storage path.</p></section>`
+    : "";
+
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8" />
 <title>${escapeHtml(name)} — Aegis AI</title>
@@ -71,6 +144,8 @@ function toPrintableDocument(name: string, rows: ReportRow[], tenantName: string
   body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; color: #0f172a; }
   header { border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px; }
   h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: #334155; margin: 22px 0 8px; }
+  section p { font-size: 12px; line-height: 1.5; }
   .meta { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: #475569; }
   table { width: 100%; border-collapse: collapse; font-size: 12px; }
   th { text-align: left; text-transform: uppercase; letter-spacing: .04em; font-size: 10px; color: #475569;
@@ -82,12 +157,9 @@ function toPrintableDocument(name: string, rows: ReportRow[], tenantName: string
 <body>
   <header>
     <h1>${escapeHtml(name)}</h1>
-    <div class="meta">${escapeHtml(tenantName)} · generated ${escapeHtml(generated)} · Aegis AI executive report</div>
+    <div class="meta">${escapeHtml(tenantName)} · generated ${escapeHtml(generated)} · period ${escapeHtml(params.from)} → ${escapeHtml(params.to)}</div>
   </header>
-  <table>
-    <thead><tr><th>Metric</th><th>Value</th><th>Detail</th><th>Category</th></tr></thead>
-    <tbody>${body}</tbody>
-  </table>
+  ${summary}${metrics}${trends}${audit}
   <footer>Confidential — generated from tenant-scoped data. Access is governed by workspace role-based access control.</footer>
 </body></html>`;
 }
@@ -97,10 +169,11 @@ function buildArtifact(
   name: string,
   rows: ReportRow[],
   tenantName: string,
+  params: ReportParams,
 ): { blob: Blob; extension: string; contentType: string } {
   if (format === "csv") {
     return {
-      blob: new Blob([toCsv(rows)], { type: "text/csv;charset=utf-8" }),
+      blob: new Blob([toCsv(rows, params)], { type: "text/csv;charset=utf-8" }),
       extension: "csv",
       contentType: "text/csv",
     };
@@ -110,8 +183,9 @@ function buildArtifact(
       report: name,
       tenant: tenantName,
       generatedAt: new Date().toISOString(),
+      parameters: { from: params.from, to: params.to, sections: params.sections },
       rowCount: rows.length,
-      rows,
+      rows: params.sections.includes("metrics") ? rows : [],
     };
     return {
       blob: new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }),
@@ -120,7 +194,7 @@ function buildArtifact(
     };
   }
   return {
-    blob: new Blob([toPrintableDocument(name, rows, tenantName)], { type: "text/html" }),
+    blob: new Blob([toPrintableDocument(name, rows, tenantName, params)], { type: "text/html" }),
     extension: "pdf.html",
     contentType: "text/html",
   };
@@ -139,12 +213,16 @@ export async function generateReport(opts: {
   format: ReportFormat;
   rows: ReportRow[];
   actorRole?: string;
+  params?: ReportParams;
+  retentionDays?: number;
 }): Promise<GeneratedReport> {
+  const params = opts.params ?? DEFAULT_REPORT_PARAMS;
   const { blob, extension, contentType } = buildArtifact(
     opts.format,
     opts.name,
     opts.rows,
     opts.tenantName,
+    params,
   );
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const storagePath = `${opts.tenantId}/${slug(opts.dataset)}-${stamp}.${extension}`;
@@ -153,6 +231,9 @@ export async function generateReport(opts: {
     .from("reports")
     .upload(storagePath, blob, { contentType, upsert: false });
   if (uploadError) throw uploadError;
+
+  const retentionDays = opts.retentionDays ?? 30;
+  const expiresAt = new Date(Date.now() + retentionDays * 86_400_000).toISOString();
 
   const { data: userData } = await supabase.auth.getUser();
   const { data: row, error: insertError } = await supabase
@@ -165,6 +246,8 @@ export async function generateReport(opts: {
       storage_path: storagePath,
       size_bytes: blob.size,
       created_by: userData.user?.id ?? null,
+      params: params as unknown as Json,
+      expires_at: expiresAt,
     })
     .select("id, created_at")
     .single();
@@ -178,16 +261,25 @@ export async function generateReport(opts: {
     entityType: "report",
     entityId: row.id,
     actorRole: opts.actorRole,
-    detail: `${opts.name} exported as ${opts.format.toUpperCase()} (${opts.rows.length} rows)`,
-    payload: { dataset: opts.dataset, format: opts.format, storagePath, sizeBytes: blob.size },
+    detail: `${opts.name} exported as ${opts.format.toUpperCase()} (${opts.rows.length} rows) · period ${params.from}→${params.to} · sections: ${params.sections.join(", ")}`,
+    payload: {
+      dataset: opts.dataset,
+      format: opts.format,
+      storagePath,
+      sizeBytes: blob.size,
+      parameters: { from: params.from, to: params.to, sections: params.sections },
+      retentionDays,
+      expiresAt,
+    },
   });
 
   await pushNotification({
     tenantId: opts.tenantId,
     kind: "info",
     title: `${opts.name} exported (${opts.format.toUpperCase()})`,
-    body: `${opts.rows.length} row(s) stored in tenant-scoped storage. A signed download link was issued and recorded in the audit log.`,
-    href: "/reports",
+    body: `${opts.rows.length} row(s) for ${describeParams(params)}. Open the download page to mint a fresh signed link — files are removed after ${retentionDays} days.`,
+    // Deep link straight to this export row on the download page.
+    href: `/reports?export=${row.id}`,
   });
 
   await auditReportDownload(
@@ -224,15 +316,20 @@ export interface StoredReport {
   storagePath: string;
   sizeBytes: number;
   createdAt: string;
+  params: ReportParams | null;
+  expiresAt: string | null;
+  purgedAt: string | null;
 }
 
 export async function listReports(tenantId: string): Promise<StoredReport[]> {
   const { data, error } = await supabase
     .from("reports")
-    .select("id, name, dataset, format, storage_path, size_bytes, created_at")
+    .select(
+      "id, name, dataset, format, storage_path, size_bytes, created_at, params, expires_at, purged_at",
+    )
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
-    .limit(25);
+    .limit(200);
   if (error) throw error;
   return (data ?? []).map((r) => ({
     id: r.id,
@@ -242,6 +339,9 @@ export async function listReports(tenantId: string): Promise<StoredReport[]> {
     storagePath: r.storage_path,
     sizeBytes: r.size_bytes,
     createdAt: r.created_at,
+    params: (r.params as unknown as ReportParams) ?? null,
+    expiresAt: r.expires_at,
+    purgedAt: r.purged_at,
   }));
 }
 
