@@ -1,0 +1,20 @@
+# Aegis AI
+
+> Enterprise AI operations platform that connects business systems via MCP and APIs so specialised AI agents can monitor, optimise, and orchestrate operations with human approval.
+
+Aegis AI unifies incident management, cloud cost optimisation, licence utilisation, security posture, and contact centre analytics. Every AI-proposed action flows through a change control workflow with risk scoring, required approvals, rollback plans, and an immutable audit trail.
+
+## Pages
+
+- [Operations Dashboard](/): KPIs for incidents, security alerts, cost savings, and platform health.
+- [AI Agents](/agents): Specialised agents and the findings they raise.
+- [Ask Aegis](/chat): Conversational interface over connected enterprise systems.
+- [Change Control Center](/approvals): Change records with risk scores, approvals, and change windows.
+- [Integrations](/integrations): Connect Microsoft 365, AWS, Azure, ServiceNow, and more.
+- [Agent Marketplace](/marketplace): Catalog of installable enterprise AI agents.
+- [Executive Reports](/reports): PDF, CSV, and JSON exports with signed download links.
+
+## Optional
+
+- [Team & Roles](/users): Role-based access for Admin, Manager, Analyst, and Viewer.
+- [Settings](/settings): Workspace appearance and retention configuration.
