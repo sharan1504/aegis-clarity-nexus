@@ -29,14 +29,12 @@ export interface AuditInput {
 }
 
 export async function writeAudit(input: AuditInput) {
-  const { data: userData } = await supabase.auth.getUser();
+  // Actor identity (actor_id / actor_email / actor_role) is derived server-side
+  // by a database trigger from the verified session — never sent by the client.
   const { data, error } = await supabase
     .from("audit_log")
     .insert({
       tenant_id: input.tenantId,
-      actor_id: userData.user?.id ?? null,
-      actor_email: userData.user?.email ?? null,
-      actor_role: input.actorRole ?? null,
       action: input.action,
       entity_type: input.entityType,
       entity_id: input.entityId ?? null,
@@ -45,6 +43,7 @@ export async function writeAudit(input: AuditInput) {
     })
     .select("id, hash, prev_hash, created_at")
     .single();
+
 
   if (error) throw error;
   return data;

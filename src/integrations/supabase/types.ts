@@ -407,14 +407,6 @@ export type Database = {
     }
     Functions: {
       current_tenant_id: { Args: never; Returns: string }
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
-      is_tenant_member: { Args: { _tenant_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "manager" | "analyst" | "viewer"
