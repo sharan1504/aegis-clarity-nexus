@@ -58,12 +58,20 @@ function escapeCsv(value: string) {
   return `"${value.replace(/"/g, '""')}"`;
 }
 
-function toCsv(rows: ReportRow[]) {
+function sectionLabels(params: ReportParams) {
+  return REPORT_SECTIONS.filter((s) => params.sections.includes(s.id)).map((s) => s.label);
+}
+
+function toCsv(rows: ReportRow[], params: ReportParams) {
+  const preamble = [
+    ["# Reporting period", `${params.from} to ${params.to}`],
+    ["# Included sections", sectionLabels(params).join(" | ")],
+  ].map((cells) => cells.map((v) => escapeCsv(v)).join(","));
   const header = ["Metric", "Value", "Detail", "Category"];
   const lines = rows.map((r) =>
     [r.metric, r.value, r.detail ?? "", r.category ?? ""].map((v) => escapeCsv(String(v))).join(","),
   );
-  return [header.join(","), ...lines].join("\r\n");
+  return [...preamble, "", header.join(","), ...lines].join("\r\n");
 }
 
 function escapeHtml(value: string) {
