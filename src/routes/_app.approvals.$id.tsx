@@ -43,7 +43,7 @@ export const Route = createFileRoute("/_app/approvals/$id")({
 function ChangeDetailPage() {
   const { id } = useParams({ from: "/_app/approvals/$id" });
   const { role, can } = useRole();
-  const { records } = useRealtime();
+  const { records, loading } = useRealtime();
   const { tenantId, user } = useTenantContext();
   const record = useMemo(() => records.find((c) => c.id === id) ?? null, [records, id]);
   const [comment, setComment] = useState("");
@@ -54,6 +54,10 @@ function ChangeDetailPage() {
     actor: user?.email ?? "unknown",
     role,
   };
+
+  if (!record && loading) {
+    return <PageHeader title="Loading change record…" description={`Fetching ${id} from your workspace.`} />;
+  }
 
   if (!record) {
     return (
