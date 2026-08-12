@@ -3,6 +3,7 @@
 // and handed to the browser as short-lived signed download links.
 import { supabase } from "@/integrations/supabase/client";
 import { writeAudit } from "@/lib/audit";
+import { pushNotification } from "@/lib/realtime";
 
 export type ReportFormat = "pdf" | "csv" | "json";
 
@@ -181,6 +182,20 @@ export async function generateReport(opts: {
     payload: { dataset: opts.dataset, format: opts.format, storagePath, sizeBytes: blob.size },
   });
 
+  await pushNotification({
+    tenantId: opts.tenantId,
+    kind: "info",
+    title: `${opts.name} exported (${opts.format.toUpperCase()})`,
+    body: `${opts.rows.length} row(s) stored in tenant-scoped storage. A signed download link was issued and recorded in the audit log.`,
+    href: "/reports",
+  });
+
+  await auditReportDownload(
+    opts.tenantId,
+    { id: row.id, name: opts.name, format: opts.format, storagePath },
+    opts.actorRole,
+  );
+
   return {
     id: row.id,
     name: opts.name,
@@ -232,15 +247,35 @@ export async function listReports(tenantId: string): Promise<StoredReport[]> {
 
 export async function auditReportDownload(
   tenantId: string,
-  report: { id: string; name: string; format: string },
+  report: { id: string; name: string; format: string; storagePath?: string },
   actorRole?: string,
 ) {
   await writeAudit({
     tenantId,
-    action: "report.downloaded",
+    action: "report.link_issued",
     entityType: "report",
     entityId: report.id,
     actorRole,
-    detail: `${report.name} (${report.format.toUpperCase()}) downloaded via signed link`,
+    detail: `${report.name} (${report.format.toUpperCase()}) — signed download link issued`,
+    payload: { storagePath: report.storagePath ?? null, ttlSeconds: SIGNED_URL_TTL_SECONDS },
   });
+}
+
+/**
+ * Re-issues a signed link for a stored report. Signed URLs expire after
+ * SIGNED_URL_TTL_SECONDS, so every Download click mints a fresh one and
+ * records the issuance in the immutable audit log.
+ */
+export async function refreshReportLink(
+  tenantId: string,
+  report: StoredReport,
+  actorRole?: string,
+): Promise<string> {
+  const signedUrl = await createReportLink(report.storagePath);
+  await auditReportDownload(
+    tenantId,
+    { id: report.id, name: report.name, format: report.format, storagePath: report.storagePath },
+    actorRole,
+  );
+  return signedUrl;
 }

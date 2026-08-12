@@ -14,6 +14,7 @@ export type AuditAction =
   | "ticket.created"
   | "report.generated"
   | "report.downloaded"
+  | "report.link_issued"
   | "integration.connected"
   | "role.changed";
 
