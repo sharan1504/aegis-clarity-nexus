@@ -91,10 +91,12 @@ function ChatPage() {
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted/50 text-foreground"
                 }`}
-                dangerouslySetInnerHTML={{
-                  __html: m.content.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>"),
-                }}
-              />
+              >
+                {m.content.split(/\*\*(.+?)\*\*/g).map((part, idx) =>
+                  idx % 2 === 1 ? <strong key={idx}>{part}</strong> : <span key={idx}>{part}</span>,
+                )}
+              </div>
+
               {m.role === "user" && (
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">
                   <UserIcon className="h-4 w-4" />
