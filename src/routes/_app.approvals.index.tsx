@@ -43,7 +43,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useRole } from "@/lib/rbac";
-import { useRealtime, updateRecords } from "@/lib/realtime";
+import { useRealtime } from "@/lib/realtime";
+import { bulkDecideChanges } from "@/lib/change-service";
+import { useTenantContext } from "@/lib/tenant";
 import {
   changeRecords as seed,
   CHANGE_STAGES,
@@ -94,6 +96,8 @@ function ChangeListPage() {
   const { records: items, connected, lastEventAt } = useRealtime();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulk, setBulk] = useState<null | "approve" | "reject">(null);
+  const [busy, setBusy] = useState(false);
+  const { tenantId, user } = useTenantContext();
 
   const teams = useMemo(() => Array.from(new Set(seed.map((c) => c.ownerTeam))), []);
 
@@ -184,40 +188,40 @@ function ChangeListPage() {
     else setSelected(new Set(filtered.map((c) => c.id)));
   };
 
-  const doBulk = (action: "approve" | "reject") => {
+  const doBulk = async (action: "approve" | "reject") => {
     const ids = Array.from(selected);
-    updateRecords((xs) =>
-      xs.map((x) =>
-        ids.includes(x.id)
-          ? {
-              ...x,
-              stage: action === "approve" ? ("Ready to Execute" as ChangeStage) : x.stage,
-              approvals: x.approvals.map((a) =>
-                a.status === "pending"
-                  ? {
-                      ...a,
-                      status: action === "approve" ? "approved" : "rejected",
-                      timestamp: new Date().toISOString(),
-                      comment: `Bulk ${action} by ${role}`,
-                    }
-                  : a,
-              ),
-            }
-          : x,
-      ),
-    );
-    setSelected(new Set());
-    setBulk(null);
-    if (action === "approve") {
-      toast.success(`Approved ${ids.length} change record${ids.length > 1 ? "s" : ""}`, {
-        description: "Audit log updated. Downstream teams notified.",
+    const records = items.filter((x) => ids.includes(x.id));
+    if (!tenantId) {
+      toast.error("Workspace not ready", { description: "Try again in a moment." });
+      return;
+    }
+    setBusy(true);
+    try {
+      await bulkDecideChanges(records, action === "approve" ? "approved" : "rejected", {
+        tenantId,
+        actor: user?.email ?? "unknown",
+        role,
       });
-    } else {
-      toast.error(`Rejected ${ids.length} change record${ids.length > 1 ? "s" : ""}`, {
-        description: "Rejection recorded with your identity as reviewer.",
+      setSelected(new Set());
+      setBulk(null);
+      if (action === "approve") {
+        toast.success(`Approved ${ids.length} change record${ids.length > 1 ? "s" : ""}`, {
+          description: "Immutable audit entries written. Downstream teams notified.",
+        });
+      } else {
+        toast.error(`Rejected ${ids.length} change record${ids.length > 1 ? "s" : ""}`, {
+          description: "Rejection recorded in the audit log with your identity as reviewer.",
+        });
+      }
+    } catch (err) {
+      toast.error("Bulk action failed", {
+        description: err instanceof Error ? err.message : "Please retry.",
       });
+    } finally {
+      setBusy(false);
     }
   };
+
 
   return (
     <div>
@@ -414,7 +418,8 @@ function ChangeListPage() {
             </Button>
             <Button
               variant={bulk === "reject" ? "destructive" : "default"}
-              onClick={() => bulk && doBulk(bulk)}
+              disabled={busy}
+              onClick={() => bulk && void doBulk(bulk)}
             >
               Confirm {bulk}
             </Button>

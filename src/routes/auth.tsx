@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable/index";
+
 
 export const Route = createFileRoute("/auth")({
   component: AuthPage,
@@ -50,17 +52,19 @@ function AuthPage() {
 
   const google = async () => {
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo: `${window.location.origin}/` },
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
       });
-      if (error) throw error;
+      if (result.error) throw result.error instanceof Error ? result.error : new Error(String(result.error));
+      if (result.redirected) return;
+      navigate({ to: "/" });
     } catch (err) {
       toast.error("Google sign-in unavailable", {
         description: err instanceof Error ? err.message : "Please try email sign-in.",
       });
     }
   };
+
 
   return (
     <div className="grid min-h-screen grid-cols-1 lg:grid-cols-2">

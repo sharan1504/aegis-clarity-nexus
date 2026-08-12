@@ -25,8 +25,10 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { useRole } from "@/lib/rbac";
+import { useRealtime } from "@/lib/realtime";
+import { useTenantContext } from "@/lib/tenant";
+import { createExternalTicket, decideChange, initiateRollback } from "@/lib/change-service";
 import {
-  changeRecords,
   CHANGE_STAGES,
   stageIndex,
   type ChangeApproval,
@@ -41,9 +43,21 @@ export const Route = createFileRoute("/_app/approvals/$id")({
 function ChangeDetailPage() {
   const { id } = useParams({ from: "/_app/approvals/$id" });
   const { role, can } = useRole();
-  const initial = useMemo(() => changeRecords.find((c) => c.id === id) ?? null, [id]);
-  const [record, setRecord] = useState(initial);
+  const { records, loading } = useRealtime();
+  const { tenantId, user } = useTenantContext();
+  const record = useMemo(() => records.find((c) => c.id === id) ?? null, [records, id]);
   const [comment, setComment] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const ctx = {
+    tenantId: tenantId ?? "",
+    actor: user?.email ?? "unknown",
+    role,
+  };
+
+  if (!record && loading) {
+    return <PageHeader title="Loading change record…" description={`Fetching ${id} from your workspace.`} />;
+  }
 
   if (!record) {
     return (
@@ -59,36 +73,61 @@ function ChangeDetailPage() {
   }
 
   const currentStageIdx = stageIndex(record.stage);
-  const decide = (idx: number, action: "approved" | "rejected") => {
-    setRecord((r) =>
-      r
-        ? {
-            ...r,
-            approvals: r.approvals.map((a, i) =>
-              i === idx
-                ? {
-                    ...a,
-                    status: action,
-                    timestamp: new Date().toISOString(),
-                    comment: comment || a.comment,
-                  }
-                : a,
-            ),
-            timeline: [
-              ...r.timeline,
-              {
-                ts: new Date().toISOString(),
-                actor: role,
-                kind: "action",
-                text: `${action === "approved" ? "Approved" : "Rejected"} as ${r.approvals[idx].team}`,
-              },
-            ],
-          }
-        : r,
-    );
-    setComment("");
-    if (action === "approved") toast.success("Approval recorded", { description: `${record.id} · signed as ${role}` });
-    else toast.error("Rejection recorded", { description: `${record.id} · signed as ${role}` });
+
+  const guard = () => {
+    if (tenantId) return true;
+    toast.error("Workspace not ready", { description: "Try again in a moment." });
+    return false;
+  };
+
+  const decide = async (action: "approved" | "rejected") => {
+    if (!guard()) return;
+    setBusy(true);
+    try {
+      await decideChange(record, action, ctx, comment || undefined);
+      setComment("");
+      if (action === "approved")
+        toast.success("Approval recorded", { description: `${record.id} · signed as ${role} · audit entry written` });
+      else toast.error("Rejection recorded", { description: `${record.id} · signed as ${role} · audit entry written` });
+    } catch (err) {
+      toast.error("Could not record decision", {
+        description: err instanceof Error ? err.message : "Please retry.",
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const rollback = async () => {
+    if (!guard()) return;
+    setBusy(true);
+    try {
+      await initiateRollback(record, ctx);
+      toast.success("Rollback initiated", {
+        description: `${record.rollbackSteps.length} documented step(s) queued · audited`,
+      });
+    } catch (err) {
+      toast.error("Could not initiate rollback", {
+        description: err instanceof Error ? err.message : "Please retry.",
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const newTicket = async (system: "Jira" | "ServiceNow") => {
+    if (!guard()) return;
+    setBusy(true);
+    try {
+      const ticket = await createExternalTicket(record, system, ctx);
+      toast.success(`${system} ticket created`, { description: `${ticket.id} linked to ${record.id}` });
+    } catch (err) {
+      toast.error("Could not create ticket", {
+        description: err instanceof Error ? err.message : "Please retry.",
+      });
+    } finally {
+      setBusy(false);
+    }
   };
 
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
@@ -187,11 +226,11 @@ function ChangeDetailPage() {
             <div className="space-y-2">
               {record.approvals.map((a, i) => (
                 <ApprovalRow
-                  key={i}
+                  key={a.rowId ?? i}
                   a={a}
-                  disabled={!can("approvals.approve")}
-                  onApprove={() => decide(i, "approved")}
-                  onReject={() => decide(i, "rejected")}
+                  disabled={busy || !can("approvals.approve")}
+                  onApprove={() => void decide("approved")}
+                  onReject={() => void decide("rejected")}
                 />
               ))}
             </div>
@@ -209,7 +248,21 @@ function ChangeDetailPage() {
           </Section>
 
           {/* Rollback */}
-          <Section icon={RotateCcw} title="Rollback plan" subtitle="Specific steps to reverse this exact change">
+          <Section
+            icon={RotateCcw}
+            title="Rollback plan"
+            subtitle="Specific steps to reverse this exact change"
+            action={
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={busy || !can("approvals.approve")}
+                onClick={() => void rollback()}
+              >
+                <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Initiate rollback
+              </Button>
+            }
+          >
             <ol className="space-y-2 text-sm">
               {record.rollbackSteps.map((s, i) => (
                 <li key={i} className="flex gap-3">
@@ -307,7 +360,30 @@ function ChangeDetailPage() {
                   </a>
                 </li>
               ))}
+              {record.externalTickets.length === 0 && (
+                <li className="text-xs text-muted-foreground">No external tickets linked yet.</li>
+              )}
             </ul>
+            <div className="mt-3 flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="flex-1 text-xs"
+                disabled={busy || !can("approvals.approve")}
+                onClick={() => void newTicket("Jira")}
+              >
+                + Jira
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="flex-1 text-xs"
+                disabled={busy || !can("approvals.approve")}
+                onClick={() => void newTicket("ServiceNow")}
+              >
+                + ServiceNow
+              </Button>
+            </div>
           </SidePanel>
 
           {/* Audit history */}
@@ -364,20 +440,27 @@ function Section({
   icon: Icon,
   title,
   subtitle,
+  action,
   children,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   title: string;
   subtitle?: string;
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-sm">
-          <Icon className="h-4 w-4 text-primary" /> {title}
-        </CardTitle>
-        {subtitle && <CardDescription className="text-xs">{subtitle}</CardDescription>}
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Icon className="h-4 w-4 text-primary" /> {title}
+            </CardTitle>
+            {subtitle && <CardDescription className="text-xs">{subtitle}</CardDescription>}
+          </div>
+          {action}
+        </div>
       </CardHeader>
       <CardContent>{children}</CardContent>
     </Card>
