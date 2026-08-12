@@ -99,6 +99,7 @@ function AgentsPage() {
                         size="sm"
                         variant="ghost"
                         disabled={!can("agents.pause")}
+                        aria-label={a.status === "active" ? `Pause ${a.name}` : `Resume ${a.name}`}
                         onClick={() =>
                           toast.success(a.status === "active" ? `Paused ${a.name}` : `Resumed ${a.name}`)
                         }

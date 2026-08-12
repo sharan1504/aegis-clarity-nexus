@@ -38,7 +38,7 @@ import { RiskChip, ModeChip } from "./_app.approvals.index";
 import { pageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/_app/approvals/$id")({
-  head: () => pageHead({ path: "/approvals", title: "Change Record Detail — Aegis AI", description: "Inspect AI reasoning, risk factors, approvals, rollback plans, validation, and immutable audit history for a single change record." }),
+  head: ({ params }) => pageHead({ path: `/approvals/${params.id}`, title: "Change Record Detail — Aegis AI", description: "Inspect AI reasoning, risk factors, approvals, rollback plans, validation, and immutable audit history for a single change record." }),
   component: ChangeDetailPage,
 });
 

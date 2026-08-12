@@ -86,7 +86,9 @@ export const Route = createFileRoute("/_app/reports")({
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { property: "og:url", content: "https://aegis-clarity-nexus.lovable.app/reports" },
     ],
+    links: [{ rel: "canonical", href: "https://aegis-clarity-nexus.lovable.app/reports" }],
   }),
 });
 
@@ -608,6 +610,7 @@ function ReportsPage() {
                             size="sm"
                             variant="ghost"
                             disabled={downloading === h.id || !!h.purgedAt}
+                            aria-label={`Download ${h.format.toUpperCase()} export ${h.id}`}
                             onClick={() => void download(h)}
                           >
                             {downloading === h.id ? (

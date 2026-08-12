@@ -162,7 +162,7 @@ function ChatPage() {
               className="min-h-[48px] resize-none"
               rows={1}
             />
-            <Button type="submit" size="icon" disabled={!input.trim() || pending}>
+            <Button type="submit" size="icon" aria-label="Send message" disabled={!input.trim() || pending}>
               <ArrowUp className="h-4 w-4" />
             </Button>
           </form>
