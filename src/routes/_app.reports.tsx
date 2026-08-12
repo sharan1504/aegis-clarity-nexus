@@ -36,6 +36,14 @@ import {
   type StoredReport,
 } from "@/lib/reports-service";
 import { Progress } from "@/components/ui/progress";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { StatusPill } from "@/components/layout/AppLayout";
 
 export const Route = createFileRoute("/_app/reports")({
@@ -249,7 +257,101 @@ function ReportsPage() {
           })}
         </div>
       )}
+
+      <Card className="mt-6">
+        <CardHeader className="pb-3">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <History className="h-4 w-4 text-primary" /> Export history
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Every export stored for this workspace. Download links are re-issued on demand and
+                each issuance is written to the immutable audit log.
+              </CardDescription>
+            </div>
+            <Badge variant="outline" className="font-mono text-[10px]">
+              {history.length} export{history.length === 1 ? "" : "s"}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          {historyLoading ? (
+            <p className="py-6 text-center text-xs text-muted-foreground">Loading export history…</p>
+          ) : history.length === 0 ? (
+            <p className="py-6 text-center text-xs text-muted-foreground">
+              No exports yet. Generate a PDF, CSV, or JSON export to populate this log.
+            </p>
+          ) : (
+            <div className="-mx-2 overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-[10px] uppercase tracking-wider">Report</TableHead>
+                    <TableHead className="text-[10px] uppercase tracking-wider">Format</TableHead>
+                    <TableHead className="text-[10px] uppercase tracking-wider">Size</TableHead>
+                    <TableHead className="text-[10px] uppercase tracking-wider">Generated</TableHead>
+                    <TableHead className="text-[10px] uppercase tracking-wider">Audit</TableHead>
+                    <TableHead className="text-right text-[10px] uppercase tracking-wider">
+                      Download
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {history.map((h) => (
+                    <TableRow key={h.id}>
+                      <TableCell className="max-w-[220px] truncate text-sm font-medium">
+                        {h.name}
+                        <span className="ml-2 font-mono text-[10px] text-muted-foreground">
+                          {h.dataset}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="font-mono text-[10px]">
+                          {FORMAT_LABEL[h.format]}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">
+                        {formatBytes(h.sizeBytes)}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">
+                        {new Date(h.createdAt).toISOString().replace("T", " ").slice(0, 19)} UTC
+                      </TableCell>
+                      <TableCell>
+                        <StatusPill tone="success" icon={ShieldCheck}>
+                          logged
+                        </StatusPill>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={downloading === h.id}
+                          onClick={() => void download(h)}
+                        >
+                          {downloading === h.id ? (
+                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Download className="mr-1.5 h-3.5 w-3.5" />
+                          )}
+                          Download
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
+}
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
