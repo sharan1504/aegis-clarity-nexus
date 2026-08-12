@@ -14,6 +14,34 @@ export interface ReportRow {
   category?: string;
 }
 
+/** Sections the operator can include in a generated artifact. */
+export const REPORT_SECTIONS = [
+  { id: "summary", label: "Executive summary" },
+  { id: "metrics", label: "Metric detail" },
+  { id: "trends", label: "Trend commentary" },
+  { id: "audit", label: "Audit & provenance" },
+] as const;
+
+export type ReportSectionId = (typeof REPORT_SECTIONS)[number]["id"];
+
+export interface ReportParams {
+  /** ISO date (yyyy-mm-dd) inclusive lower bound of the reporting period. */
+  from: string;
+  /** ISO date (yyyy-mm-dd) inclusive upper bound of the reporting period. */
+  to: string;
+  sections: ReportSectionId[];
+}
+
+export const DEFAULT_REPORT_PARAMS: ReportParams = {
+  from: new Date(Date.now() - 29 * 86_400_000).toISOString().slice(0, 10),
+  to: new Date().toISOString().slice(0, 10),
+  sections: ["summary", "metrics", "audit"],
+};
+
+export function describeParams(params: ReportParams) {
+  return `${params.from} → ${params.to} · ${params.sections.length} section(s)`;
+}
+
 export interface GeneratedReport {
   id: string;
   name: string;
