@@ -294,9 +294,12 @@ export type Database = {
           created_at: string
           created_by: string | null
           dataset: string
+          expires_at: string | null
           format: string
           id: string
           name: string
+          params: Json
+          purged_at: string | null
           size_bytes: number
           storage_path: string
           tenant_id: string
@@ -305,9 +308,12 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           dataset: string
+          expires_at?: string | null
           format: string
           id?: string
           name: string
+          params?: Json
+          purged_at?: string | null
           size_bytes?: number
           storage_path: string
           tenant_id: string
@@ -316,9 +322,12 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           dataset?: string
+          expires_at?: string | null
           format?: string
           id?: string
           name?: string
+          params?: Json
+          purged_at?: string | null
           size_bytes?: number
           storage_path?: string
           tenant_id?: string
@@ -338,6 +347,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          report_retention_days: number
           slug: string
           updated_at: string
         }
@@ -345,6 +355,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          report_retention_days?: number
           slug: string
           updated_at?: string
         }
@@ -352,6 +363,7 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          report_retention_days?: number
           slug?: string
           updated_at?: string
         }
