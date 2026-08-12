@@ -184,40 +184,40 @@ function ChangeListPage() {
     else setSelected(new Set(filtered.map((c) => c.id)));
   };
 
-  const doBulk = (action: "approve" | "reject") => {
+  const doBulk = async (action: "approve" | "reject") => {
     const ids = Array.from(selected);
-    updateRecords((xs) =>
-      xs.map((x) =>
-        ids.includes(x.id)
-          ? {
-              ...x,
-              stage: action === "approve" ? ("Ready to Execute" as ChangeStage) : x.stage,
-              approvals: x.approvals.map((a) =>
-                a.status === "pending"
-                  ? {
-                      ...a,
-                      status: action === "approve" ? "approved" : "rejected",
-                      timestamp: new Date().toISOString(),
-                      comment: `Bulk ${action} by ${role}`,
-                    }
-                  : a,
-              ),
-            }
-          : x,
-      ),
-    );
-    setSelected(new Set());
-    setBulk(null);
-    if (action === "approve") {
-      toast.success(`Approved ${ids.length} change record${ids.length > 1 ? "s" : ""}`, {
-        description: "Audit log updated. Downstream teams notified.",
+    const records = items.filter((x) => ids.includes(x.id));
+    if (!tenantId) {
+      toast.error("Workspace not ready", { description: "Try again in a moment." });
+      return;
+    }
+    setBusy(true);
+    try {
+      await bulkDecideChanges(records, action === "approve" ? "approved" : "rejected", {
+        tenantId,
+        actor: user?.email ?? "unknown",
+        role,
       });
-    } else {
-      toast.error(`Rejected ${ids.length} change record${ids.length > 1 ? "s" : ""}`, {
-        description: "Rejection recorded with your identity as reviewer.",
+      setSelected(new Set());
+      setBulk(null);
+      if (action === "approve") {
+        toast.success(`Approved ${ids.length} change record${ids.length > 1 ? "s" : ""}`, {
+          description: "Immutable audit entries written. Downstream teams notified.",
+        });
+      } else {
+        toast.error(`Rejected ${ids.length} change record${ids.length > 1 ? "s" : ""}`, {
+          description: "Rejection recorded in the audit log with your identity as reviewer.",
+        });
+      }
+    } catch (err) {
+      toast.error("Bulk action failed", {
+        description: err instanceof Error ? err.message : "Please retry.",
       });
+    } finally {
+      setBusy(false);
     }
   };
+
 
   return (
     <div>
