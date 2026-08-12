@@ -1,4 +1,6 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useMemo, type ReactNode } from "react";
+
+import { useTenantContext, type AppRole } from "@/lib/tenant";
 
 export type Role = "Admin" | "Manager" | "Analyst" | "Viewer";
 
@@ -34,25 +36,40 @@ const MATRIX: Record<Role, Permission[]> = {
   Viewer: [],
 };
 
+const RANK: Role[] = ["Admin", "Manager", "Analyst", "Viewer"];
+
+const DB_TO_ROLE: Record<AppRole, Role> = {
+  admin: "Admin",
+  manager: "Manager",
+  analyst: "Analyst",
+  viewer: "Viewer",
+};
+
+/**
+ * Effective role is derived from the authenticated user's real rows in the
+ * user_roles table (loaded by TenantProvider). It is never client-selectable;
+ * the database RLS policies enforce the same rules server-side.
+ */
+function effectiveRole(roles: AppRole[]): Role {
+  const mapped = roles.map((r) => DB_TO_ROLE[r]).filter(Boolean);
+  for (const candidate of RANK) {
+    if (mapped.includes(candidate)) return candidate;
+  }
+  return "Viewer";
+}
+
 interface RoleCtx {
   role: Role;
-  setRole: (r: Role) => void;
   can: (p: Permission) => boolean;
 }
 
 const Ctx = createContext<RoleCtx | null>(null);
 
 export function RoleProvider({ children }: { children: ReactNode }) {
-  const [role, setRoleState] = useState<Role>(() => {
-    if (typeof window === "undefined") return "Admin";
-    return (localStorage.getItem("aegis.role") as Role) || "Admin";
-  });
-  const setRole = (r: Role) => {
-    setRoleState(r);
-    if (typeof window !== "undefined") localStorage.setItem("aegis.role", r);
-  };
+  const { roles } = useTenantContext();
+  const role = effectiveRole(roles);
   const value = useMemo<RoleCtx>(
-    () => ({ role, setRole, can: (p) => MATRIX[role].includes(p) }),
+    () => ({ role, can: (p) => MATRIX[role].includes(p) }),
     [role],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
@@ -77,4 +94,4 @@ export function RoleGate({
   return <>{can(permission) ? children : fallback}</>;
 }
 
-export const ROLES: Role[] = ["Admin", "Manager", "Analyst", "Viewer"];
+export const ROLES: Role[] = RANK;
