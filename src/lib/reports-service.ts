@@ -2,6 +2,7 @@
 // storage bucket under a per-tenant folder, recorded in the `reports` table,
 // and handed to the browser as short-lived signed download links.
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { writeAudit } from "@/lib/audit";
 import { pushNotification } from "@/lib/realtime";
 
