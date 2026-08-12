@@ -212,12 +212,16 @@ export async function generateReport(opts: {
   format: ReportFormat;
   rows: ReportRow[];
   actorRole?: string;
+  params?: ReportParams;
+  retentionDays?: number;
 }): Promise<GeneratedReport> {
+  const params = opts.params ?? DEFAULT_REPORT_PARAMS;
   const { blob, extension, contentType } = buildArtifact(
     opts.format,
     opts.name,
     opts.rows,
     opts.tenantName,
+    params,
   );
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const storagePath = `${opts.tenantId}/${slug(opts.dataset)}-${stamp}.${extension}`;
@@ -226,6 +230,9 @@ export async function generateReport(opts: {
     .from("reports")
     .upload(storagePath, blob, { contentType, upsert: false });
   if (uploadError) throw uploadError;
+
+  const retentionDays = opts.retentionDays ?? 30;
+  const expiresAt = new Date(Date.now() + retentionDays * 86_400_000).toISOString();
 
   const { data: userData } = await supabase.auth.getUser();
   const { data: row, error: insertError } = await supabase
@@ -238,6 +245,8 @@ export async function generateReport(opts: {
       storage_path: storagePath,
       size_bytes: blob.size,
       created_by: userData.user?.id ?? null,
+      params: params as unknown as Json,
+      expires_at: expiresAt,
     })
     .select("id, created_at")
     .single();
@@ -251,16 +260,25 @@ export async function generateReport(opts: {
     entityType: "report",
     entityId: row.id,
     actorRole: opts.actorRole,
-    detail: `${opts.name} exported as ${opts.format.toUpperCase()} (${opts.rows.length} rows)`,
-    payload: { dataset: opts.dataset, format: opts.format, storagePath, sizeBytes: blob.size },
+    detail: `${opts.name} exported as ${opts.format.toUpperCase()} (${opts.rows.length} rows) · period ${params.from}→${params.to} · sections: ${params.sections.join(", ")}`,
+    payload: {
+      dataset: opts.dataset,
+      format: opts.format,
+      storagePath,
+      sizeBytes: blob.size,
+      parameters: { from: params.from, to: params.to, sections: params.sections },
+      retentionDays,
+      expiresAt,
+    },
   });
 
   await pushNotification({
     tenantId: opts.tenantId,
     kind: "info",
     title: `${opts.name} exported (${opts.format.toUpperCase()})`,
-    body: `${opts.rows.length} row(s) stored in tenant-scoped storage. A signed download link was issued and recorded in the audit log.`,
-    href: "/reports",
+    body: `${opts.rows.length} row(s) for ${describeParams(params)}. Open the download page to mint a fresh signed link — files are removed after ${retentionDays} days.`,
+    // Deep link straight to this export row on the download page.
+    href: `/reports?export=${row.id}`,
   });
 
   await auditReportDownload(
@@ -297,15 +315,20 @@ export interface StoredReport {
   storagePath: string;
   sizeBytes: number;
   createdAt: string;
+  params: ReportParams | null;
+  expiresAt: string | null;
+  purgedAt: string | null;
 }
 
 export async function listReports(tenantId: string): Promise<StoredReport[]> {
   const { data, error } = await supabase
     .from("reports")
-    .select("id, name, dataset, format, storage_path, size_bytes, created_at")
+    .select(
+      "id, name, dataset, format, storage_path, size_bytes, created_at, params, expires_at, purged_at",
+    )
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
-    .limit(25);
+    .limit(200);
   if (error) throw error;
   return (data ?? []).map((r) => ({
     id: r.id,
@@ -315,6 +338,9 @@ export async function listReports(tenantId: string): Promise<StoredReport[]> {
     storagePath: r.storage_path,
     sizeBytes: r.size_bytes,
     createdAt: r.created_at,
+    params: (r.params as unknown as ReportParams) ?? null,
+    expiresAt: r.expires_at,
+    purgedAt: r.purged_at,
   }));
 }
 
