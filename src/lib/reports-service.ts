@@ -190,6 +190,12 @@ export async function generateReport(opts: {
     href: "/reports",
   });
 
+  await auditReportDownload(
+    opts.tenantId,
+    { id: row.id, name: opts.name, format: opts.format, storagePath },
+    opts.actorRole,
+  );
+
   return {
     id: row.id,
     name: opts.name,
