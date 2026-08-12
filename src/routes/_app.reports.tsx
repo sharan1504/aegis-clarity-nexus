@@ -1,12 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Download,
   FileBarChart,
   FileJson,
   FileText,
   FileSpreadsheet,
+  History,
   Loader2,
+  Lock,
   ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -25,7 +27,16 @@ import { reports, reportDatasets, type Report } from "@/lib/mock-data";
 import { EmptyIntegrationsState, hasAnyConnected } from "@/components/EmptyIntegrationsState";
 import { useTenantContext } from "@/lib/tenant";
 import { useRole } from "@/lib/rbac";
-import { generateReport, type ReportFormat, type ReportRow } from "@/lib/reports-service";
+import {
+  generateReport,
+  listReports,
+  refreshReportLink,
+  type ReportFormat,
+  type ReportRow,
+  type StoredReport,
+} from "@/lib/reports-service";
+import { Progress } from "@/components/ui/progress";
+import { StatusPill } from "@/components/layout/AppLayout";
 
 export const Route = createFileRoute("/_app/reports")({
   component: ReportsPage,
@@ -46,16 +57,63 @@ const FORMAT_LABEL: Record<ReportFormat, string> = { pdf: "PDF", csv: "CSV", jso
 function ReportsPage() {
   const connected = hasAnyConnected();
   const { tenantId, tenantName } = useTenantContext();
-  const { role } = useRole();
+  const { role, can } = useRole();
+  const canExport = can("reports.export");
   const [busy, setBusy] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [history, setHistory] = useState<StoredReport[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [downloading, setDownloading] = useState<string | null>(null);
+
+  const loadHistory = useCallback(async () => {
+    if (!tenantId) return;
+    try {
+      setHistory(await listReports(tenantId));
+    } catch {
+      /* history is non-critical; keep the page usable */
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [tenantId]);
+
+  useEffect(() => {
+    void loadHistory();
+  }, [loadHistory]);
+
+  /** Signed links are short-lived, so every download click mints a fresh one. */
+  const download = async (stored: StoredReport) => {
+    if (!tenantId) return;
+    setDownloading(stored.id);
+    try {
+      const url = await refreshReportLink(tenantId, stored, role);
+      window.open(url, "_blank", "noopener,noreferrer");
+      toast.success("Fresh download link issued", {
+        description: `${stored.name} · valid for 5 minutes · issuance audited`,
+      });
+    } catch (err) {
+      toast.error("Could not refresh download link", {
+        description: err instanceof Error ? err.message : "Please retry.",
+      });
+    } finally {
+      setDownloading(null);
+    }
+  };
 
   const runExport = async (r: Report, format: ReportFormat) => {
     if (!tenantId) {
       toast.error("Workspace not ready", { description: "Try again in a moment." });
       return;
     }
+    if (!canExport) {
+      toast.error("Export not permitted", {
+        description: `The ${role} role has view-only access to reports.`,
+      });
+      return;
+    }
     const key = `${r.id}:${format}`;
     setBusy(key);
+    setProgress(15);
+    const ticker = window.setInterval(() => setProgress((p) => (p < 85 ? p + 12 : p)), 220);
     const label = FORMAT_LABEL[format];
     try {
       const generated = await generateReport({
@@ -67,7 +125,9 @@ function ReportsPage() {
         rows: sampleRows(r),
         actorRole: role,
       });
+      setProgress(100);
       window.open(generated.signedUrl, "_blank", "noopener,noreferrer");
+      void loadHistory();
       toast.success(`${label} export ready`, {
         description: `${r.title} stored in your workspace · signed link valid for 5 minutes`,
         action: {
@@ -80,7 +140,9 @@ function ReportsPage() {
         description: err instanceof Error ? err.message : "Please retry.",
       });
     } finally {
+      window.clearInterval(ticker);
       setBusy(null);
+      setProgress(0);
     }
   };
 
@@ -90,9 +152,15 @@ function ReportsPage() {
         title="Reports"
         description="Executive-ready reports generated on a schedule or on demand. Every export is stored per tenant and delivered through a short-lived signed link."
         actions={
-          <Button size="sm">
-            <FileBarChart className="mr-1.5 h-4 w-4" /> Generate report
-          </Button>
+          canExport ? (
+            <Button size="sm">
+              <FileBarChart className="mr-1.5 h-4 w-4" /> Generate report
+            </Button>
+          ) : (
+            <StatusPill tone="info" icon={Lock}>
+              View-only ({role})
+            </StatusPill>
+          )
         }
       />
 
@@ -125,7 +193,7 @@ function ReportsPage() {
                       size="sm"
                       variant="outline"
                       className="flex-1"
-                      disabled={pending}
+                      disabled={pending || !canExport}
                       onClick={() => void runExport(r, "pdf")}
                     >
                       {busy === `${r.id}:pdf` ? (
@@ -139,7 +207,7 @@ function ReportsPage() {
                       size="sm"
                       variant="outline"
                       className="flex-1"
-                      disabled={pending}
+                      disabled={pending || !canExport}
                       onClick={() => void runExport(r, "csv")}
                     >
                       {busy === `${r.id}:csv` ? (
@@ -151,7 +219,7 @@ function ReportsPage() {
                     </Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button size="sm" variant="ghost" aria-label="Export report" disabled={pending}>
+                        <Button size="sm" variant="ghost" aria-label="Export report" disabled={pending || !canExport}>
                           <Download className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -168,9 +236,12 @@ function ReportsPage() {
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
+                  {pending && <Progress value={progress} className="h-1" />}
                   <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                     <ShieldCheck className="h-3 w-3 text-success" />
-                    Tenant-scoped storage · signed link · export audited
+                    {canExport
+                      ? "Tenant-scoped storage · signed link · export audited"
+                      : "Exports require Admin or Manager role"}
                   </p>
                 </CardContent>
               </Card>
