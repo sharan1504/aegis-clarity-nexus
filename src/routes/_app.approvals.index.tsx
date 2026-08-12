@@ -66,8 +66,10 @@ interface ListSearch {
 
 type SortKey = "id" | "title" | "team" | "risk" | "stage" | "window";
 const SORT_KEYS: SortKey[] = ["id", "title", "team", "risk", "stage", "window"];
+import { pageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/_app/approvals/")({
+  head: () => pageHead({ path: "/approvals", title: "Change Control Center — Aegis AI", description: "Review change records with risk scores, approval progress, change windows, and team ownership in a dense enterprise change management list." }),
   validateSearch: (raw: Record<string, unknown>): ListSearch => ({
     stage: typeof raw.stage === "string" ? raw.stage : "all",
     risk: typeof raw.risk === "string" ? raw.risk : "all",

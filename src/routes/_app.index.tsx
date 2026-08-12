@@ -54,8 +54,10 @@ import {
   recommendations,
   securityAlerts,
 } from "@/lib/mock-data";
+import { pageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/_app/")({
+  head: () => pageHead({ path: "/", title: "Operations Dashboard — Aegis AI", description: "Track incidents, security alerts, cost savings, and platform health across every connected enterprise system in one AI operations dashboard." }),
   component: DashboardPage,
 });
 

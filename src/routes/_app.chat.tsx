@@ -7,8 +7,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { chatSuggestions } from "@/lib/mock-data";
+import { pageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/_app/chat")({
+  head: () => pageHead({ path: "/chat", title: "Ask Aegis — Operations AI Chat", description: "Ask questions about incidents, spend, licences, and security posture and get grounded answers from your connected enterprise systems." }),
   component: ChatPage,
 });
 

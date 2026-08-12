@@ -17,8 +17,10 @@ import {
 } from "@/components/ui/sheet";
 import { agentFindings, agents, type Agent } from "@/lib/mock-data";
 import { useRole } from "@/lib/rbac";
+import { pageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/_app/agents")({
+  head: () => pageHead({ path: "/agents", title: "AI Agents & Findings — Aegis AI", description: "Run, pause, and audit specialised AI agents for incidents, licensing, cloud cost, and security, and drill into every finding they raise." }),
   component: AgentsPage,
 });
 

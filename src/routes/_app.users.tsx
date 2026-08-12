@@ -15,8 +15,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { users, auditLog } from "@/lib/mock-data";
+import { pageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/_app/users")({
+  head: () => pageHead({ path: "/users", title: "Team & Roles — Aegis AI", description: "Manage members and role-based access for Admin, Manager, Analyst, and Viewer users across your Aegis AI tenant." }),
   component: UsersPage,
 });
 
