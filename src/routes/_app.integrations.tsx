@@ -40,7 +40,9 @@ const STATUS_ORDER: Record<string, number> = { action_required: 0, available: 1,
 type WizardStep = "review" | "authorize" | "verify" | "done";
 
 function IntegrationsPage() {
-  const [items, setItems] = useState<Integration[]>(seed);
+  // Genesys is a real integration now and renders from live backend state; the
+  // remaining providers keep their prototype wizard until they are implemented.
+  const [items, setItems] = useState<Integration[]>(seed.filter((i) => i.id !== "genesys"));
   const [target, setTarget] = useState<Integration | null>(null);
   const [step, setStep] = useState<WizardStep>("review");
 
