@@ -79,6 +79,7 @@ function IntegrationsPage() {
       />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <GenesysCard />
         {[...items]
           .sort((a, b) => (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9))
           .map((i) => {
