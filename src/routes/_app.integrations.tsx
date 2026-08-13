@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { GenesysCard } from "@/components/integrations/GenesysCard";
 import { integrations as seed, type Integration } from "@/lib/mock-data";
 import { pageHead } from "@/lib/seo";
 
