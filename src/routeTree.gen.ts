@@ -25,6 +25,7 @@ import { Route as AppAgentsRouteImport } from './routes/_app.agents'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as AppApprovalsIndexRouteImport } from './routes/_app.approvals.index'
+import { Route as IntegrationsGenesysCallbackRouteImport } from './routes/integrations.genesys.callback'
 import { Route as AppApprovalsIdRouteImport } from './routes/_app.approvals.$id'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
@@ -110,6 +111,12 @@ const AppApprovalsIndexRoute = AppApprovalsIndexRouteImport.update({
   path: '/approvals/',
   getParentRoute: () => AppRoute,
 } as any)
+const IntegrationsGenesysCallbackRoute =
+  IntegrationsGenesysCallbackRouteImport.update({
+    id: '/integrations/genesys/callback',
+    path: '/integrations/genesys/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AppApprovalsIdRoute = AppApprovalsIdRouteImport.update({
   id: '/approvals/$id',
   path: '/approvals/$id',
@@ -145,6 +152,7 @@ export interface FileRoutesByFullPath {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/approvals/$id': typeof AppApprovalsIdRoute
+  '/integrations/genesys/callback': typeof IntegrationsGenesysCallbackRoute
   '/approvals/': typeof AppApprovalsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -165,6 +173,7 @@ export interface FileRoutesByTo {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/approvals/$id': typeof AppApprovalsIdRoute
+  '/integrations/genesys/callback': typeof IntegrationsGenesysCallbackRoute
   '/approvals': typeof AppApprovalsIndexRoute
 }
 export interface FileRoutesById {
@@ -187,6 +196,7 @@ export interface FileRoutesById {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/_app/approvals/$id': typeof AppApprovalsIdRoute
+  '/integrations/genesys/callback': typeof IntegrationsGenesysCallbackRoute
   '/_app/approvals/': typeof AppApprovalsIndexRoute
 }
 export interface FileRouteTypes {
@@ -209,6 +219,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/approvals/$id'
+    | '/integrations/genesys/callback'
     | '/approvals/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -229,6 +240,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/approvals/$id'
+    | '/integrations/genesys/callback'
     | '/approvals'
   id:
     | '__root__'
@@ -250,6 +262,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/_app/approvals/$id'
+    | '/integrations/genesys/callback'
     | '/_app/approvals/'
   fileRoutesById: FileRoutesById
 }
@@ -263,6 +276,7 @@ export interface RootRouteChildren {
   ResourcesWhatIsAiopsRoute: typeof ResourcesWhatIsAiopsRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
+  IntegrationsGenesysCallbackRoute: typeof IntegrationsGenesysCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -379,6 +393,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppApprovalsIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/integrations/genesys/callback': {
+      id: '/integrations/genesys/callback'
+      path: '/integrations/genesys/callback'
+      fullPath: '/integrations/genesys/callback'
+      preLoaderRoute: typeof IntegrationsGenesysCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app/approvals/$id': {
       id: '/_app/approvals/$id'
       path: '/approvals/$id'
@@ -442,6 +463,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResourcesWhatIsAiopsRoute: ResourcesWhatIsAiopsRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
+  IntegrationsGenesysCallbackRoute: IntegrationsGenesysCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

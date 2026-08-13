@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { GenesysCard } from "@/components/integrations/GenesysCard";
 import { integrations as seed, type Integration } from "@/lib/mock-data";
 import { pageHead } from "@/lib/seo";
 
@@ -39,7 +40,9 @@ const STATUS_ORDER: Record<string, number> = { action_required: 0, available: 1,
 type WizardStep = "review" | "authorize" | "verify" | "done";
 
 function IntegrationsPage() {
-  const [items, setItems] = useState<Integration[]>(seed);
+  // Genesys is a real integration now and renders from live backend state; the
+  // remaining providers keep their prototype wizard until they are implemented.
+  const [items, setItems] = useState<Integration[]>(seed.filter((i) => i.id !== "genesys"));
   const [target, setTarget] = useState<Integration | null>(null);
   const [step, setStep] = useState<WizardStep>("review");
 
@@ -76,6 +79,7 @@ function IntegrationsPage() {
       />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <GenesysCard />
         {[...items]
           .sort((a, b) => (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9))
           .map((i) => {
