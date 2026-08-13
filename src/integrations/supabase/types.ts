@@ -210,6 +210,445 @@ export type Database = {
           },
         ]
       }
+      genesys_licenses: {
+        Row: {
+          assigned_count: number
+          created_at: string
+          id: string
+          integration_id: string
+          license_id: string
+          name: string | null
+          permissions: string[]
+          raw: Json
+          synced_at: string
+          tenant_id: string
+          total_count: number | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_count?: number
+          created_at?: string
+          id?: string
+          integration_id: string
+          license_id: string
+          name?: string | null
+          permissions?: string[]
+          raw?: Json
+          synced_at?: string
+          tenant_id: string
+          total_count?: number | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_count?: number
+          created_at?: string
+          id?: string
+          integration_id?: string
+          license_id?: string
+          name?: string | null
+          permissions?: string[]
+          raw?: Json
+          synced_at?: string
+          tenant_id?: string
+          total_count?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "genesys_licenses_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "genesys_licenses_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      genesys_queues: {
+        Row: {
+          created_at: string
+          date_created: string | null
+          description: string | null
+          division_name: string | null
+          id: string
+          integration_id: string
+          media_settings: Json
+          member_count: number | null
+          name: string | null
+          queue_id: string
+          raw: Json
+          synced_at: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date_created?: string | null
+          description?: string | null
+          division_name?: string | null
+          id?: string
+          integration_id: string
+          media_settings?: Json
+          member_count?: number | null
+          name?: string | null
+          queue_id: string
+          raw?: Json
+          synced_at?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date_created?: string | null
+          description?: string | null
+          division_name?: string | null
+          id?: string
+          integration_id?: string
+          media_settings?: Json
+          member_count?: number | null
+          name?: string | null
+          queue_id?: string
+          raw?: Json
+          synced_at?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "genesys_queues_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "genesys_queues_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      genesys_users: {
+        Row: {
+          created_at: string
+          date_created: string | null
+          department: string | null
+          division_name: string | null
+          email: string | null
+          genesys_user_id: string
+          id: string
+          integration_id: string
+          last_login_at: string | null
+          license_name: string | null
+          name: string | null
+          presence: string | null
+          raw: Json
+          state: string | null
+          synced_at: string
+          tenant_id: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date_created?: string | null
+          department?: string | null
+          division_name?: string | null
+          email?: string | null
+          genesys_user_id: string
+          id?: string
+          integration_id: string
+          last_login_at?: string | null
+          license_name?: string | null
+          name?: string | null
+          presence?: string | null
+          raw?: Json
+          state?: string | null
+          synced_at?: string
+          tenant_id: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date_created?: string | null
+          department?: string | null
+          division_name?: string | null
+          email?: string | null
+          genesys_user_id?: string
+          id?: string
+          integration_id?: string
+          last_login_at?: string | null
+          license_name?: string | null
+          name?: string | null
+          presence?: string | null
+          raw?: Json
+          state?: string | null
+          synced_at?: string
+          tenant_id?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "genesys_users_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "genesys_users_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integration_credentials: {
+        Row: {
+          access_token: string | null
+          client_id: string | null
+          client_secret: string | null
+          created_at: string
+          expires_at: string | null
+          id: string
+          integration_id: string
+          refresh_token: string | null
+          scopes: string[]
+          tenant_id: string
+          token_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token?: string | null
+          client_id?: string | null
+          client_secret?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          integration_id: string
+          refresh_token?: string | null
+          scopes?: string[]
+          tenant_id: string
+          token_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string | null
+          client_id?: string | null
+          client_secret?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          integration_id?: string
+          refresh_token?: string | null
+          scopes?: string[]
+          tenant_id?: string
+          token_type?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_credentials_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: true
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "integration_credentials_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integration_oauth_states: {
+        Row: {
+          consumed_at: string | null
+          created_at: string
+          created_by: string | null
+          expires_at: string
+          provider: string
+          redirect_uri: string
+          region: string | null
+          state: string
+          tenant_id: string
+        }
+        Insert: {
+          consumed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          expires_at: string
+          provider: string
+          redirect_uri: string
+          region?: string | null
+          state: string
+          tenant_id: string
+        }
+        Update: {
+          consumed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          provider?: string
+          redirect_uri?: string
+          region?: string | null
+          state?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_oauth_states_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integration_sync_runs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          error_code: string | null
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          integration_id: string
+          started_at: string
+          stats: Json
+          status: string
+          tenant_id: string
+          trigger: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          integration_id: string
+          started_at?: string
+          stats?: Json
+          status?: string
+          tenant_id: string
+          trigger?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          integration_id?: string
+          started_at?: string
+          stats?: Json
+          status?: string
+          tenant_id?: string
+          trigger?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_sync_runs_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "integration_sync_runs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integrations: {
+        Row: {
+          connected_at: string | null
+          connected_by: string | null
+          created_at: string
+          external_org_id: string | null
+          external_org_name: string | null
+          health_detail: string | null
+          health_status: string
+          id: string
+          last_sync_at: string | null
+          last_sync_error: string | null
+          last_sync_status: string | null
+          metadata: Json
+          provider: string
+          region: string | null
+          scopes: string[]
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          connected_at?: string | null
+          connected_by?: string | null
+          created_at?: string
+          external_org_id?: string | null
+          external_org_name?: string | null
+          health_detail?: string | null
+          health_status?: string
+          id?: string
+          last_sync_at?: string | null
+          last_sync_error?: string | null
+          last_sync_status?: string | null
+          metadata?: Json
+          provider: string
+          region?: string | null
+          scopes?: string[]
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          connected_at?: string | null
+          connected_by?: string | null
+          created_at?: string
+          external_org_id?: string | null
+          external_org_name?: string | null
+          health_detail?: string | null
+          health_status?: string
+          id?: string
+          last_sync_at?: string | null
+          last_sync_error?: string | null
+          last_sync_status?: string | null
+          metadata?: Json
+          provider?: string
+          region?: string | null
+          scopes?: string[]
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integrations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string | null
