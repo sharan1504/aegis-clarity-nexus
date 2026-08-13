@@ -16,6 +16,13 @@ export type AuditAction =
   | "report.downloaded"
   | "report.link_issued"
   | "integration.connected"
+  | "integration.oauth_started"
+  | "integration.oauth_completed"
+  | "integration.verified"
+  | "integration.sync_started"
+  | "integration.sync_completed"
+  | "integration.sync_failed"
+  | "integration.disconnected"
   | "role.changed";
 
 export interface AuditInput {
