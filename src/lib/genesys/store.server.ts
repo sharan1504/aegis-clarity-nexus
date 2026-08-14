@@ -309,14 +309,15 @@ export interface SyncResult {
   status: "success" | "failed";
   startedAt: string;
   finishedAt: string;
-  counts: { users: number; licenses: number; queues: number };
+  counts: { users: number; licenses: number; userLicenses: number; queues: number };
   errorCode?: string;
   errorMessage?: string;
 }
 
 /**
- * Manual read-only sync: pulls users, licenses and queues from Genesys and
- * upserts them into Postgres, recording a sync run row either way.
+ * Manual read-only sync: pulls users, license definitions, user-license
+ * assignments and queues from Genesys and upserts them into Postgres,
+ * recording a sync run row either way.
  */
 export async function runSync(
   supabase: UserClient,
@@ -349,19 +350,22 @@ export async function runSync(
     payload: { provider: PROVIDER, runId: run?.id ?? null },
   });
 
-  const counts = { users: 0, licenses: 0, queues: 0 };
+  const counts = { users: 0, licenses: 0, userLicenses: 0, queues: 0 };
 
   try {
     const token = await getAccessToken(integrationId, tenantId, region);
     const org = await genesys.getOrganization(token, region);
 
-    const [users, licenses, queues] = await Promise.all([
+    const [users, assignments, queues] = await Promise.all([
       genesys.listUsers(token, region),
-      genesys.listLicenses(token, region),
+      genesys.listUserLicenseAssignments(token, region),
       genesys.listQueues(token, region),
     ]);
+    const licenses = await genesys.listLicenses(token, region, assignments);
 
     const syncedAt = new Date().toISOString();
+
+
 
     if (users.length) {
       const { error } = await db.from("genesys_users").upsert(
