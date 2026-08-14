@@ -292,14 +292,45 @@ export async function listUsers(
   }));
 }
 
+export interface GenesysUserLicenseAssignment {
+  genesysUserId: string;
+  licenseIds: string[];
+}
+
 /**
- * License retrieval. Genesys exposes license definitions plus per-user
- * assignments; assignment counts are derived from the user-license endpoint
- * when the org permits it, otherwise definitions are stored with a zero count.
+ * Read-only user-to-license assignments.
+ * GET /api/v2/license/users returns one entity per user with the license ids
+ * currently assigned to them. This is the authoritative relationship source —
+ * genesys_users.license_name is never used for it.
+ */
+export async function listUserLicenseAssignments(
+  accessToken: string,
+  regionId?: string | null,
+): Promise<GenesysUserLicenseAssignment[]> {
+  type Assignment = { id: string; licenses?: string[] };
+  const assignments = await pageThrough<Assignment>(
+    (p) => `/api/v2/license/users?pageSize=100&pageNumber=${p}`,
+    accessToken,
+    regionId,
+    50,
+  );
+
+  return assignments
+    .filter((a) => Boolean(a?.id))
+    .map((a) => ({
+      genesysUserId: a.id,
+      licenseIds: Array.from(new Set((a.licenses ?? []).filter(Boolean))),
+    }));
+}
+
+/**
+ * License definitions. Assignment counts are derived from the supplied
+ * user-license assignments so definitions and relationships stay consistent.
  */
 export async function listLicenses(
   accessToken: string,
   regionId?: string | null,
+  assignments: GenesysUserLicenseAssignment[] = [],
 ): Promise<GenesysLicenseRecord[]> {
   type Definition = { id: string; name?: string; permissions?: string[] };
   const definitions = await apiGet<Definition[] | Paged<Definition>>(
@@ -310,22 +341,10 @@ export async function listLicenses(
   const defs = Array.isArray(definitions) ? definitions : (definitions.entities ?? []);
 
   const counts = new Map<string, number>();
-  try {
-    type Assignment = { id: string; licenses?: string[] };
-    const assignments = await pageThrough<Assignment>(
-      (p) => `/api/v2/license/users?pageSize=100&pageNumber=${p}`,
-      accessToken,
-      regionId,
-      25,
-    );
-    for (const a of assignments) {
-      for (const licenseId of a.licenses ?? []) {
-        counts.set(licenseId, (counts.get(licenseId) ?? 0) + 1);
-      }
+  for (const a of assignments) {
+    for (const licenseId of a.licenseIds) {
+      counts.set(licenseId, (counts.get(licenseId) ?? 0) + 1);
     }
-  } catch (error) {
-    // Assignment listing is optional; definitions still sync.
-    console.warn("[genesys] license assignments unavailable", error);
   }
 
   return defs.map((d) => ({
