@@ -99,7 +99,7 @@ export interface IntegrationSummary {
   lastSyncStatus: string | null;
   lastSyncError: string | null;
   connectedAt: string | null;
-  counts?: { users: number; licenses: number; queues: number };
+  counts?: { users: number; licenses: number; userLicenses: number; queues: number };
 }
 
 /** Reads integration state through the caller's session (RLS-scoped). */
