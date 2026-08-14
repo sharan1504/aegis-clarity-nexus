@@ -490,7 +490,7 @@ export async function runSync(
       tenantId,
       action: "integration.sync_completed",
       entityId: integrationId,
-      detail: `Genesys sync completed: ${counts.users} users, ${counts.licenses} licenses, ${counts.queues} queues.`,
+      detail: `Genesys sync completed: ${counts.users} users, ${counts.licenses} license types, ${counts.userLicenses} user-license assignments, ${counts.queues} queues.`,
       payload: { provider: PROVIDER, runId: run?.id ?? null, ...counts },
     });
 
