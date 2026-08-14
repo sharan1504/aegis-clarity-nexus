@@ -195,7 +195,7 @@ export function GenesysCard() {
                   <dt className="text-muted-foreground">Records</dt>
                   <dd className="font-medium text-foreground">
                     {integration?.counts
-                      ? `${integration.counts.users}u · ${integration.counts.licenses}l · ${integration.counts.queues}q`
+                      ? `${integration.counts.users} users · ${integration.counts.licenses} license types · ${integration.counts.userLicenses} assignments · ${integration.counts.queues} queues`
                       : "—"}
                   </dd>
                 </div>
