@@ -62,6 +62,7 @@ export function toErrorMessage(error: unknown): string {
 export const GENESYS_SCOPES = [
   "organization:readonly",
   "users:readonly",
+  "license:readonly",
   "routing:readonly",
   "authorization:readonly",
   "presence:readonly",
