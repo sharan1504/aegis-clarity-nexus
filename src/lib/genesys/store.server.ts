@@ -410,6 +410,41 @@ export async function runSync(
       counts.licenses = licenses.length;
     }
 
+    // User-to-license relationships. Rows are stamped with this run's
+    // synced_at, then anything older is deleted so the dataset always
+    // represents the latest successful synchronization.
+    const assignmentRows = assignments.flatMap((a) =>
+      a.licenseIds.map((licenseId) => ({
+        tenant_id: tenantId,
+        integration_id: integrationId,
+        genesys_user_id: a.genesysUserId,
+        license_id: licenseId,
+        synced_at: syncedAt,
+        updated_at: syncedAt,
+      })),
+    );
+
+    for (let i = 0; i < assignmentRows.length; i += 500) {
+      const chunk = assignmentRows.slice(i, i + 500);
+      const { error } = await db
+        .from("genesys_user_licenses")
+        .upsert(chunk as never, {
+          onConflict: "integration_id,genesys_user_id,license_id",
+        });
+      if (error) throw new IntegrationError("provider_error", error.message);
+    }
+    counts.userLicenses = assignmentRows.length;
+
+    {
+      const { error } = await db
+        .from("genesys_user_licenses")
+        .delete()
+        .eq("integration_id", integrationId)
+        .lt("synced_at", syncedAt);
+      if (error) throw new IntegrationError("provider_error", error.message);
+    }
+
+
     if (queues.length) {
       const { error } = await db.from("genesys_queues").upsert(
         queues.map((q) => ({
