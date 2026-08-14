@@ -97,7 +97,7 @@ export function GenesysCard() {
     onSuccess: (res) => {
       if (res.ok && "counts" in res && res.counts) {
         toast.success("Genesys sync completed", {
-          description: `${res.counts.users} users · ${res.counts.licenses} licenses · ${res.counts.queues} queues`,
+          description: `${res.counts.users} users · ${res.counts.licenses} license types · ${res.counts.userLicenses} user-license assignments · ${res.counts.queues} queues`,
         });
       } else {
         toast.error("Genesys sync failed", { description: res.errorMessage });
