@@ -99,7 +99,7 @@ export interface IntegrationSummary {
   lastSyncStatus: string | null;
   lastSyncError: string | null;
   connectedAt: string | null;
-  counts?: { users: number; licenses: number; queues: number };
+  counts?: { users: number; licenses: number; userLicenses: number; queues: number };
 }
 
 /** Reads integration state through the caller's session (RLS-scoped). */
@@ -118,13 +118,17 @@ export async function getIntegrationSummary(
 
   if (!data) return null;
 
-  const [users, licenses, queues] = await Promise.all([
+  const [users, licenses, userLicenses, queues] = await Promise.all([
     supabase
       .from("genesys_users")
       .select("id", { count: "exact", head: true })
       .eq("integration_id", data.id),
     supabase
       .from("genesys_licenses")
+      .select("id", { count: "exact", head: true })
+      .eq("integration_id", data.id),
+    supabase
+      .from("genesys_user_licenses")
       .select("id", { count: "exact", head: true })
       .eq("integration_id", data.id),
     supabase
@@ -150,6 +154,7 @@ export async function getIntegrationSummary(
     counts: {
       users: users.count ?? 0,
       licenses: licenses.count ?? 0,
+      userLicenses: userLicenses.count ?? 0,
       queues: queues.count ?? 0,
     },
   };
@@ -304,14 +309,15 @@ export interface SyncResult {
   status: "success" | "failed";
   startedAt: string;
   finishedAt: string;
-  counts: { users: number; licenses: number; queues: number };
+  counts: { users: number; licenses: number; userLicenses: number; queues: number };
   errorCode?: string;
   errorMessage?: string;
 }
 
 /**
- * Manual read-only sync: pulls users, licenses and queues from Genesys and
- * upserts them into Postgres, recording a sync run row either way.
+ * Manual read-only sync: pulls users, license definitions, user-license
+ * assignments and queues from Genesys and upserts them into Postgres,
+ * recording a sync run row either way.
  */
 export async function runSync(
   supabase: UserClient,
@@ -344,19 +350,22 @@ export async function runSync(
     payload: { provider: PROVIDER, runId: run?.id ?? null },
   });
 
-  const counts = { users: 0, licenses: 0, queues: 0 };
+  const counts = { users: 0, licenses: 0, userLicenses: 0, queues: 0 };
 
   try {
     const token = await getAccessToken(integrationId, tenantId, region);
     const org = await genesys.getOrganization(token, region);
 
-    const [users, licenses, queues] = await Promise.all([
+    const [users, assignments, queues] = await Promise.all([
       genesys.listUsers(token, region),
-      genesys.listLicenses(token, region),
+      genesys.listUserLicenseAssignments(token, region),
       genesys.listQueues(token, region),
     ]);
+    const licenses = await genesys.listLicenses(token, region, assignments);
 
     const syncedAt = new Date().toISOString();
+
+
 
     if (users.length) {
       const { error } = await db.from("genesys_users").upsert(
@@ -400,6 +409,41 @@ export async function runSync(
       if (error) throw new IntegrationError("provider_error", error.message);
       counts.licenses = licenses.length;
     }
+
+    // User-to-license relationships. Rows are stamped with this run's
+    // synced_at, then anything older is deleted so the dataset always
+    // represents the latest successful synchronization.
+    const assignmentRows = assignments.flatMap((a) =>
+      a.licenseIds.map((licenseId) => ({
+        tenant_id: tenantId,
+        integration_id: integrationId,
+        genesys_user_id: a.genesysUserId,
+        license_id: licenseId,
+        synced_at: syncedAt,
+        updated_at: syncedAt,
+      })),
+    );
+
+    for (let i = 0; i < assignmentRows.length; i += 500) {
+      const chunk = assignmentRows.slice(i, i + 500);
+      const { error } = await db
+        .from("genesys_user_licenses")
+        .upsert(chunk as never, {
+          onConflict: "integration_id,genesys_user_id,license_id",
+        });
+      if (error) throw new IntegrationError("provider_error", error.message);
+    }
+    counts.userLicenses = assignmentRows.length;
+
+    {
+      const { error } = await db
+        .from("genesys_user_licenses")
+        .delete()
+        .eq("integration_id", integrationId)
+        .lt("synced_at", syncedAt);
+      if (error) throw new IntegrationError("provider_error", error.message);
+    }
+
 
     if (queues.length) {
       const { error } = await db.from("genesys_queues").upsert(
@@ -446,7 +490,7 @@ export async function runSync(
       tenantId,
       action: "integration.sync_completed",
       entityId: integrationId,
-      detail: `Genesys sync completed: ${counts.users} users, ${counts.licenses} licenses, ${counts.queues} queues.`,
+      detail: `Genesys sync completed: ${counts.users} users, ${counts.licenses} license types, ${counts.userLicenses} user-license assignments, ${counts.queues} queues.`,
       payload: { provider: PROVIDER, runId: run?.id ?? null, ...counts },
     });
 

@@ -336,6 +336,54 @@ export type Database = {
           },
         ]
       }
+      genesys_user_licenses: {
+        Row: {
+          created_at: string
+          genesys_user_id: string
+          id: string
+          integration_id: string
+          license_id: string
+          synced_at: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          genesys_user_id: string
+          id?: string
+          integration_id: string
+          license_id: string
+          synced_at?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          genesys_user_id?: string
+          id?: string
+          integration_id?: string
+          license_id?: string
+          synced_at?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "genesys_user_licenses_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "genesys_user_licenses_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       genesys_users: {
         Row: {
           created_at: string
