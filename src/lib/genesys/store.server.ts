@@ -118,13 +118,17 @@ export async function getIntegrationSummary(
 
   if (!data) return null;
 
-  const [users, licenses, queues] = await Promise.all([
+  const [users, licenses, userLicenses, queues] = await Promise.all([
     supabase
       .from("genesys_users")
       .select("id", { count: "exact", head: true })
       .eq("integration_id", data.id),
     supabase
       .from("genesys_licenses")
+      .select("id", { count: "exact", head: true })
+      .eq("integration_id", data.id),
+    supabase
+      .from("genesys_user_licenses")
       .select("id", { count: "exact", head: true })
       .eq("integration_id", data.id),
     supabase
@@ -150,6 +154,7 @@ export async function getIntegrationSummary(
     counts: {
       users: users.count ?? 0,
       licenses: licenses.count ?? 0,
+      userLicenses: userLicenses.count ?? 0,
       queues: queues.count ?? 0,
     },
   };
