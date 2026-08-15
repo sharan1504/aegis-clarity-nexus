@@ -214,12 +214,19 @@ export type Database = {
         Row: {
           assigned_count: number
           created_at: string
+          first_seen_at: string
           id: string
           integration_id: string
+          is_current: boolean
+          last_seen_at: string
+          last_seen_sync_id: string | null
           license_id: string
           name: string | null
           permissions: string[]
           raw: Json
+          retired_at: string | null
+          snapshot_id: string | null
+          sync_id: string | null
           synced_at: string
           tenant_id: string
           total_count: number | null
@@ -228,12 +235,19 @@ export type Database = {
         Insert: {
           assigned_count?: number
           created_at?: string
+          first_seen_at?: string
           id?: string
           integration_id: string
+          is_current?: boolean
+          last_seen_at?: string
+          last_seen_sync_id?: string | null
           license_id: string
           name?: string | null
           permissions?: string[]
           raw?: Json
+          retired_at?: string | null
+          snapshot_id?: string | null
+          sync_id?: string | null
           synced_at?: string
           tenant_id: string
           total_count?: number | null
@@ -242,12 +256,19 @@ export type Database = {
         Update: {
           assigned_count?: number
           created_at?: string
+          first_seen_at?: string
           id?: string
           integration_id?: string
+          is_current?: boolean
+          last_seen_at?: string
+          last_seen_sync_id?: string | null
           license_id?: string
           name?: string | null
           permissions?: string[]
           raw?: Json
+          retired_at?: string | null
+          snapshot_id?: string | null
+          sync_id?: string | null
           synced_at?: string
           tenant_id?: string
           total_count?: number | null
@@ -276,13 +297,20 @@ export type Database = {
           date_created: string | null
           description: string | null
           division_name: string | null
+          first_seen_at: string
           id: string
           integration_id: string
+          is_current: boolean
+          last_seen_at: string
+          last_seen_sync_id: string | null
           media_settings: Json
           member_count: number | null
           name: string | null
           queue_id: string
           raw: Json
+          retired_at: string | null
+          snapshot_id: string | null
+          sync_id: string | null
           synced_at: string
           tenant_id: string
           updated_at: string
@@ -292,13 +320,20 @@ export type Database = {
           date_created?: string | null
           description?: string | null
           division_name?: string | null
+          first_seen_at?: string
           id?: string
           integration_id: string
+          is_current?: boolean
+          last_seen_at?: string
+          last_seen_sync_id?: string | null
           media_settings?: Json
           member_count?: number | null
           name?: string | null
           queue_id: string
           raw?: Json
+          retired_at?: string | null
+          snapshot_id?: string | null
+          sync_id?: string | null
           synced_at?: string
           tenant_id: string
           updated_at?: string
@@ -308,13 +343,20 @@ export type Database = {
           date_created?: string | null
           description?: string | null
           division_name?: string | null
+          first_seen_at?: string
           id?: string
           integration_id?: string
+          is_current?: boolean
+          last_seen_at?: string
+          last_seen_sync_id?: string | null
           media_settings?: Json
           member_count?: number | null
           name?: string | null
           queue_id?: string
           raw?: Json
+          retired_at?: string | null
+          snapshot_id?: string | null
+          sync_id?: string | null
           synced_at?: string
           tenant_id?: string
           updated_at?: string
@@ -339,30 +381,51 @@ export type Database = {
       genesys_user_licenses: {
         Row: {
           created_at: string
+          first_seen_at: string
           genesys_user_id: string
           id: string
           integration_id: string
+          is_current: boolean
+          last_seen_at: string
+          last_seen_sync_id: string | null
           license_id: string
+          retired_at: string | null
+          snapshot_id: string | null
+          sync_id: string | null
           synced_at: string
           tenant_id: string
           updated_at: string
         }
         Insert: {
           created_at?: string
+          first_seen_at?: string
           genesys_user_id: string
           id?: string
           integration_id: string
+          is_current?: boolean
+          last_seen_at?: string
+          last_seen_sync_id?: string | null
           license_id: string
+          retired_at?: string | null
+          snapshot_id?: string | null
+          sync_id?: string | null
           synced_at?: string
           tenant_id: string
           updated_at?: string
         }
         Update: {
           created_at?: string
+          first_seen_at?: string
           genesys_user_id?: string
           id?: string
           integration_id?: string
+          is_current?: boolean
+          last_seen_at?: string
+          last_seen_sync_id?: string | null
           license_id?: string
+          retired_at?: string | null
+          snapshot_id?: string | null
+          sync_id?: string | null
           synced_at?: string
           tenant_id?: string
           updated_at?: string
@@ -391,15 +454,22 @@ export type Database = {
           department: string | null
           division_name: string | null
           email: string | null
+          first_seen_at: string
           genesys_user_id: string
           id: string
           integration_id: string
+          is_current: boolean
           last_login_at: string | null
+          last_seen_at: string
+          last_seen_sync_id: string | null
           license_name: string | null
           name: string | null
           presence: string | null
           raw: Json
+          retired_at: string | null
+          snapshot_id: string | null
           state: string | null
+          sync_id: string | null
           synced_at: string
           tenant_id: string
           title: string | null
@@ -411,15 +481,22 @@ export type Database = {
           department?: string | null
           division_name?: string | null
           email?: string | null
+          first_seen_at?: string
           genesys_user_id: string
           id?: string
           integration_id: string
+          is_current?: boolean
           last_login_at?: string | null
+          last_seen_at?: string
+          last_seen_sync_id?: string | null
           license_name?: string | null
           name?: string | null
           presence?: string | null
           raw?: Json
+          retired_at?: string | null
+          snapshot_id?: string | null
           state?: string | null
+          sync_id?: string | null
           synced_at?: string
           tenant_id: string
           title?: string | null
@@ -431,15 +508,22 @@ export type Database = {
           department?: string | null
           division_name?: string | null
           email?: string | null
+          first_seen_at?: string
           genesys_user_id?: string
           id?: string
           integration_id?: string
+          is_current?: boolean
           last_login_at?: string | null
+          last_seen_at?: string
+          last_seen_sync_id?: string | null
           license_name?: string | null
           name?: string | null
           presence?: string | null
           raw?: Json
+          retired_at?: string | null
+          snapshot_id?: string | null
           state?: string | null
+          sync_id?: string | null
           synced_at?: string
           tenant_id?: string
           title?: string | null
@@ -570,44 +654,68 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          duration_ms: number | null
           error_code: string | null
           error_message: string | null
           finished_at: string | null
           id: string
           integration_id: string
+          lock_expires_at: string | null
+          promoted_at: string | null
+          retry_count: number
+          snapshot_id: string
           started_at: string
           stats: Json
           status: string
           tenant_id: string
           trigger: string
+          validation_detail: string | null
+          validation_status: string | null
+          warnings: Json
         }
         Insert: {
           created_at?: string
           created_by?: string | null
+          duration_ms?: number | null
           error_code?: string | null
           error_message?: string | null
           finished_at?: string | null
           id?: string
           integration_id: string
+          lock_expires_at?: string | null
+          promoted_at?: string | null
+          retry_count?: number
+          snapshot_id?: string
           started_at?: string
           stats?: Json
           status?: string
           tenant_id: string
           trigger?: string
+          validation_detail?: string | null
+          validation_status?: string | null
+          warnings?: Json
         }
         Update: {
           created_at?: string
           created_by?: string | null
+          duration_ms?: number | null
           error_code?: string | null
           error_message?: string | null
           finished_at?: string | null
           id?: string
           integration_id?: string
+          lock_expires_at?: string | null
+          promoted_at?: string | null
+          retry_count?: number
+          snapshot_id?: string
           started_at?: string
           stats?: Json
           status?: string
           tenant_id?: string
           trigger?: string
+          validation_detail?: string | null
+          validation_status?: string | null
+          warnings?: Json
         }
         Relationships: [
           {
@@ -628,6 +736,8 @@ export type Database = {
       }
       integrations: {
         Row: {
+          active_snapshot_id: string | null
+          active_sync_run_id: string | null
           connected_at: string | null
           connected_by: string | null
           created_at: string
@@ -644,10 +754,14 @@ export type Database = {
           region: string | null
           scopes: string[]
           status: string
+          sync_lock_expires_at: string | null
+          sync_lock_run_id: string | null
           tenant_id: string
           updated_at: string
         }
         Insert: {
+          active_snapshot_id?: string | null
+          active_sync_run_id?: string | null
           connected_at?: string | null
           connected_by?: string | null
           created_at?: string
@@ -664,10 +778,14 @@ export type Database = {
           region?: string | null
           scopes?: string[]
           status?: string
+          sync_lock_expires_at?: string | null
+          sync_lock_run_id?: string | null
           tenant_id: string
           updated_at?: string
         }
         Update: {
+          active_snapshot_id?: string | null
+          active_sync_run_id?: string | null
           connected_at?: string | null
           connected_by?: string | null
           created_at?: string
@@ -684,6 +802,8 @@ export type Database = {
           region?: string | null
           scopes?: string[]
           status?: string
+          sync_lock_expires_at?: string | null
+          sync_lock_run_id?: string | null
           tenant_id?: string
           updated_at?: string
         }
