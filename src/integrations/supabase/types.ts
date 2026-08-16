@@ -14,6 +14,197 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_capabilities: {
+        Row: {
+          agent_key: string
+          capability_id: string
+          created_at: string
+          id: string
+          required: boolean
+        }
+        Insert: {
+          agent_key: string
+          capability_id: string
+          created_at?: string
+          id?: string
+          required?: boolean
+        }
+        Update: {
+          agent_key?: string
+          capability_id?: string
+          created_at?: string
+          id?: string
+          required?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_capabilities_agent_key_fkey"
+            columns: ["agent_key"]
+            isOneToOne: false
+            referencedRelation: "agent_definitions"
+            referencedColumns: ["agent_key"]
+          },
+          {
+            foreignKeyName: "agent_capabilities_capability_id_fkey"
+            columns: ["capability_id"]
+            isOneToOne: false
+            referencedRelation: "capabilities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_definitions: {
+        Row: {
+          agent_key: string
+          category: string | null
+          created_at: string
+          description: string | null
+          display_name: string
+          id: string
+        }
+        Insert: {
+          agent_key: string
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          display_name: string
+          id?: string
+        }
+        Update: {
+          agent_key?: string
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          display_name?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      agent_integration_bindings: {
+        Row: {
+          agent_key: string
+          capability_id: string
+          created_at: string
+          created_by: string | null
+          enabled: boolean
+          id: string
+          integration_id: string
+          is_mock: boolean
+          policy: Json
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          agent_key: string
+          capability_id: string
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          id?: string
+          integration_id: string
+          is_mock?: boolean
+          policy?: Json
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          agent_key?: string
+          capability_id?: string
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          id?: string
+          integration_id?: string
+          is_mock?: boolean
+          policy?: Json
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_integration_bindings_agent_key_fkey"
+            columns: ["agent_key"]
+            isOneToOne: false
+            referencedRelation: "agent_definitions"
+            referencedColumns: ["agent_key"]
+          },
+          {
+            foreignKeyName: "agent_integration_bindings_capability_id_fkey"
+            columns: ["capability_id"]
+            isOneToOne: false
+            referencedRelation: "capabilities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_integration_bindings_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_integration_bindings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_settings: {
+        Row: {
+          agent_key: string
+          created_at: string
+          guardrails: Json
+          id: string
+          post_instructions: string | null
+          pre_instructions: string | null
+          system_instructions: string | null
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          agent_key: string
+          created_at?: string
+          guardrails?: Json
+          id?: string
+          post_instructions?: string | null
+          pre_instructions?: string | null
+          system_instructions?: string | null
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          agent_key?: string
+          created_at?: string
+          guardrails?: Json
+          id?: string
+          post_instructions?: string | null
+          pre_instructions?: string | null
+          system_instructions?: string | null
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_settings_agent_key_fkey"
+            columns: ["agent_key"]
+            isOneToOne: false
+            referencedRelation: "agent_definitions"
+            referencedColumns: ["agent_key"]
+          },
+          {
+            foreignKeyName: "agent_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -69,6 +260,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      capabilities: {
+        Row: {
+          capability_key: string
+          category: string
+          created_at: string
+          description: string | null
+          display_name: string
+          id: string
+          read_only: boolean
+          write_capable: boolean
+        }
+        Insert: {
+          capability_key: string
+          category?: string
+          created_at?: string
+          description?: string | null
+          display_name: string
+          id?: string
+          read_only?: boolean
+          write_capable?: boolean
+        }
+        Update: {
+          capability_key?: string
+          category?: string
+          created_at?: string
+          description?: string | null
+          display_name?: string
+          id?: string
+          read_only?: boolean
+          write_capable?: boolean
+        }
+        Relationships: []
       }
       change_approvals: {
         Row: {
@@ -741,11 +965,13 @@ export type Database = {
           connected_at: string | null
           connected_by: string | null
           created_at: string
+          display_name: string | null
           external_org_id: string | null
           external_org_name: string | null
           health_detail: string | null
           health_status: string
           id: string
+          is_mock: boolean
           last_sync_at: string | null
           last_sync_error: string | null
           last_sync_status: string | null
@@ -765,11 +991,13 @@ export type Database = {
           connected_at?: string | null
           connected_by?: string | null
           created_at?: string
+          display_name?: string | null
           external_org_id?: string | null
           external_org_name?: string | null
           health_detail?: string | null
           health_status?: string
           id?: string
+          is_mock?: boolean
           last_sync_at?: string | null
           last_sync_error?: string | null
           last_sync_status?: string | null
@@ -789,11 +1017,13 @@ export type Database = {
           connected_at?: string | null
           connected_by?: string | null
           created_at?: string
+          display_name?: string | null
           external_org_id?: string | null
           external_org_name?: string | null
           health_detail?: string | null
           health_status?: string
           id?: string
+          is_mock?: boolean
           last_sync_at?: string | null
           last_sync_error?: string | null
           last_sync_status?: string | null
@@ -892,6 +1122,41 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_capabilities: {
+        Row: {
+          capability_id: string
+          created_at: string
+          id: string
+          implemented: boolean
+          notes: string | null
+          provider: string
+        }
+        Insert: {
+          capability_id: string
+          created_at?: string
+          id?: string
+          implemented?: boolean
+          notes?: string | null
+          provider: string
+        }
+        Update: {
+          capability_id?: string
+          created_at?: string
+          id?: string
+          implemented?: boolean
+          notes?: string | null
+          provider?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_capabilities_capability_id_fkey"
+            columns: ["capability_id"]
+            isOneToOne: false
+            referencedRelation: "capabilities"
             referencedColumns: ["id"]
           },
         ]
