@@ -151,6 +151,60 @@ export type Database = {
           },
         ]
       }
+      agent_settings: {
+        Row: {
+          agent_key: string
+          created_at: string
+          guardrails: Json
+          id: string
+          post_instructions: string | null
+          pre_instructions: string | null
+          system_instructions: string | null
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          agent_key: string
+          created_at?: string
+          guardrails?: Json
+          id?: string
+          post_instructions?: string | null
+          pre_instructions?: string | null
+          system_instructions?: string | null
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          agent_key?: string
+          created_at?: string
+          guardrails?: Json
+          id?: string
+          post_instructions?: string | null
+          pre_instructions?: string | null
+          system_instructions?: string | null
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_settings_agent_key_fkey"
+            columns: ["agent_key"]
+            isOneToOne: false
+            referencedRelation: "agent_definitions"
+            referencedColumns: ["agent_key"]
+          },
+          {
+            foreignKeyName: "agent_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
