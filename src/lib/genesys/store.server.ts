@@ -4,13 +4,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/integrations/supabase/types";
-import {
-  GENESYS_SCOPES,
-  IntegrationError,
-  normalizeGenesysRegion,
-  toErrorCode,
-  toErrorMessage,
-} from "./errors";
+import { GENESYS_SCOPES, IntegrationError, normalizeGenesysRegion, toErrorCode, toErrorMessage } from "./errors";
 import * as genesys from "./connector.server";
 
 export const PROVIDER = "genesys";
@@ -28,15 +22,8 @@ async function admin() {
 }
 
 /** Resolves the caller's workspace and roles through their own RLS-scoped session. */
-export async function resolveTenant(
-  supabase: UserClient,
-  userId: string,
-): Promise<TenantContext> {
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("tenant_id")
-    .eq("id", userId)
-    .maybeSingle();
+export async function resolveTenant(supabase: UserClient, userId: string): Promise<TenantContext> {
+  const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", userId).maybeSingle();
 
   const tenantId = profile?.tenant_id;
   if (!tenantId) throw new IntegrationError("no_tenant");
@@ -51,10 +38,7 @@ export async function resolveTenant(
 }
 
 /** Integration lifecycle changes require admin or manager, enforced server-side. */
-export async function requireManage(
-  supabase: UserClient,
-  userId: string,
-): Promise<TenantContext> {
+export async function requireManage(supabase: UserClient, userId: string): Promise<TenantContext> {
   const ctx = await resolveTenant(supabase, userId);
   if (!ctx.roles.includes("admin") && !ctx.roles.includes("manager")) {
     throw new IntegrationError("forbidden");
@@ -119,22 +103,10 @@ export async function getIntegrationSummary(
   if (!data) return null;
 
   const [users, licenses, userLicenses, queues] = await Promise.all([
-    supabase
-      .from("genesys_users")
-      .select("id", { count: "exact", head: true })
-      .eq("integration_id", data.id),
-    supabase
-      .from("genesys_licenses")
-      .select("id", { count: "exact", head: true })
-      .eq("integration_id", data.id),
-    supabase
-      .from("genesys_user_licenses")
-      .select("id", { count: "exact", head: true })
-      .eq("integration_id", data.id),
-    supabase
-      .from("genesys_queues")
-      .select("id", { count: "exact", head: true })
-      .eq("integration_id", data.id),
+    supabase.from("genesys_users").select("id", { count: "exact", head: true }).eq("integration_id", data.id),
+    supabase.from("genesys_licenses").select("id", { count: "exact", head: true }).eq("integration_id", data.id),
+    supabase.from("genesys_user_licenses").select("id", { count: "exact", head: true }).eq("integration_id", data.id),
+    supabase.from("genesys_queues").select("id", { count: "exact", head: true }).eq("integration_id", data.id),
   ]);
 
   return {
@@ -161,11 +133,7 @@ export async function getIntegrationSummary(
 }
 
 /** Creates (or returns) the tenant's Genesys integration row. */
-export async function ensureIntegration(
-  tenantId: string,
-  region: string,
-  userId: string,
-): Promise<string> {
+export async function ensureIntegration(tenantId: string, region: string, userId: string): Promise<string> {
   const db = await admin();
   const { data, error } = await db
     .from("integrations")
@@ -220,30 +188,18 @@ export async function consumeOAuthState(
     .eq("state", state)
     .maybeSingle();
 
-  if (
-    !data ||
-    data.tenant_id !== tenantId ||
-    data.consumed_at ||
-    new Date(data.expires_at).getTime() < Date.now()
-  ) {
+  if (!data || data.tenant_id !== tenantId || data.consumed_at || new Date(data.expires_at).getTime() < Date.now()) {
     throw new IntegrationError("oauth_state_invalid");
   }
 
-  await db
-    .from("integration_oauth_states")
-    .update({ consumed_at: new Date().toISOString() })
-    .eq("state", state);
+  await db.from("integration_oauth_states").update({ consumed_at: new Date().toISOString() }).eq("state", state);
 
   // Re-validate the stored region on read: rows written before the allow-list
   // existed must not be able to steer the token exchange host.
   return { region: normalizeGenesysRegion(data.region), redirectUri: data.redirect_uri };
 }
 
-export async function saveTokens(
-  integrationId: string,
-  tenantId: string,
-  tokens: genesys.GenesysTokens,
-) {
+export async function saveTokens(integrationId: string, tenantId: string, tokens: genesys.GenesysTokens) {
   const db = await admin();
   const { error } = await db.from("integration_credentials").upsert(
     {
@@ -265,11 +221,7 @@ export async function saveTokens(
  * Returns a usable access token, refreshing it first when it is within two
  * minutes of expiry. Tokens never leave the server.
  */
-export async function getAccessToken(
-  integrationId: string,
-  tenantId: string,
-  region: string | null,
-): Promise<string> {
+export async function getAccessToken(integrationId: string, tenantId: string, region: string | null): Promise<string> {
   const db = await admin();
   const { data } = await db
     .from("integration_credentials")
@@ -279,8 +231,7 @@ export async function getAccessToken(
 
   if (!data?.access_token) throw new IntegrationError("not_connected");
 
-  const expiresSoon =
-    !data.expires_at || new Date(data.expires_at).getTime() - Date.now() < 120_000;
+  const expiresSoon = !data.expires_at || new Date(data.expires_at).getTime() - Date.now() < 120_000;
 
   if (!expiresSoon) return data.access_token;
   if (!data.refresh_token) throw new IntegrationError("token_expired");
@@ -296,10 +247,7 @@ export async function getAccessToken(
   return refreshed.accessToken;
 }
 
-export async function markIntegration(
-  integrationId: string,
-  patch: Record<string, unknown>,
-) {
+export async function markIntegration(integrationId: string, patch: Record<string, unknown>) {
   const db = await admin();
   await db
     .from("integrations")
@@ -358,16 +306,24 @@ export async function runSync(
     const token = await getAccessToken(integrationId, tenantId, region);
     const org = await genesys.getOrganization(token, region);
 
-    const [users, assignments, queues] = await Promise.all([
-      genesys.listUsers(token, region),
-      genesys.listUserLicenseAssignments(token, region),
-      genesys.listQueues(token, region),
-    ]);
+    console.log("[genesys-sync] starting users");
+    const users = await genesys.listUsers(token, region);
+    console.log("[genesys-sync] users retrieved:", users.length);
+
+    console.log("[genesys-sync] starting license assignments");
+    const assignments = await genesys.listUserLicenseAssignments(token, region);
+    console.log("[genesys-sync] license assignments retrieved:", assignments.length);
+
+    console.log("[genesys-sync] starting queues");
+    const queues = await genesys.listQueues(token, region);
+    console.log("[genesys-sync] queues retrieved:", queues.length);
+
+    console.log("[genesys-sync] starting license definitions");
+    const licenses = await genesys.listLicenses(token, region, assignments);
+    console.log("[genesys-sync] licenses retrieved:", licenses.length);
     const licenses = await genesys.listLicenses(token, region, assignments);
 
     const syncedAt = new Date().toISOString();
-
-
 
     if (users.length) {
       const { error } = await db.from("genesys_users").upsert(
@@ -428,11 +384,9 @@ export async function runSync(
 
     for (let i = 0; i < assignmentRows.length; i += 500) {
       const chunk = assignmentRows.slice(i, i + 500);
-      const { error } = await db
-        .from("genesys_user_licenses")
-        .upsert(chunk as never, {
-          onConflict: "integration_id,genesys_user_id,license_id",
-        });
+      const { error } = await db.from("genesys_user_licenses").upsert(chunk as never, {
+        onConflict: "integration_id,genesys_user_id,license_id",
+      });
       if (error) throw new IntegrationError("provider_error", error.message);
     }
     counts.userLicenses = assignmentRows.length;
@@ -445,7 +399,6 @@ export async function runSync(
         .lt("synced_at", syncedAt);
       if (error) throw new IntegrationError("provider_error", error.message);
     }
-
 
     if (queues.length) {
       const { error } = await db.from("genesys_queues").upsert(
@@ -519,8 +472,7 @@ export async function runSync(
     await markIntegration(integrationId, {
       health_status: code === "rate_limited" ? "degraded" : "unhealthy",
       health_detail: message,
-      status:
-        code === "connection_revoked" || code === "token_expired" ? "action_required" : undefined,
+      status: code === "connection_revoked" || code === "token_expired" ? "action_required" : undefined,
       last_sync_status: "failed",
       last_sync_error: message,
     });
@@ -537,11 +489,7 @@ export async function runSync(
   }
 }
 
-export async function disconnect(
-  supabase: UserClient,
-  tenantId: string,
-  integrationId: string,
-) {
+export async function disconnect(supabase: UserClient, tenantId: string, integrationId: string) {
   const db = await admin();
   await db.from("integration_credentials").delete().eq("integration_id", integrationId);
   await markIntegration(integrationId, {
