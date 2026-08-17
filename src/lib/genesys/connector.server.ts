@@ -3,9 +3,9 @@
 // Client id/secret and tokens exist only inside this module's callers on the
 // server; nothing here is importable from the browser bundle.
 import {
-  DEFAULT_GENESYS_REGION,
   GENESYS_SCOPES,
   IntegrationError,
+  normalizeGenesysRegion,
 } from "./errors";
 
 export interface GenesysTokens {
