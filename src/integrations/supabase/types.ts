@@ -1415,6 +1415,134 @@ export type Database = {
           },
         ]
       }
+      organization_instruction_revisions: {
+        Row: {
+          category: string
+          changed_by: string | null
+          created_at: string
+          description: string | null
+          enabled: boolean
+          id: string
+          instruction_id: string
+          instruction_text: string
+          name: string
+          priority: number
+          scope: string
+          scope_id: string | null
+          tenant_id: string
+          version: number
+        }
+        Insert: {
+          category: string
+          changed_by?: string | null
+          created_at?: string
+          description?: string | null
+          enabled: boolean
+          id?: string
+          instruction_id: string
+          instruction_text: string
+          name: string
+          priority: number
+          scope: string
+          scope_id?: string | null
+          tenant_id: string
+          version: number
+        }
+        Update: {
+          category?: string
+          changed_by?: string | null
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          instruction_id?: string
+          instruction_text?: string
+          name?: string
+          priority?: number
+          scope?: string
+          scope_id?: string | null
+          tenant_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_instruction_revisions_instruction_id_fkey"
+            columns: ["instruction_id"]
+            isOneToOne: false
+            referencedRelation: "organization_instructions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_instruction_revisions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_instructions: {
+        Row: {
+          category: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          enabled: boolean
+          id: string
+          instruction_text: string
+          name: string
+          priority: number
+          scope: string
+          scope_id: string | null
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+          version: number
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          instruction_text: string
+          name: string
+          priority?: number
+          scope?: string
+          scope_id?: string | null
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          instruction_text?: string
+          name?: string
+          priority?: number
+          scope?: string
+          scope_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_instructions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
