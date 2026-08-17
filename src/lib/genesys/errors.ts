@@ -84,3 +84,24 @@ export const GENESYS_REGIONS = [
 ] as const;
 
 export const DEFAULT_GENESYS_REGION = "mypurecloud.com";
+
+/**
+ * SSRF guard. A region is only ever a host suffix from the fixed allow-list
+ * above, so no caller-supplied value can redirect an outbound OAuth token
+ * request (which carries the platform Genesys client secret) to another host.
+ * Anything unrecognised — including a stored value from an older row — falls
+ * back to the default region.
+ */
+export function isSupportedGenesysRegion(regionId: unknown): boolean {
+  return (
+    typeof regionId === "string" &&
+    GENESYS_REGIONS.some((r) => r.id === regionId.trim().toLowerCase())
+  );
+}
+
+/** Normalizes untrusted input to an allow-listed region host suffix. */
+export function normalizeGenesysRegion(regionId: unknown): string {
+  if (typeof regionId !== "string") return DEFAULT_GENESYS_REGION;
+  const candidate = regionId.trim().toLowerCase();
+  return isSupportedGenesysRegion(candidate) ? candidate : DEFAULT_GENESYS_REGION;
+}
