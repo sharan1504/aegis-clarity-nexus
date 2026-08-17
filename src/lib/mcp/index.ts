@@ -1,5 +1,6 @@
 import { auth, defineMcp } from "@lovable.dev/mcp-js";
 
+import { guardedTool } from "./guarded";
 import getChangeRecord from "./tools/get-change-record";
 import getOperationsOverview from "./tools/get-operations-overview";
 import listAgents from "./tools/list-agents";
