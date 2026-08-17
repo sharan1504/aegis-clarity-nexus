@@ -21,6 +21,21 @@ export const purgeExpiredReports = createServerFn({ method: "POST" })
     const tenantId = profile?.tenant_id;
     if (!tenantId) return { retentionDays: 0, purged: 0 };
 
+    // Deleting export files is an admin-only action under RLS ("Admins can
+    // delete reports"). The privileged client below bypasses RLS, so the same
+    // role requirement is re-checked here through the caller's own session
+    // before any destructive work happens.
+    const { data: adminRole } = await context.supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", context.userId)
+      .eq("tenant_id", tenantId)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (!adminRole) {
+      throw new Error("Only workspace admins can purge expired export files.");
+    }
+
     const { data: tenant } = await context.supabase
       .from("tenants")
       .select("report_retention_days")
@@ -30,8 +45,8 @@ export const purgeExpiredReports = createServerFn({ method: "POST" })
     const retentionDays = tenant?.report_retention_days ?? 30;
     const cutoff = new Date(Date.now() - retentionDays * 86_400_000).toISOString();
 
-    // Membership is proven above through the RLS-scoped read; the privileged
-    // client is only used to delete storage objects and stamp purged_at.
+    // Admin membership is proven above through the RLS-scoped reads; the
+    // privileged client only deletes storage objects and stamps purged_at.
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const { data: stale } = await supabaseAdmin
