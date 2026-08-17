@@ -44,8 +44,38 @@ export const GUARDRAIL_ERRORS: Record<string, string> = {
   system_guardrail: "Platform guardrails are mandatory and cannot be changed or removed.",
   not_found: "That guardrail does not exist in this workspace.",
   invalid_guardrail: "That guardrail contains values the platform will not accept.",
+  denied_by_policy:
+    "The database refused this change. Your account may not have admin rights in this workspace.",
   save_failed: "The guardrail could not be saved. Please try again.",
 };
+
+/**
+ * Turns a database error into an actionable message. A generic "please try
+ * again" hides the two failures that actually happen in practice — a permission
+ * refusal and a constraint violation — so those are named explicitly.
+ */
+function saveError(
+  operation: string,
+  error: { code?: string; message?: string; details?: string; hint?: string } | null,
+): GuardrailError {
+  console.error(`[guardrails] ${operation} failed`, {
+    code: error?.code,
+    message: error?.message,
+    details: error?.details,
+    hint: error?.hint,
+  });
+  const code = error?.code ?? "";
+  const message = error?.message ?? "";
+  if (code === "42501" || code === "PGRST301" || /permission denied|row-level security/i.test(message)) {
+    return new GuardrailError("denied_by_policy", GUARDRAIL_ERRORS["denied_by_policy"]!);
+  }
+  if (code.startsWith("23")) {
+    return new GuardrailError("invalid_guardrail", GUARDRAIL_ERRORS["invalid_guardrail"]!, [
+      { field: "conditions", message: "The database rejected these values as invalid." },
+    ]);
+  }
+  return new GuardrailError("save_failed", GUARDRAIL_ERRORS["save_failed"]!);
+}
 
 export function guardrailErrorPayload(error: unknown) {
   const code = error instanceof GuardrailError ? error.code : "save_failed";
@@ -106,7 +136,7 @@ export async function listGuardrails(
     .select(GUARDRAIL_COLUMNS)
     .or(`tenant_id.eq.${tenantId},tenant_id.is.null`)
     .order("priority", { ascending: true });
-  if (error) throw new GuardrailError("save_failed", GUARDRAIL_ERRORS["save_failed"]!);
+  if (error) throw saveError("list", error);
   return (data ?? []).map((row) => mapGuardrailRow(row as never));
 }
 
@@ -208,10 +238,7 @@ export async function upsertGuardrail(
       .eq("tenant_id", ctx.tenantId)
       .select("id")
       .maybeSingle();
-    if (error || !data) {
-      console.error("[guardrails] update failed", error?.message);
-      throw new GuardrailError("save_failed", GUARDRAIL_ERRORS["save_failed"]!);
-    }
+    if (error || !data) throw saveError("update", error);
     return { id: data.id };
   }
 
@@ -226,10 +253,7 @@ export async function upsertGuardrail(
     } as never)
     .select("id")
     .maybeSingle();
-  if (error || !data) {
-    console.error("[guardrails] insert failed", error?.message);
-    throw new GuardrailError("save_failed", GUARDRAIL_ERRORS["save_failed"]!);
-  }
+  if (error || !data) throw saveError("insert", error);
   return { id: data.id };
 }
 
@@ -261,7 +285,7 @@ export async function setGuardrailEnabled(
     .update({ enabled, updated_by: userId } as never)
     .eq("id", id)
     .eq("tenant_id", ctx.tenantId);
-  if (error) throw new GuardrailError("save_failed", GUARDRAIL_ERRORS["save_failed"]!);
+  if (error) throw saveError("toggle", error);
 }
 
 export async function deleteGuardrail(
@@ -275,7 +299,7 @@ export async function deleteGuardrail(
     .delete()
     .eq("id", id)
     .eq("tenant_id", ctx.tenantId);
-  if (error) throw new GuardrailError("save_failed", GUARDRAIL_ERRORS["save_failed"]!);
+  if (error) throw saveError("delete", error);
 }
 
 export interface GuardrailRevisionView {
@@ -379,7 +403,12 @@ export async function listGuardrailEvaluations(
 export async function auditGuardrailChange(
   supabase: UserClient,
   tenantId: string,
-  action: "guardrail.created" | "guardrail.updated" | "guardrail.enabled" | "guardrail.disabled" | "guardrail.deleted",
+  action:
+    | "guardrail.created"
+    | "guardrail.updated"
+    | "guardrail.enabled"
+    | "guardrail.disabled"
+    | "guardrail.deleted",
   guardrailId: string,
   detail: string,
   payload: Record<string, unknown> = {},
