@@ -201,11 +201,12 @@ export function GuardrailEditor({
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
 
+  const draftPreview = toDraft(form);
   const preview = describeGuardrail({
     scope: form.scope,
     scopeId: form.scope === "organization" ? null : form.scopeId || null,
-    conditions: toDraft(form).conditions as GuardrailConditions,
-    action: toDraft(form).action as GuardrailRecord["action"],
+    conditions: draftPreview.conditions as unknown as GuardrailConditions,
+    action: draftPreview.action as unknown as GuardrailRecord["action"],
   });
 
   return (
