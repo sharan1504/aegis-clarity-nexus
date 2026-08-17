@@ -300,7 +300,11 @@ export async function listLicenses(
   regionId?: string | null,
   assignments: GenesysUserLicenseAssignment[] = [],
 ): Promise<GenesysLicenseRecord[]> {
-  type Definition = { id: string; name?: string; permissions?: string[] };
+  type Definition = {
+    id: string;
+    name?: string;
+    permissions?: unknown;
+  };
   const definitions = await apiGet<Definition[] | Paged<Definition>>(
     "/api/v2/license/definitions",
     accessToken,
@@ -318,7 +322,7 @@ export async function listLicenses(
   return defs.map((d) => ({
     id: d.id,
     name: d.name ?? null,
-    permissions: d.permissions ?? [],
+    permissions: Array.isArray(d.permissions) ? d.permissions.filter((p): p is string => typeof p === "string") : [],
     assignedCount: counts.get(d.id) ?? 0,
     raw: d,
   }));
