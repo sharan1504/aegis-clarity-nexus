@@ -157,7 +157,7 @@ export async function authorizeCapabilityAccess(
   // 5. Bindings: tenant-scoped, agent-scoped, capability-scoped, enabled only.
   const { data: bindings } = await supabase
     .from("agent_integration_bindings")
-    .select("id, integration_id, policy, policy_version, updated_at, updated_by, enabled, is_mock, tenant_id")
+    .select("id, integration_id, policy, policy_version, policy_updated_at, policy_updated_by, enabled, is_mock, tenant_id")
     .eq("tenant_id", tenantId)
     .eq("agent_key", agentKey)
     .eq("capability_id", capability.id);
@@ -267,8 +267,8 @@ export async function authorizeCapabilityAccess(
       policy: coerceStoredPolicy(binding.policy),
       policyRevision: {
         version: Number(binding.policy_version ?? 1),
-        updatedAt: binding.updated_at ?? null,
-        updatedBy: binding.updated_by ?? null,
+        updatedAt: binding.policy_updated_at ?? null,
+        updatedBy: binding.policy_updated_by ?? null,
       },
     });
   }
