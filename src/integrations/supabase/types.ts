@@ -854,6 +854,246 @@ export type Database = {
           },
         ]
       }
+      guardrail_evaluations: {
+        Row: {
+          action_key: string | null
+          agent_key: string | null
+          capability: string | null
+          change_record_id: string | null
+          context: Json
+          created_at: string
+          decision: string
+          environment: string
+          execution_class: string | null
+          id: string
+          integration_id: string | null
+          matched: Json
+          provider: string | null
+          reasons: Json
+          required_actions: Json
+          simulated: boolean
+          tenant_id: string
+          user_id: string | null
+        }
+        Insert: {
+          action_key?: string | null
+          agent_key?: string | null
+          capability?: string | null
+          change_record_id?: string | null
+          context?: Json
+          created_at?: string
+          decision: string
+          environment?: string
+          execution_class?: string | null
+          id?: string
+          integration_id?: string | null
+          matched?: Json
+          provider?: string | null
+          reasons?: Json
+          required_actions?: Json
+          simulated?: boolean
+          tenant_id: string
+          user_id?: string | null
+        }
+        Update: {
+          action_key?: string | null
+          agent_key?: string | null
+          capability?: string | null
+          change_record_id?: string | null
+          context?: Json
+          created_at?: string
+          decision?: string
+          environment?: string
+          execution_class?: string | null
+          id?: string
+          integration_id?: string | null
+          matched?: Json
+          provider?: string | null
+          reasons?: Json
+          required_actions?: Json
+          simulated?: boolean
+          tenant_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guardrail_evaluations_change_record_id_fkey"
+            columns: ["change_record_id"]
+            isOneToOne: false
+            referencedRelation: "change_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guardrail_evaluations_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guardrail_evaluations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guardrail_revisions: {
+        Row: {
+          action: Json
+          changed_by: string | null
+          conditions: Json
+          created_at: string
+          enabled: boolean
+          enforcement_mode: Database["public"]["Enums"]["guardrail_enforcement"]
+          guardrail_id: string
+          guardrail_type: string
+          id: string
+          message: string | null
+          name: string
+          priority: number
+          reason: string | null
+          scope: Database["public"]["Enums"]["guardrail_scope"]
+          scope_id: string | null
+          severity: Database["public"]["Enums"]["guardrail_severity"]
+          tenant_id: string | null
+          version: number
+        }
+        Insert: {
+          action: Json
+          changed_by?: string | null
+          conditions: Json
+          created_at?: string
+          enabled: boolean
+          enforcement_mode: Database["public"]["Enums"]["guardrail_enforcement"]
+          guardrail_id: string
+          guardrail_type: string
+          id?: string
+          message?: string | null
+          name: string
+          priority: number
+          reason?: string | null
+          scope: Database["public"]["Enums"]["guardrail_scope"]
+          scope_id?: string | null
+          severity: Database["public"]["Enums"]["guardrail_severity"]
+          tenant_id?: string | null
+          version: number
+        }
+        Update: {
+          action?: Json
+          changed_by?: string | null
+          conditions?: Json
+          created_at?: string
+          enabled?: boolean
+          enforcement_mode?: Database["public"]["Enums"]["guardrail_enforcement"]
+          guardrail_id?: string
+          guardrail_type?: string
+          id?: string
+          message?: string | null
+          name?: string
+          priority?: number
+          reason?: string | null
+          scope?: Database["public"]["Enums"]["guardrail_scope"]
+          scope_id?: string | null
+          severity?: Database["public"]["Enums"]["guardrail_severity"]
+          tenant_id?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guardrail_revisions_guardrail_id_fkey"
+            columns: ["guardrail_id"]
+            isOneToOne: false
+            referencedRelation: "guardrails"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guardrail_revisions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guardrails: {
+        Row: {
+          action: Json
+          conditions: Json
+          created_at: string
+          created_by: string | null
+          description: string | null
+          enabled: boolean
+          enforcement_mode: Database["public"]["Enums"]["guardrail_enforcement"]
+          guardrail_type: string
+          id: string
+          is_system: boolean
+          message: string | null
+          name: string
+          priority: number
+          scope: Database["public"]["Enums"]["guardrail_scope"]
+          scope_id: string | null
+          severity: Database["public"]["Enums"]["guardrail_severity"]
+          tenant_id: string | null
+          updated_at: string
+          updated_by: string | null
+          version: number
+        }
+        Insert: {
+          action?: Json
+          conditions?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          enabled?: boolean
+          enforcement_mode?: Database["public"]["Enums"]["guardrail_enforcement"]
+          guardrail_type: string
+          id?: string
+          is_system?: boolean
+          message?: string | null
+          name: string
+          priority?: number
+          scope: Database["public"]["Enums"]["guardrail_scope"]
+          scope_id?: string | null
+          severity?: Database["public"]["Enums"]["guardrail_severity"]
+          tenant_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Update: {
+          action?: Json
+          conditions?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          enabled?: boolean
+          enforcement_mode?: Database["public"]["Enums"]["guardrail_enforcement"]
+          guardrail_type?: string
+          id?: string
+          is_system?: boolean
+          message?: string | null
+          name?: string
+          priority?: number
+          scope?: Database["public"]["Enums"]["guardrail_scope"]
+          scope_id?: string | null
+          severity?: Database["public"]["Enums"]["guardrail_severity"]
+          tenant_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guardrails_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       integration_credentials: {
         Row: {
           access_token: string | null
@@ -1366,6 +1606,24 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "manager" | "analyst" | "viewer"
+      guardrail_effect:
+        | "block"
+        | "require_approval"
+        | "require_confirmation"
+        | "escalate"
+        | "limit"
+        | "require_change_ticket"
+        | "allow"
+      guardrail_enforcement: "enforce" | "monitor"
+      guardrail_scope:
+        | "platform"
+        | "organization"
+        | "environment"
+        | "agent"
+        | "integration"
+        | "capability"
+        | "tool"
+      guardrail_severity: "low" | "medium" | "high" | "critical"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1494,6 +1752,26 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "manager", "analyst", "viewer"],
+      guardrail_effect: [
+        "block",
+        "require_approval",
+        "require_confirmation",
+        "escalate",
+        "limit",
+        "require_change_ticket",
+        "allow",
+      ],
+      guardrail_enforcement: ["enforce", "monitor"],
+      guardrail_scope: [
+        "platform",
+        "organization",
+        "environment",
+        "agent",
+        "integration",
+        "capability",
+        "tool",
+      ],
+      guardrail_severity: ["low", "medium", "high", "critical"],
     },
   },
 } as const
