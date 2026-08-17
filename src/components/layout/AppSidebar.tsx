@@ -47,6 +47,7 @@ const nav = [
   {
     section: "Administration",
     items: [
+      { title: "Guardrails", url: "/governance", icon: ShieldAlert },
       { title: "User Management", url: "/users", icon: Users },
       { title: "Settings", url: "/settings", icon: Settings },
     ],
