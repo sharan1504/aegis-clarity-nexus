@@ -321,7 +321,6 @@ export async function runSync(
     console.log("[genesys-sync] starting license definitions");
     const licenses = await genesys.listLicenses(token, region, assignments);
     console.log("[genesys-sync] licenses retrieved:", licenses.length);
-    const licenses = await genesys.listLicenses(token, region, assignments);
 
     const syncedAt = new Date().toISOString();
 
