@@ -4,6 +4,7 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { BindingPolicy } from "./capabilities/bindings.server";
 
 export const listAgentDefinitions = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -58,7 +59,7 @@ export const addAgentDataSource = createServerFn({ method: "POST" })
 export const updateAgentDataSource = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
-    (input: { bindingId: string; enabled?: boolean; policy?: Record<string, unknown> }) => ({
+    (input: { bindingId: string; enabled?: boolean; policy?: BindingPolicy }) => ({
       bindingId: String(input.bindingId ?? ""),
       ...(typeof input.enabled === "boolean" ? { enabled: input.enabled } : {}),
       ...(input.policy ? { policy: input.policy } : {}),
