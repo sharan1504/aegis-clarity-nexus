@@ -21,8 +21,7 @@ export const ERROR_MESSAGES: Record<IntegrationErrorCode, string> = {
   not_configured:
     "Genesys OAuth credentials are not configured for this deployment yet. Add GENESYS_CLIENT_ID and GENESYS_CLIENT_SECRET in backend secrets.",
   oauth_failed: "Genesys did not complete the authorization. Please try connecting again.",
-  oauth_state_invalid:
-    "This authorization link is invalid or has expired. Start the connection again.",
+  oauth_state_invalid: "This authorization link is invalid or has expired. Start the connection again.",
   invalid_client: "The configured Genesys OAuth client ID or secret was rejected by Genesys.",
   token_expired: "The Genesys session expired and could not be refreshed. Reconnect the integration.",
   connection_revoked: "Access was revoked in Genesys. Reconnect to restore the integration.",
@@ -55,7 +54,15 @@ export function toErrorCode(error: unknown): IntegrationErrorCode {
 }
 
 export function toErrorMessage(error: unknown): string {
-  return error instanceof IntegrationError ? error.message : ERROR_MESSAGES.provider_error;
+  if (error instanceof IntegrationError) {
+    if (error.detail) {
+      return `${error.message} Details: ${error.detail}`;
+    }
+
+    return error.message;
+  }
+
+  return ERROR_MESSAGES.provider_error;
 }
 
 /**
@@ -80,7 +87,6 @@ export const GENESYS_SCOPES = [
   "presence:readonly",
   "analytics:readonly",
 ] as const;
-
 
 /** Supported Genesys Cloud regions (login/API host suffixes). */
 export const GENESYS_REGIONS = [
@@ -107,10 +113,7 @@ export const DEFAULT_GENESYS_REGION = "mypurecloud.com";
  * back to the default region.
  */
 export function isSupportedGenesysRegion(regionId: unknown): boolean {
-  return (
-    typeof regionId === "string" &&
-    GENESYS_REGIONS.some((r) => r.id === regionId.trim().toLowerCase())
-  );
+  return typeof regionId === "string" && GENESYS_REGIONS.some((r) => r.id === regionId.trim().toLowerCase());
 }
 
 /** Normalizes untrusted input to an allow-listed region host suffix. */
