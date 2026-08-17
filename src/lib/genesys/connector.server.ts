@@ -239,7 +239,7 @@ export async function listUsers(accessToken: string, regionId?: string | null): 
   };
 
   const users = await pageThrough<RawUser>(
-    (p) => `/api/v2/users?pageSize=100&pageNumber=${p}&state=any&expand=presence,authorization`,
+    (p) => `/api/v2/users?pageSize=50&pageNumber=${p}&state=any&expand=presence`,
     accessToken,
     regionId,
   );
