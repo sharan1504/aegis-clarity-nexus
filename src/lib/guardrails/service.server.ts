@@ -9,12 +9,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/integrations/supabase/types";
 import { mapGuardrailRow } from "./engine.server";
 import {
+  coerceStoredGuardrail,
   ENFORCEMENT_MODES,
   GUARDRAIL_SEVERITIES,
   GUARDRAIL_TYPES,
   SCOPE_PRECEDENCE,
   parseGuardrailConfig,
   type EnforcementMode,
+  type GuardrailAction,
+  type GuardrailConditions,
   type GuardrailIssue,
   type GuardrailRecord,
   type GuardrailScope,
@@ -286,8 +289,8 @@ export interface GuardrailRevisionView {
   priority: number;
   severity: string;
   enforcementMode: string;
-  conditions: unknown;
-  action: unknown;
+  conditions: GuardrailConditions;
+  action: GuardrailAction;
   message: string | null;
   changedBy: string | null;
   createdAt: string;
@@ -317,8 +320,7 @@ export async function listGuardrailRevisions(
     priority: Number(r.priority),
     severity: r.severity,
     enforcementMode: r.enforcement_mode,
-    conditions: r.conditions,
-    action: r.action,
+    ...coerceStoredGuardrail(r.conditions, r.action),
     message: r.message,
     changedBy: r.changed_by,
     createdAt: r.created_at,
