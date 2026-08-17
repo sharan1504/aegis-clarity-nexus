@@ -23,14 +23,18 @@ export default defineMcp({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated",
   }),
-  // Guardrail: tool output is sanitized before it leaves the server.
+  // Every tool runs through the unified execution gate: verified identity,
+  // server-side guardrail evaluation, record caps, then output scrubbing.
   tools: [
-    guardedTool(getOperationsOverview),
-    guardedTool(listChangeRecords),
-    guardedTool(getChangeRecord),
-    guardedTool(listAgents),
-    guardedTool(listIntegrations),
-    guardedTool(listIncidentsAndAlerts),
-    guardedTool(listReportsAndRecommendations),
+    guardedTool(getOperationsOverview, { capability: "operations_overview" }),
+    guardedTool(listChangeRecords, { capability: "change_records" }),
+    guardedTool(getChangeRecord, { capability: "change_records" }),
+    guardedTool(listAgents, { capability: "agent_inventory" }),
+    guardedTool(listIntegrations, { capability: "integration_inventory" }),
+    guardedTool(listIncidentsAndAlerts, {
+      capability: "incident_signals",
+      dataClassification: "internal",
+    }),
+    guardedTool(listReportsAndRecommendations, { capability: "report_inventory" }),
   ],
 });
