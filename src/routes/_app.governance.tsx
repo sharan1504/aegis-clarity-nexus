@@ -28,6 +28,7 @@ import {
 } from "@/components/guardrails/GuardrailPills";
 import { GuardrailEditor, type GuardrailDraft } from "@/components/guardrails/GuardrailEditor";
 import { GuardrailSimulator } from "@/components/guardrails/GuardrailSimulator";
+import { InstructionsPanel } from "@/components/instructions/InstructionsPanel";
 import {
   deleteGuardrail,
   getGuardrailHistory,
@@ -47,9 +48,9 @@ export const Route = createFileRoute("/_app/governance")({
   head: () =>
     pageHead({
       path: "/governance",
-      title: "Guardrails & Governance — Aegis AI",
+      title: "Governance — Guardrails & Instructions | Aegis AI",
       description:
-        "Author, simulate, and audit the platform guardrails that constrain every Aegis AI agent, capability, connector, and tool.",
+        "Author, simulate, and audit the guardrails that constrain every Aegis AI agent, capability, connector, and tool — and the organization instructions that guide how they work.",
     }),
   component: GovernancePage,
 });
@@ -128,8 +129,8 @@ function GovernancePage() {
   return (
     <div>
       <PageHeader
-        title="Guardrails & Governance"
-        description="Mandatory, server-enforced controls. No agent, prompt, tool, connector, or workflow can bypass them."
+        title="Governance"
+        description="Guardrails are mandatory, server-enforced controls — no agent, prompt, tool, connector, workflow, or job can bypass them. Instructions are advisory guidance layered on top."
         actions={
           canManage ? (
             <Button
@@ -155,6 +156,7 @@ function GovernancePage() {
       <Tabs defaultValue="rules">
         <TabsList>
           <TabsTrigger value="rules">Guardrails</TabsTrigger>
+          <TabsTrigger value="instructions">Instructions &amp; guidelines</TabsTrigger>
           <TabsTrigger value="simulator">Simulator</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
@@ -202,6 +204,10 @@ function GovernancePage() {
               />
             </>
           )}
+        </TabsContent>
+
+        <TabsContent value="instructions" className="mt-4">
+          <InstructionsPanel />
         </TabsContent>
 
         <TabsContent value="simulator" className="mt-4">
