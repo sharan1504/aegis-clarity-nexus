@@ -1,5 +1,12 @@
 // Provider-agnostic capability registry types and normalized data contracts.
 // Client-safe: no credentials, no provider SDKs, no server-only imports.
+//
+// ARCHITECTURAL RULE
+// These contracts carry FACTS ONLY. No field here may express a business
+// conclusion ("optimization candidate", "inactive per policy", "recommended
+// for removal"). Interpretation belongs to the policy engine and the agent.
+
+import type { FreshnessState } from "./freshness";
 
 export type CapabilityKey =
   | "license_inventory"
@@ -62,6 +69,34 @@ export const DATA_SOURCE_STATE_LABELS: Record<DataSourceState, string> = {
 };
 
 // ---------------------------------------------------------------------------
+// Provenance
+// Every normalized record must be traceable to the exact system, snapshot and
+// point in time it came from, so a future agent can answer "where did this
+// come from?" and "when was it last synchronized?".
+// ---------------------------------------------------------------------------
+
+export interface RecordProvenance {
+  /** Connector/provider key, e.g. "genesys". */
+  provider: string;
+  /** Tenant-scoped integration row the record was read through. */
+  integrationId: string;
+  /** Logical source system name shown to humans. */
+  sourceSystem: string;
+  /** Physical record source, e.g. a normalized store name. */
+  source: string;
+  /** Snapshot the record belongs to, when the provider is snapshot-versioned. */
+  snapshotId: string | null;
+  /** Sync run that produced the record. */
+  syncId: string | null;
+  /** Timestamp of the data itself (when it was observed/synced). */
+  dataAsOf: string | null;
+  /** Last successful synchronization for the integration. */
+  lastSuccessfulSyncAt: string | null;
+  /** Derived freshness of the underlying data. */
+  freshness: FreshnessState;
+}
+
+// ---------------------------------------------------------------------------
 // Normalized (provider-neutral) data contracts
 // Provider implementations map vendor payloads into these shapes. Anything
 // vendor-specific belongs in `metadata`, never as a top-level field.
@@ -75,10 +110,15 @@ export interface NormalizedEntitlement {
   userEmail: string | null;
   entitlementId: string;
   entitlementName: string | null;
+  /**
+   * Factual account state as reported by the provider — NOT a policy verdict.
+   * "active"/"inactive" here mirrors the provider's own account state field.
+   */
   status: "active" | "inactive" | "unknown";
-  usageStatus: "active" | "inactive" | "unknown";
+  /** Last activity the provider itself reports. Interpretation is policy work. */
   lastActivityAt: string | null;
   metadata: Record<string, unknown>;
+  provenance: RecordProvenance;
 }
 
 export interface NormalizedUser {
@@ -90,6 +130,7 @@ export interface NormalizedUser {
   status: string | null;
   lastActivityAt: string | null;
   metadata: Record<string, unknown>;
+  provenance: RecordProvenance;
 }
 
 export interface NormalizedQueue {
@@ -99,20 +140,36 @@ export interface NormalizedQueue {
   queueName: string | null;
   memberCount: number | null;
   metadata: Record<string, unknown>;
+  provenance: RecordProvenance;
+}
+
+/** Per-source reporting inside a capability result. */
+export interface CapabilitySource {
+  integrationId: string;
+  provider: string;
+  displayName: string;
+  implemented: boolean;
+  recordCount: number;
+  lastSyncAt: string | null;
+  snapshotId: string | null;
+  freshness: FreshnessState;
+  freshnessAgeMs: number | null;
+  /** Policy version in force for this integration + capability binding. */
+  policyVersion: number | null;
+  warning?: string;
 }
 
 /** Result envelope returned by the capability router for every capability call. */
 export interface CapabilityResult<T> {
   capability: CapabilityKey;
+  /** Tenant resolved server-side from the verified session — never from input. */
+  tenantId: string;
+  agentKey: string;
   records: T[];
-  sources: Array<{
-    integrationId: string;
-    provider: string;
-    displayName: string;
-    implemented: boolean;
-    recordCount: number;
-    lastSyncAt: string | null;
-    warning?: string;
-  }>;
+  sources: CapabilitySource[];
   warnings: string[];
+  /** When the router executed the read. */
+  evaluatedAt: string;
+  /** Worst freshness across contributing sources — the result's own freshness. */
+  freshness: FreshnessState;
 }
