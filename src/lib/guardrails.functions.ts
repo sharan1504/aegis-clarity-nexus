@@ -124,6 +124,7 @@ export const simulateGuardrails = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const s = await import("./guardrails/service.server");
     const engine = await import("./guardrails/engine.server");
+    const instructions = await import("./instructions/service.server");
     const { buildSimulationContext } = await import("./guardrails/simulation.server");
     try {
       const ctx = await s.resolveGovernanceContext(context.supabase, context.userId);
@@ -132,8 +133,31 @@ export const simulateGuardrails = createServerFn({ method: "POST" })
         userId: context.userId,
         origin: "simulator",
       });
-      return { ok: true as const, verdict, context: simulationContext };
+      // Guidance is reported alongside the verdict so the difference is visible:
+      // guardrails decided the outcome, instructions only shape the wording.
+      const guidance = await instructions.resolveInstructionGuidance(
+        context.supabase,
+        ctx.tenantId,
+        {
+          agentKey: simulationContext.agentKey ?? null,
+          integrationId: simulationContext.integrationId ?? null,
+          provider: simulationContext.provider ?? null,
+          capability: simulationContext.capability ?? null,
+        },
+      );
+      return {
+        ok: true as const,
+        verdict,
+        context: simulationContext,
+        guidance: guidance.applied.map((g) => ({
+          id: g.id,
+          name: g.name,
+          scope: g.scope,
+          scopeId: g.scopeId,
+          category: g.category,
+        })),
+      };
     } catch (error) {
-      return { ...s.guardrailErrorPayload(error), verdict: null, context: null };
+      return { ...s.guardrailErrorPayload(error), verdict: null, context: null, guidance: [] };
     }
   });

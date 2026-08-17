@@ -47,6 +47,9 @@ export function GuardrailSimulator() {
     hasRollbackPlan: false,
   });
   const [verdict, setVerdict] = useState<GuardrailVerdict | null>(null);
+  const [guidance, setGuidance] = useState<
+    Array<{ id: string; name: string; scope: string; scopeId: string | null; category: string }>
+  >([]);
   const [error, setError] = useState<string | null>(null);
 
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
@@ -57,9 +60,11 @@ export function GuardrailSimulator() {
     onSuccess: (res) => {
       if (res.ok && res.verdict) {
         setVerdict(res.verdict as GuardrailVerdict);
+        setGuidance(res.guidance ?? []);
         setError(null);
       } else {
         setVerdict(null);
+        setGuidance([]);
         setError((res as { errorMessage?: string }).errorMessage ?? "Simulation failed.");
       }
     },
@@ -216,7 +221,10 @@ export function GuardrailSimulator() {
       <Card className="lg:col-span-2">
         <CardHeader>
           <CardTitle className="text-base">Verdict</CardTitle>
-          <CardDescription>Identical evaluation path to live enforcement.</CardDescription>
+          <CardDescription>
+            Identical evaluation path to live enforcement. Guardrails decide the outcome;
+            instructions only shape how the work is described.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {error && <p className="text-sm text-destructive">{error}</p>}
@@ -242,7 +250,7 @@ export function GuardrailSimulator() {
               )}
               <div>
                 <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Matched guardrails ({verdict.matched.length})
+                  Enforcement — matched guardrails ({verdict.matched.length})
                 </div>
                 {verdict.matched.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No guardrails matched.</p>
@@ -262,6 +270,28 @@ export function GuardrailSimulator() {
                         {m.message && (
                           <p className="mt-1 text-xs text-muted-foreground">{m.message}</p>
                         )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div>
+                <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Guidance — instructions applied ({guidance.length})
+                </div>
+                {guidance.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No organization instructions apply. Guidance never changes the verdict above.
+                  </p>
+                ) : (
+                  <ul className="space-y-1">
+                    {guidance.map((g) => (
+                      <li key={g.id} className="text-sm">
+                        {g.name}{" "}
+                        <span className="text-xs text-muted-foreground">
+                          ({g.scope}
+                          {g.scopeId ? `: ${g.scopeId}` : ""} · {g.category} · advisory)
+                        </span>
                       </li>
                     ))}
                   </ul>
