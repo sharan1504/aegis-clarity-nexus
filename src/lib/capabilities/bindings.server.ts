@@ -402,6 +402,33 @@ export async function getAgentSettings(
   };
 }
 
+/**
+ * The instruction stack an agent actually receives at runtime, in order:
+ *
+ *   1. organization instructions & guidelines (advisory, admin-authored)
+ *   2. the agent's own pre / system / post instructions
+ *
+ * Guardrails are deliberately absent from this stack. They are evaluated by the
+ * server before the agent runs, so no wording here — and no wording an agent or
+ * user adds — can affect what the agent is permitted to do.
+ */
+export async function getAgentRuntimeInstructions(
+  supabase: UserClient,
+  tenantId: string,
+  agentKey: string,
+  target: { integrationId?: string | null; provider?: string | null; capability?: string | null } = {},
+): Promise<AgentSettings & { organizationGuidance: string }> {
+  const settings = await getAgentSettings(supabase, tenantId, agentKey);
+  const { resolveInstructionGuidance } = await import("@/lib/instructions/service.server");
+  const guidance = await resolveInstructionGuidance(supabase, tenantId, {
+    agentKey,
+    integrationId: target.integrationId ?? null,
+    provider: target.provider ?? null,
+    capability: target.capability ?? null,
+  });
+  return { ...settings, organizationGuidance: guidance.text };
+}
+
 export async function saveAgentSettings(
   supabase: UserClient,
   ctx: TenantContext,
