@@ -35,7 +35,12 @@ export const startGenesysOAuth = createServerFn({ method: "POST" })
     const errors = await import("./genesys/errors");
     try {
       const { tenantId } = await store.requireManage(context.supabase, context.userId);
-      const region = data.region || errors.DEFAULT_GENESYS_REGION;
+      // Untrusted input: anything outside the supported region allow-list is
+      // rejected before it can shape an outbound Genesys host.
+      if (data.region && !errors.isSupportedGenesysRegion(data.region)) {
+        throw new errors.IntegrationError("provider_error", "unsupported region");
+      }
+      const region = errors.normalizeGenesysRegion(data.region);
       const integrationId = await store.ensureIntegration(tenantId, region, context.userId);
       const state = await store.createOAuthState({
         tenantId,
