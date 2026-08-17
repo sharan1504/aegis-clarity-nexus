@@ -4,7 +4,6 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import type { BindingPolicy } from "./capabilities/bindings.server";
 
 export const listAgentDefinitions = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -58,18 +57,41 @@ export const addAgentDataSource = createServerFn({ method: "POST" })
 
 export const updateAgentDataSource = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(
-    (input: { bindingId: string; enabled?: boolean; policy?: BindingPolicy }) => ({
-      bindingId: String(input.bindingId ?? ""),
-      ...(typeof input.enabled === "boolean" ? { enabled: input.enabled } : {}),
-      ...(input.policy ? { policy: input.policy } : {}),
-    }),
-  )
+  .inputValidator((input: { bindingId: string; enabled?: boolean }) => ({
+    bindingId: String(input.bindingId ?? ""),
+    ...(typeof input.enabled === "boolean" ? { enabled: input.enabled } : {}),
+  }))
   .handler(async ({ data, context }) => {
     const b = await import("./capabilities/bindings.server");
     try {
       const ctx = await b.requireManage(context.supabase, context.userId);
       await b.setBindingState(context.supabase, ctx, data);
+      return { ok: true as const };
+    } catch (error) {
+      return b.bindingErrorPayload(error);
+    }
+  });
+
+/**
+ * Saves the decision policy for one binding (tenant + agent + integration +
+ * capability). The raw input is passed through untouched so the server-side
+ * schema validator — not the browser — decides what is acceptable. The policy
+ * version is incremented by the database.
+ */
+export const saveAgentIntegrationPolicy = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { bindingId: string; policy: unknown }) => ({
+    bindingId: String(input.bindingId ?? ""),
+    policy: input.policy as unknown,
+  }))
+  .handler(async ({ data, context }) => {
+    const b = await import("./capabilities/bindings.server");
+    try {
+      const ctx = await b.requireManage(context.supabase, context.userId);
+      await b.setBindingState(context.supabase, ctx, {
+        bindingId: data.bindingId,
+        policy: data.policy,
+      });
       return { ok: true as const };
     } catch (error) {
       return b.bindingErrorPayload(error);
@@ -118,8 +140,12 @@ export const saveAgentInstructions = createServerFn({ method: "POST" })
 
 /**
  * Read-only capability preview through the Capability Router. Proves the
- * agent-facing surface is provider-neutral and binding-authorized; it performs
- * no reasoning and no writes.
+ * agent-facing surface is provider-neutral, binding-authorized, provenance- and
+ * freshness-aware. It performs no reasoning and no writes.
+ *
+ * Note the input surface: only agentKey + capabilityKey. Tenant, integration
+ * and provider are resolved server-side from authorized records, so no caller
+ * (including a future LLM tool call) can widen access by supplying an id.
  */
 export const previewAgentCapability = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -129,35 +155,45 @@ export const previewAgentCapability = createServerFn({ method: "POST" })
   }))
   .handler(async ({ data, context }) => {
     const b = await import("./capabilities/bindings.server");
-    const { capabilityRouter } = await import("./capabilities/router.server");
+    const { CAPABILITY_ROUTER_CALLS } = await import("./capabilities/router.server");
     try {
-      const ctx = await b.resolveTenant(context.supabase, context.userId);
-      const call =
-        data.capabilityKey === "license_inventory"
-          ? capabilityRouter.getLicenseInventory
-          : data.capabilityKey === "user_inventory"
-            ? capabilityRouter.getUsers
-            : data.capabilityKey === "queue_inventory"
-              ? capabilityRouter.getQueues
-              : null;
-
+      const call = CAPABILITY_ROUTER_CALLS[data.capabilityKey];
       if (!call) {
         return {
           ok: false as const,
           errorCode: "capability_not_supported_by_provider",
           errorMessage: "No provider implementation is wired for that capability yet.",
+          issues: [],
           sources: [],
           recordCount: 0,
           warnings: [] as string[],
+          freshness: "unavailable" as const,
+          evaluatedAt: new Date().toISOString(),
         };
       }
 
-      const result = await call(context.supabase, ctx.tenantId, data.agentKey);
+      const result = await call(context.supabase, context.userId, data.agentKey);
+      if (result.denied) {
+        return {
+          ok: false as const,
+          errorCode: result.denied.reason,
+          errorMessage: result.denied.message,
+          issues: [],
+          sources: [],
+          recordCount: 0,
+          warnings: result.warnings,
+          freshness: result.freshness,
+          evaluatedAt: result.evaluatedAt,
+        };
+      }
+
       return {
         ok: true as const,
         recordCount: result.records.length,
         sources: result.sources,
         warnings: result.warnings,
+        freshness: result.freshness,
+        evaluatedAt: result.evaluatedAt,
       };
     } catch (error) {
       return {
@@ -165,6 +201,8 @@ export const previewAgentCapability = createServerFn({ method: "POST" })
         sources: [],
         recordCount: 0,
         warnings: [] as string[],
+        freshness: "unavailable" as const,
+        evaluatedAt: new Date().toISOString(),
       };
     }
   });
