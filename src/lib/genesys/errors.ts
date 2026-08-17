@@ -58,7 +58,19 @@ export function toErrorMessage(error: unknown): string {
   return error instanceof IntegrationError ? error.message : ERROR_MESSAGES.provider_error;
 }
 
-/** Read-only scopes requested for the first Genesys vertical slice. */
+/**
+ * Read-only scopes requested for the Genesys integration.
+ * Coverage of the endpoints the connector calls:
+ *  - GET /api/v2/organizations/me  -> organization:readonly
+ *  - GET /api/v2/users/me          -> users:readonly
+ *  - GET /api/v2/users?expand=presence,division,authorization
+ *                                  -> users:readonly + presence:readonly + authorization:readonly
+ *  - GET /api/v2/license/users     -> license:readonly
+ *  - GET /api/v2/license/definitions -> license:readonly
+ *  - GET /api/v2/routing/queues    -> routing:readonly
+ *  - (future) analytics queries    -> analytics:readonly
+ * Every scope is a :readonly grant; the connector issues no write calls.
+ */
 export const GENESYS_SCOPES = [
   "organization:readonly",
   "users:readonly",
@@ -66,7 +78,9 @@ export const GENESYS_SCOPES = [
   "routing:readonly",
   "authorization:readonly",
   "presence:readonly",
+  "analytics:readonly",
 ] as const;
+
 
 /** Supported Genesys Cloud regions (login/API host suffixes). */
 export const GENESYS_REGIONS = [
