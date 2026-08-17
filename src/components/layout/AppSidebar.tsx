@@ -4,6 +4,7 @@ import {
   Bot,
   Plug,
   MessageSquare,
+  ShieldAlert,
   ShieldCheck,
   FileBarChart,
   Users,
