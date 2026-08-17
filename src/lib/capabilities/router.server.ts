@@ -16,6 +16,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/integrations/supabase/types";
+import { evaluateGuardrails } from "@/lib/guardrails/engine.server";
+import type { GuardrailVerdict } from "@/lib/guardrails/evaluate";
+import { sanitizeOutput } from "@/lib/guardrails/sanitize";
 import {
   authorizeCapabilityAccess,
   DENIAL_MESSAGES,
@@ -213,6 +216,8 @@ export interface RoutedCapabilityResult<T> extends CapabilityResult<T> {
   denied?: { reason: string; message: string };
   /** Binding policies in force, keyed by integration id. */
   policies: CapabilityPolicySet;
+  /** Guardrail verdicts that shaped this result, keyed by integration id. */
+  guardrails: Record<string, GuardrailVerdict>;
 }
 
 function emptyResult<T>(
@@ -231,6 +236,7 @@ function emptyResult<T>(
     evaluatedAt: new Date(now).toISOString(),
     freshness: "unavailable",
     policies: {},
+    guardrails: {},
     ...(decision.reason
       ? { denied: { reason: decision.reason, message: DENIAL_MESSAGES[decision.reason] } }
       : {}),
@@ -264,6 +270,7 @@ async function runCapability<T>(
     evaluatedAt: new Date(now).toISOString(),
     freshness: "unavailable",
     policies: {},
+    guardrails: {},
   };
 
   for (const denial of decision.denials) {
@@ -298,10 +305,51 @@ async function runCapability<T>(
       continue;
     }
 
+    // GUARDRAIL GATE — evaluated per source, before any provider read. This
+    // runs after authorization and cannot be skipped, weakened or negotiated
+    // by an agent, prompt, connector or tool call.
+    const verdict = await evaluateGuardrails(
+      supabase,
+      {
+        tenantId,
+        actorRole: decision.roles[0] ?? null,
+        origin: "capability_router",
+        agentKey,
+        provider: source.provider,
+        integrationId: source.integrationId,
+        capability,
+        actionKey: `capability.${capability}`,
+        environment: source.isMock ? "development" : "production",
+        executionClass: "read_only",
+        freshness: freshness.state,
+        dataClassification: "confidential",
+      },
+      { userId },
+    );
+    result.guardrails[source.integrationId] = verdict;
+
+    if (!verdict.allowed) {
+      const warning =
+        verdict.reasons[0] ?? `A guardrail prevented ${source.displayName} from being read.`;
+      result.warnings.push(warning);
+      result.sources.push({ ...baseSource, warning });
+      continue;
+    }
+
     try {
       const records = await fn(source, tenantId);
-      result.records.push(...records);
-      result.sources.push({ ...baseSource, recordCount: records.length });
+      // POST-EXECUTION ENFORCEMENT: apply any guardrail record cap, then scrub
+      // the payload so no credential-shaped value can leave the server.
+      const capped =
+        verdict.maxRecords != null ? records.slice(0, verdict.maxRecords) : records;
+      const safe = sanitizeOutput(capped, verdict.redactFields);
+      if (capped.length < records.length) {
+        result.warnings.push(
+          `${source.displayName} results were limited to ${verdict.maxRecords} records by a guardrail.`,
+        );
+      }
+      result.records.push(...safe);
+      result.sources.push({ ...baseSource, recordCount: safe.length });
     } catch (error) {
       console.error("[capability-router] provider read failed", {
         provider: source.provider,

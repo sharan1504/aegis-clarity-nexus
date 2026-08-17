@@ -1,5 +1,6 @@
 import { auth, defineMcp } from "@lovable.dev/mcp-js";
 
+import { guardedTool } from "./guarded";
 import getChangeRecord from "./tools/get-change-record";
 import getOperationsOverview from "./tools/get-operations-overview";
 import listAgents from "./tools/list-agents";
@@ -22,13 +23,14 @@ export default defineMcp({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated",
   }),
+  // Guardrail: tool output is sanitized before it leaves the server.
   tools: [
-    getOperationsOverview,
-    listChangeRecords,
-    getChangeRecord,
-    listAgents,
-    listIntegrations,
-    listIncidentsAndAlerts,
-    listReportsAndRecommendations,
+    guardedTool(getOperationsOverview),
+    guardedTool(listChangeRecords),
+    guardedTool(getChangeRecord),
+    guardedTool(listAgents),
+    guardedTool(listIntegrations),
+    guardedTool(listIncidentsAndAlerts),
+    guardedTool(listReportsAndRecommendations),
   ],
 });
