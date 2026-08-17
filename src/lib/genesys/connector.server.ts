@@ -62,8 +62,11 @@ export interface GenesysQueueRecord {
   raw: unknown;
 }
 
+// Every outbound host is built from an allow-listed region suffix only, so a
+// caller-supplied (or previously stored) region can never point the OAuth
+// token request — which carries the platform client secret — at another host.
 function region(regionId?: string | null) {
-  return regionId && regionId.trim() ? regionId.trim() : DEFAULT_GENESYS_REGION;
+  return normalizeGenesysRegion(regionId);
 }
 
 function loginHost(regionId?: string | null) {
