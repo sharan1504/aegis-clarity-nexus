@@ -315,7 +315,7 @@ export function evaluateGuardrailSet(
     }
 
     const next = EFFECT_TO_DECISION[action.effect];
-    const before = decision;
+    const before: GuardrailDecision = decision;
     decision = moreRestrictive(decision, next);
     if (decision !== "allow" && decision !== before) restrictedAtRank = scopeRank(rule.scope);
     if (decision !== "allow") restrictedAtRank = Math.min(restrictedAtRank, scopeRank(rule.scope));
