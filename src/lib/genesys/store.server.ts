@@ -234,7 +234,9 @@ export async function consumeOAuthState(
     .update({ consumed_at: new Date().toISOString() })
     .eq("state", state);
 
-  return { region: data.region ?? DEFAULT_GENESYS_REGION, redirectUri: data.redirect_uri };
+  // Re-validate the stored region on read: rows written before the allow-list
+  // existed must not be able to steer the token exchange host.
+  return { region: normalizeGenesysRegion(data.region), redirectUri: data.redirect_uri };
 }
 
 export async function saveTokens(
