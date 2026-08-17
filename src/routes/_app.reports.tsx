@@ -186,7 +186,7 @@ function ReportsPage() {
     return () => {
       active = false;
     };
-  }, [tenantId, readRetention, purge, loadHistory]);
+  }, [tenantId, isAdmin, readRetention, purge, loadHistory]);
 
   useEffect(() => {
     if (deepLinkId && highlightRef.current) {
