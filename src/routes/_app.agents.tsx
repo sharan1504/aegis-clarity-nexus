@@ -137,6 +137,12 @@ function AgentsPage() {
               <p className="mt-4 text-sm text-muted-foreground">{selected.description}</p>
 
               <div className="mt-5">
+                <AgentDataSourceManager agentKey={selected.id} agentName={selected.name} />
+              </div>
+
+
+
+              <div className="mt-5">
                 <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Recent findings
                 </div>
