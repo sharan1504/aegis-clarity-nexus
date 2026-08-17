@@ -20,6 +20,7 @@ import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppReportsRouteImport } from './routes/_app.reports'
 import { Route as AppMarketplaceRouteImport } from './routes/_app.marketplace'
 import { Route as AppIntegrationsRouteImport } from './routes/_app.integrations'
+import { Route as AppGovernanceRouteImport } from './routes/_app.governance'
 import { Route as AppChatRouteImport } from './routes/_app.chat'
 import { Route as AppAgentsRouteImport } from './routes/_app.agents'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
@@ -84,6 +85,11 @@ const AppIntegrationsRoute = AppIntegrationsRouteImport.update({
   path: '/integrations',
   getParentRoute: () => AppRoute,
 } as any)
+const AppGovernanceRoute = AppGovernanceRouteImport.update({
+  id: '/governance',
+  path: '/governance',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppChatRoute = AppChatRouteImport.update({
   id: '/chat',
   path: '/chat',
@@ -143,6 +149,7 @@ export interface FileRoutesByFullPath {
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/agents': typeof AppAgentsRoute
   '/chat': typeof AppChatRoute
+  '/governance': typeof AppGovernanceRoute
   '/integrations': typeof AppIntegrationsRoute
   '/marketplace': typeof AppMarketplaceRoute
   '/reports': typeof AppReportsRoute
@@ -163,6 +170,7 @@ export interface FileRoutesByTo {
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/agents': typeof AppAgentsRoute
   '/chat': typeof AppChatRoute
+  '/governance': typeof AppGovernanceRoute
   '/integrations': typeof AppIntegrationsRoute
   '/marketplace': typeof AppMarketplaceRoute
   '/reports': typeof AppReportsRoute
@@ -186,6 +194,7 @@ export interface FileRoutesById {
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/_app/agents': typeof AppAgentsRoute
   '/_app/chat': typeof AppChatRoute
+  '/_app/governance': typeof AppGovernanceRoute
   '/_app/integrations': typeof AppIntegrationsRoute
   '/_app/marketplace': typeof AppMarketplaceRoute
   '/_app/reports': typeof AppReportsRoute
@@ -210,6 +219,7 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-protected-resource'
     | '/agents'
     | '/chat'
+    | '/governance'
     | '/integrations'
     | '/marketplace'
     | '/reports'
@@ -230,6 +240,7 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-protected-resource'
     | '/agents'
     | '/chat'
+    | '/governance'
     | '/integrations'
     | '/marketplace'
     | '/reports'
@@ -252,6 +263,7 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-protected-resource'
     | '/_app/agents'
     | '/_app/chat'
+    | '/_app/governance'
     | '/_app/integrations'
     | '/_app/marketplace'
     | '/_app/reports'
@@ -358,6 +370,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIntegrationsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/governance': {
+      id: '/_app/governance'
+      path: '/governance'
+      fullPath: '/governance'
+      preLoaderRoute: typeof AppGovernanceRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/chat': {
       id: '/_app/chat'
       path: '/chat'
@@ -427,6 +446,7 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppAgentsRoute: typeof AppAgentsRoute
   AppChatRoute: typeof AppChatRoute
+  AppGovernanceRoute: typeof AppGovernanceRoute
   AppIntegrationsRoute: typeof AppIntegrationsRoute
   AppMarketplaceRoute: typeof AppMarketplaceRoute
   AppReportsRoute: typeof AppReportsRoute
@@ -440,6 +460,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppAgentsRoute: AppAgentsRoute,
   AppChatRoute: AppChatRoute,
+  AppGovernanceRoute: AppGovernanceRoute,
   AppIntegrationsRoute: AppIntegrationsRoute,
   AppMarketplaceRoute: AppMarketplaceRoute,
   AppReportsRoute: AppReportsRoute,
