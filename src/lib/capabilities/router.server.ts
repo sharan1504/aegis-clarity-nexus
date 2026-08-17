@@ -216,6 +216,8 @@ export interface RoutedCapabilityResult<T> extends CapabilityResult<T> {
   denied?: { reason: string; message: string };
   /** Binding policies in force, keyed by integration id. */
   policies: CapabilityPolicySet;
+  /** Guardrail verdicts that shaped this result, keyed by integration id. */
+  guardrails: Record<string, GuardrailVerdict>;
 }
 
 function emptyResult<T>(
@@ -234,6 +236,7 @@ function emptyResult<T>(
     evaluatedAt: new Date(now).toISOString(),
     freshness: "unavailable",
     policies: {},
+    guardrails: {},
     ...(decision.reason
       ? { denied: { reason: decision.reason, message: DENIAL_MESSAGES[decision.reason] } }
       : {}),
