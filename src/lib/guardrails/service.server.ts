@@ -369,3 +369,26 @@ export async function listGuardrailEvaluations(
     createdAt: r.created_at,
   }));
 }
+
+/**
+ * Audit trail for governance changes. The database trigger seals the row and
+ * derives the actor from the verified session, so the entry cannot be forged.
+ */
+export async function auditGuardrailChange(
+  supabase: UserClient,
+  tenantId: string,
+  action: "guardrail.created" | "guardrail.updated" | "guardrail.enabled" | "guardrail.disabled" | "guardrail.deleted",
+  guardrailId: string,
+  detail: string,
+  payload: Record<string, unknown> = {},
+) {
+  const { error } = await supabase.from("audit_log").insert({
+    tenant_id: tenantId,
+    action,
+    entity_type: "guardrail",
+    entity_id: guardrailId,
+    detail: detail.slice(0, 400),
+    payload: payload as unknown as Json,
+  });
+  if (error) console.error("[guardrails] audit write failed", error.message);
+}
