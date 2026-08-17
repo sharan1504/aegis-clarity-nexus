@@ -14,6 +14,7 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -30,12 +31,20 @@ import {
   providerLabel,
   type DataSourceState,
 } from "@/lib/capabilities/registry";
+import { FRESHNESS_LABELS } from "@/lib/capabilities/freshness";
+import {
+  DEFAULT_AGENT_POLICY,
+  RISK_THRESHOLDS,
+  type AgentPolicy,
+  type RiskThreshold,
+} from "@/lib/capabilities/policy";
 import {
   addAgentDataSource,
   getAgentDataSources,
   previewAgentCapability,
   removeAgentDataSource,
   saveAgentInstructions,
+  saveAgentIntegrationPolicy,
   updateAgentDataSource,
 } from "@/lib/agent-architecture.functions";
 
@@ -72,6 +81,7 @@ export function AgentDataSourceManager({
   const updateSource = useServerFn(updateAgentDataSource);
   const removeSource = useServerFn(removeAgentDataSource);
   const saveInstructions = useServerFn(saveAgentInstructions);
+  const savePolicy = useServerFn(saveAgentIntegrationPolicy);
   const preview = useServerFn(previewAgentCapability);
 
   const queryKey = ["agent-data-sources", agentKey];
@@ -85,6 +95,7 @@ export function AgentDataSourceManager({
 
   const [pick, setPick] = useState<string>("");
   const [instr, setInstr] = useState({ pre: "", system: "", post: "" });
+  const [drafts, setDrafts] = useState<Record<string, AgentPolicy>>({});
 
   useEffect(() => {
     if (data?.settings) {
@@ -145,6 +156,22 @@ export function AgentDataSourceManager({
     },
   });
 
+  const policyMutation = useMutation({
+    mutationFn: (vars: { bindingId: string; policy: AgentPolicy }) => savePolicy({ data: vars }),
+    onSuccess: (res, vars) => {
+      if (res.ok) {
+        toast.success("Policy saved", { description: "A new policy version was recorded." });
+        setDrafts((d) => {
+          const next = { ...d };
+          delete next[vars.bindingId];
+          return next;
+        });
+        void invalidate();
+      } else toast.error(res.errorMessage);
+    },
+    onError: () => toast.error("The policy could not be saved."),
+  });
+
   const previewMutation = useMutation({
     mutationFn: (capabilityKey: string) => preview({ data: { agentKey, capabilityKey } }),
     onSuccess: (res) => {
@@ -198,6 +225,9 @@ export function AgentDataSourceManager({
         </TabsTrigger>
         <TabsTrigger value="capabilities" className="flex-1">
           Capabilities
+        </TabsTrigger>
+        <TabsTrigger value="policies" className="flex-1">
+          Policies
         </TabsTrigger>
         <TabsTrigger value="instructions" className="flex-1">
           Instructions
@@ -274,6 +304,9 @@ export function AgentDataSourceManager({
                     {i.lastSyncAt
                       ? `Last sync ${new Date(i.lastSyncAt).toLocaleString()}`
                       : "Never synchronized"}
+                    {" • "}
+                    {FRESHNESS_LABELS[i.freshness]}
+                    {i.freshness !== "unavailable" ? ` (${i.freshnessLabel})` : ""}
                   </div>
                   <div className="mt-2">
                     <StatePill state={i.state} />
@@ -374,6 +407,177 @@ export function AgentDataSourceManager({
             No capabilities are registered for this agent yet.
           </div>
         )}
+      </TabsContent>
+
+
+      <TabsContent value="policies" className="mt-4 space-y-3">
+        <p className="text-xs text-muted-foreground">
+          Policies hold your organization's decision rules for each data source. Connectors never
+          contain thresholds — {agentName} reads facts, and these values decide how they are
+          interpreted. Every change is validated on the server and recorded as a new version.
+        </p>
+
+        {bindings.length === 0 && (
+          <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+            Enable a data source first — policies are configured per data source.
+          </div>
+        )}
+
+        {bindings.map((b) => {
+          const integration = integrations.find((i) => i.integrationId === b.integrationId);
+          const label = providerLabel(integration?.provider ?? "");
+          const policy = drafts[b.id] ?? b.policy ?? DEFAULT_AGENT_POLICY;
+          const dirty = Boolean(drafts[b.id]);
+          const patch = (next: Partial<AgentPolicy>) =>
+            setDrafts((d) => ({ ...d, [b.id]: { ...policy, ...next } }));
+
+          return (
+            <div key={b.id} className="rounded-lg border border-border p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-medium">
+                  {integration?.displayName || label.name}
+                </span>
+                <Badge variant="outline" className="text-[10px] font-normal">
+                  {b.capabilityName}
+                </Badge>
+                <Badge variant="secondary" className="text-[10px] font-normal">
+                  v{b.policyVersion}
+                </Badge>
+                {b.policyUpdatedAt && (
+                  <span className="text-[10px] text-muted-foreground">
+                    updated {new Date(b.policyUpdatedAt).toLocaleString()}
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label htmlFor={`inact-${b.id}`} className="text-xs font-medium">
+                    Inactivity threshold (days)
+                  </label>
+                  <Input
+                    id={`inact-${b.id}`}
+                    type="number"
+                    min={1}
+                    max={3650}
+                    disabled={!canManage}
+                    value={policy.inactivity_threshold_days}
+                    onChange={(e) =>
+                      patch({ inactivity_threshold_days: Number(e.target.value) })
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label htmlFor={`conf-${b.id}`} className="text-xs font-medium">
+                    Minimum confidence (%)
+                  </label>
+                  <Input
+                    id={`conf-${b.id}`}
+                    type="number"
+                    min={0}
+                    max={100}
+                    disabled={!canManage}
+                    value={policy.minimum_confidence}
+                    onChange={(e) => patch({ minimum_confidence: Number(e.target.value) })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label htmlFor={`max-${b.id}`} className="text-xs font-medium">
+                    Maximum affected records
+                  </label>
+                  <Input
+                    id={`max-${b.id}`}
+                    type="number"
+                    min={1}
+                    disabled={!canManage}
+                    value={policy.maximum_affected_records}
+                    onChange={(e) =>
+                      patch({ maximum_affected_records: Number(e.target.value) })
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <span className="text-xs font-medium">Risk threshold</span>
+                  <Select
+                    value={policy.risk_threshold}
+                    disabled={!canManage}
+                    onValueChange={(v) => patch({ risk_threshold: v as RiskThreshold })}
+                  >
+                    <SelectTrigger aria-label="Risk threshold">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {RISK_THRESHOLDS.map((r) => (
+                        <SelectItem key={r} value={r}>
+                          {r}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="mt-3 space-y-2">
+                <div className="flex items-center justify-between gap-2 rounded-md bg-muted/40 px-2.5 py-2">
+                  <span className="text-xs">Approval required before execution</span>
+                  <Switch
+                    checked={policy.approval_required}
+                    disabled={!canManage}
+                    aria-label="Approval required before execution"
+                    onCheckedChange={(v) => patch({ approval_required: v })}
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-2 rounded-md bg-muted/40 px-2.5 py-2">
+                  <span className="text-xs">Exclude active queue members</span>
+                  <Switch
+                    checked={policy.exclusions.exclude_active_queue_members}
+                    disabled={!canManage}
+                    aria-label="Exclude active queue members"
+                    onCheckedChange={(v) =>
+                      patch({
+                        exclusions: { ...policy.exclusions, exclude_active_queue_members: v },
+                      })
+                    }
+                  />
+                </div>
+              </div>
+
+              {canManage ? (
+                <div className="mt-3 flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    disabled={!dirty || policyMutation.isPending}
+                    onClick={() => policyMutation.mutate({ bindingId: b.id, policy })}
+                  >
+                    {policyMutation.isPending && (
+                      <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                    )}
+                    Save policy
+                  </Button>
+                  {dirty && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        setDrafts((d) => {
+                          const next = { ...d };
+                          delete next[b.id];
+                          return next;
+                        })
+                      }
+                    >
+                      Discard
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Only workspace admins and managers can change policies.
+                </p>
+              )}
+            </div>
+          );
+        })}
       </TabsContent>
 
       <TabsContent value="instructions" className="mt-4 space-y-3">

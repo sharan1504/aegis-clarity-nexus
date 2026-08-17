@@ -4,18 +4,30 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/integrations/supabase/types";
+import { evaluateFreshness, type FreshnessState } from "./freshness";
+import {
+  coerceStoredPolicy,
+  DEFAULT_AGENT_POLICY,
+  parseAgentPolicy,
+  type AgentPolicy,
+  type PolicyIssue,
+  type PolicyPrimitive,
+} from "./policy";
 import type { CapabilityDef, DataSourceState } from "./registry";
 
 type UserClient = SupabaseClient<Database>;
 
-export type PolicyValue = string | number | boolean | null;
-export type BindingPolicy = Record<string, PolicyValue>;
+export type PolicyValue = PolicyPrimitive;
+/** The binding policy is the typed AgentPolicy — never uncontrolled JSON. */
+export type BindingPolicy = AgentPolicy;
 
 export class BindingError extends Error {
   code: string;
-  constructor(code: string, message: string) {
+  issues: PolicyIssue[];
+  constructor(code: string, message: string, issues: PolicyIssue[] = []) {
     super(message);
     this.code = code;
+    this.issues = issues;
     this.name = "BindingError";
   }
 }
@@ -29,12 +41,20 @@ export const BINDING_ERRORS: Record<string, string> = {
   capability_not_supported_by_provider:
     "This provider does not currently support this capability.",
   integration_not_found: "That integration is not connected in this workspace.",
+  invalid_policy: "That policy contains values the platform will not accept.",
   save_failed: "The data source could not be saved. Please try again.",
 };
 
 export function bindingErrorPayload(error: unknown) {
   const code = error instanceof BindingError ? error.code : "save_failed";
-  return { ok: false as const, errorCode: code, errorMessage: BINDING_ERRORS[code] ?? BINDING_ERRORS['save_failed'] };
+  const issues = error instanceof BindingError ? error.issues : [];
+  return {
+    ok: false as const,
+    errorCode: code,
+    errorMessage:
+      (issues[0]?.message ?? BINDING_ERRORS[code] ?? BINDING_ERRORS['save_failed']) as string,
+    issues,
+  };
 }
 
 export interface TenantContext {
@@ -117,6 +137,8 @@ export interface DataSourceView {
     capabilityName: string;
     enabled: boolean;
     policy: BindingPolicy;
+    policyVersion: number;
+    policyUpdatedAt: string | null;
     isMock: boolean;
   }>;
   integrations: Array<{
@@ -129,6 +151,8 @@ export interface DataSourceView {
     lastSyncAt: string | null;
     isMock: boolean;
     state: DataSourceState;
+    freshness: FreshnessState;
+    freshnessLabel: string;
     /** Capabilities this provider can offer that the agent also supports. */
     compatibleCapabilities: Array<CapabilityDef & { implemented: boolean; bound: boolean }>;
     /** Why the integration cannot be used at all, when applicable. */
@@ -160,7 +184,9 @@ export async function getAgentDataSources(
       .eq("tenant_id", tenantId),
     supabase
       .from("agent_integration_bindings")
-      .select(`id, integration_id, capability_id, enabled, policy, is_mock, capabilities!inner(${CAPABILITY_COLUMNS})`)
+      .select(
+        `id, integration_id, capability_id, enabled, policy, policy_version, policy_updated_at, is_mock, capabilities!inner(${CAPABILITY_COLUMNS})`,
+      )
       .eq("tenant_id", tenantId)
       .eq("agent_key", agentKey),
     supabase.from("provider_capabilities").select("provider, capability_id, implemented"),
@@ -175,7 +201,9 @@ export async function getAgentDataSources(
       capabilityKey: cap.capability_key,
       capabilityName: cap.display_name,
       enabled: Boolean(row.enabled),
-      policy: (row.policy ?? {}) as BindingPolicy,
+      policy: coerceStoredPolicy(row.policy),
+      policyVersion: Number(row.policy_version ?? 1),
+      policyUpdatedAt: row.policy_updated_at ?? null,
       isMock: Boolean(row.is_mock),
     };
   });
@@ -196,6 +224,7 @@ export async function getAgentDataSources(
       });
 
     const boundHere = bindings.filter((b) => b.integrationId === i.id && b.enabled);
+    const freshness = evaluateFreshness(i.last_sync_at);
     const stale =
       i.last_sync_at ? Date.now() - new Date(i.last_sync_at).getTime() > STALE_AFTER_MS : false;
 
@@ -218,6 +247,8 @@ export async function getAgentDataSources(
       lastSyncAt: i.last_sync_at,
       isMock: Boolean(i.is_mock),
       state,
+      freshness: freshness.state,
+      freshnessLabel: freshness.ageLabel,
       compatibleCapabilities: compatible,
       ...(compatible.length
         ? {}
@@ -292,6 +323,7 @@ export async function createBinding(
       integration_id: integration.id,
       capability_id: cap.id,
       enabled: true,
+      policy: DEFAULT_AGENT_POLICY as never,
       is_mock: Boolean(integration.is_mock),
       created_by: userId,
     },
@@ -316,14 +348,25 @@ export async function removeBinding(
   if (error) throw new BindingError("save_failed", BINDING_ERRORS['save_failed']!);
 }
 
+/**
+ * Updates a binding. Policy input is ALWAYS re-validated server-side, so the
+ * browser cannot store an out-of-range threshold or an unknown field.
+ * The policy version is bumped by a database trigger, not by this code.
+ */
 export async function setBindingState(
   supabase: UserClient,
   ctx: TenantContext,
-  input: { bindingId: string; enabled?: boolean; policy?: BindingPolicy },
+  input: { bindingId: string; enabled?: boolean; policy?: unknown },
 ) {
   const patch: Record<string, unknown> = {};
   if (typeof input.enabled === "boolean") patch['enabled'] = input.enabled;
-  if (input.policy) patch['policy'] = input.policy;
+  if (input.policy !== undefined) {
+    const parsed = parseAgentPolicy(input.policy);
+    if (!parsed.ok) {
+      throw new BindingError("invalid_policy", BINDING_ERRORS['invalid_policy']!, parsed.issues);
+    }
+    patch['policy'] = parsed.policy;
+  }
   if (!Object.keys(patch).length) return;
 
   const { error } = await supabase
