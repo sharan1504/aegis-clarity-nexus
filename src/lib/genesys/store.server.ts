@@ -5,9 +5,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/integrations/supabase/types";
 import {
-  DEFAULT_GENESYS_REGION,
   GENESYS_SCOPES,
   IntegrationError,
+  normalizeGenesysRegion,
   toErrorCode,
   toErrorMessage,
 } from "./errors";
@@ -175,7 +175,7 @@ export async function ensureIntegration(
         provider: PROVIDER,
         status: "authorizing",
         health_status: "unknown",
-        region,
+        region: normalizeGenesysRegion(region),
         scopes: [...GENESYS_SCOPES],
         connected_by: userId,
       },
@@ -200,7 +200,7 @@ export async function createOAuthState(input: {
     state,
     tenant_id: input.tenantId,
     provider: PROVIDER,
-    region: input.region,
+    region: normalizeGenesysRegion(input.region),
     redirect_uri: input.redirectUri,
     created_by: input.userId,
     expires_at: new Date(Date.now() + 10 * 60_000).toISOString(),
@@ -234,7 +234,9 @@ export async function consumeOAuthState(
     .update({ consumed_at: new Date().toISOString() })
     .eq("state", state);
 
-  return { region: data.region ?? DEFAULT_GENESYS_REGION, redirectUri: data.redirect_uri };
+  // Re-validate the stored region on read: rows written before the allow-list
+  // existed must not be able to steer the token exchange host.
+  return { region: normalizeGenesysRegion(data.region), redirectUri: data.redirect_uri };
 }
 
 export async function saveTokens(

@@ -3,9 +3,9 @@
 // Client id/secret and tokens exist only inside this module's callers on the
 // server; nothing here is importable from the browser bundle.
 import {
-  DEFAULT_GENESYS_REGION,
   GENESYS_SCOPES,
   IntegrationError,
+  normalizeGenesysRegion,
 } from "./errors";
 
 export interface GenesysTokens {
@@ -62,8 +62,11 @@ export interface GenesysQueueRecord {
   raw: unknown;
 }
 
+// Every outbound host is built from an allow-listed region suffix only, so a
+// caller-supplied (or previously stored) region can never point the OAuth
+// token request — which carries the platform client secret — at another host.
 function region(regionId?: string | null) {
-  return regionId && regionId.trim() ? regionId.trim() : DEFAULT_GENESYS_REGION;
+  return normalizeGenesysRegion(regionId);
 }
 
 function loginHost(regionId?: string | null) {

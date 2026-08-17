@@ -168,6 +168,9 @@ function ReportsPage() {
         if (!active) return;
         setRetentionDays(days);
         setRetentionDraft(String(days));
+        // The sweep deletes stored files, so the server restricts it to
+        // workspace admins; skip the call entirely for everyone else.
+        if (!isAdmin) return;
         const result = await purge({});
         if (!active) return;
         if (result.purged > 0) {
@@ -183,7 +186,7 @@ function ReportsPage() {
     return () => {
       active = false;
     };
-  }, [tenantId, readRetention, purge, loadHistory]);
+  }, [tenantId, isAdmin, readRetention, purge, loadHistory]);
 
   useEffect(() => {
     if (deepLinkId && highlightRef.current) {
