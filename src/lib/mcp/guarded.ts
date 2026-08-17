@@ -76,7 +76,7 @@ export function guardedTool<T extends AnyTool>(tool: T, governance: ToolGovernan
         {
           origin: "mcp",
           actionKey: governance.actionKey ?? tool.name,
-          executionClass: governance.executionClass ?? "read",
+          executionClass: governance.executionClass ?? "read_only",
           capability: governance.capability ?? null,
           provider: governance.provider ?? null,
           ...(governance.dataClassification
