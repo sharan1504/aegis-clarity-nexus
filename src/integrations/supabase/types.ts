@@ -1002,13 +1002,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "guardrail_revisions_guardrail_id_fkey"
-            columns: ["guardrail_id"]
-            isOneToOne: false
-            referencedRelation: "guardrails"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "guardrail_revisions_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
