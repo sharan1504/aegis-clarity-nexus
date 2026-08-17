@@ -2,11 +2,7 @@
 // READ ONLY: this connector never issues write/mutating calls to Genesys.
 // Client id/secret and tokens exist only inside this module's callers on the
 // server; nothing here is importable from the browser bundle.
-import {
-  GENESYS_SCOPES,
-  IntegrationError,
-  normalizeGenesysRegion,
-} from "./errors";
+import { GENESYS_SCOPES, IntegrationError, normalizeGenesysRegion } from "./errors";
 
 export interface GenesysTokens {
   accessToken: string;
@@ -89,11 +85,7 @@ export function isConfigured(): boolean {
 }
 
 /** Step 1 — Authorization Code flow: build the Genesys consent URL. */
-export function buildAuthorizeUrl(opts: {
-  redirectUri: string;
-  state: string;
-  regionId?: string | null;
-}): string {
+export function buildAuthorizeUrl(opts: { redirectUri: string; state: string; regionId?: string | null }): string {
   const { clientId } = getClientCredentials();
   const url = new URL(`${loginHost(opts.regionId)}/oauth/authorize`);
   url.searchParams.set("response_type", "code");
@@ -104,10 +96,7 @@ export function buildAuthorizeUrl(opts: {
   return url.toString();
 }
 
-async function tokenRequest(
-  body: Record<string, string>,
-  regionId?: string | null,
-): Promise<GenesysTokens> {
+async function tokenRequest(body: Record<string, string>, regionId?: string | null): Promise<GenesysTokens> {
   const { clientId, clientSecret } = getClientCredentials();
   const basic =
     typeof btoa === "function"
@@ -169,21 +158,11 @@ export function exchangeAuthorizationCode(opts: {
 }
 
 /** Step 3 — refresh an expiring access token. */
-export function refreshAccessToken(opts: {
-  refreshToken: string;
-  regionId?: string | null;
-}): Promise<GenesysTokens> {
-  return tokenRequest(
-    { grant_type: "refresh_token", refresh_token: opts.refreshToken },
-    opts.regionId,
-  );
+export function refreshAccessToken(opts: { refreshToken: string; regionId?: string | null }): Promise<GenesysTokens> {
+  return tokenRequest({ grant_type: "refresh_token", refresh_token: opts.refreshToken }, opts.regionId);
 }
 
-async function apiGet<T>(
-  path: string,
-  accessToken: string,
-  regionId?: string | null,
-): Promise<T> {
+async function apiGet<T>(path: string, accessToken: string, regionId?: string | null): Promise<T> {
   const res = await fetch(`${apiHost(regionId)}${path}`, {
     headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
   });
@@ -201,10 +180,7 @@ async function apiGet<T>(
 }
 
 /** Connection health check + organization lookup. */
-export async function getOrganization(
-  accessToken: string,
-  regionId?: string | null,
-): Promise<GenesysOrg> {
+export async function getOrganization(accessToken: string, regionId?: string | null): Promise<GenesysOrg> {
   const org = await apiGet<{ id?: string; name?: string; thirdPartyOrgName?: string }>(
     "/api/v2/organizations/me",
     accessToken,
@@ -218,15 +194,8 @@ export async function getOrganization(
   };
 }
 
-export async function getCurrentUser(
-  accessToken: string,
-  regionId?: string | null,
-): Promise<GenesysMe> {
-  const me = await apiGet<{ id: string; name?: string; email?: string }>(
-    "/api/v2/users/me",
-    accessToken,
-    regionId,
-  );
+export async function getCurrentUser(accessToken: string, regionId?: string | null): Promise<GenesysMe> {
+  const me = await apiGet<{ id: string; name?: string; email?: string }>("/api/v2/users/me", accessToken, regionId);
   return { id: me.id, name: me.name ?? "Unknown", email: me.email ?? null };
 }
 
@@ -255,10 +224,7 @@ async function pageThrough<T>(
 }
 
 /** Read-only users retrieval (paged). */
-export async function listUsers(
-  accessToken: string,
-  regionId?: string | null,
-): Promise<GenesysUserRecord[]> {
+export async function listUsers(accessToken: string, regionId?: string | null): Promise<GenesysUserRecord[]> {
   type RawUser = {
     id: string;
     name?: string;
@@ -273,8 +239,7 @@ export async function listUsers(
   };
 
   const users = await pageThrough<RawUser>(
-    (p) =>
-      `/api/v2/users?pageSize=100&pageNumber=${p}&state=any&expand=presence,division,authorization`,
+    (p) => `/api/v2/users?pageSize=100&pageNumber=${p}&state=any&expand=presence,authorization`,
     accessToken,
     regionId,
   );
@@ -360,10 +325,7 @@ export async function listLicenses(
 }
 
 /** Read-only routing queues retrieval (paged). */
-export async function listQueues(
-  accessToken: string,
-  regionId?: string | null,
-): Promise<GenesysQueueRecord[]> {
+export async function listQueues(accessToken: string, regionId?: string | null): Promise<GenesysQueueRecord[]> {
   type RawQueue = {
     id: string;
     name?: string;
