@@ -8,6 +8,9 @@ import type { CapabilityDef, DataSourceState } from "./registry";
 
 type UserClient = SupabaseClient<Database>;
 
+export type PolicyValue = string | number | boolean | null;
+export type BindingPolicy = Record<string, PolicyValue>;
+
 export class BindingError extends Error {
   code: string;
   constructor(code: string, message: string) {
@@ -113,7 +116,7 @@ export interface DataSourceView {
     capabilityKey: string;
     capabilityName: string;
     enabled: boolean;
-    policy: Record<string, unknown>;
+    policy: BindingPolicy;
     isMock: boolean;
   }>;
   integrations: Array<{
@@ -172,7 +175,7 @@ export async function getAgentDataSources(
       capabilityKey: cap.capability_key,
       capabilityName: cap.display_name,
       enabled: Boolean(row.enabled),
-      policy: (row.policy ?? {}) as Record<string, unknown>,
+      policy: (row.policy ?? {}) as BindingPolicy,
       isMock: Boolean(row.is_mock),
     };
   });
@@ -316,7 +319,7 @@ export async function removeBinding(
 export async function setBindingState(
   supabase: UserClient,
   ctx: TenantContext,
-  input: { bindingId: string; enabled?: boolean; policy?: Record<string, unknown> },
+  input: { bindingId: string; enabled?: boolean; policy?: BindingPolicy },
 ) {
   const patch: Record<string, unknown> = {};
   if (typeof input.enabled === "boolean") patch['enabled'] = input.enabled;
