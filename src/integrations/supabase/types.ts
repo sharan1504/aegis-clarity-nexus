@@ -91,6 +91,9 @@ export type Database = {
           integration_id: string
           is_mock: boolean
           policy: Json
+          policy_updated_at: string
+          policy_updated_by: string | null
+          policy_version: number
           tenant_id: string
           updated_at: string
         }
@@ -104,6 +107,9 @@ export type Database = {
           integration_id: string
           is_mock?: boolean
           policy?: Json
+          policy_updated_at?: string
+          policy_updated_by?: string | null
+          policy_version?: number
           tenant_id: string
           updated_at?: string
         }
@@ -117,6 +123,9 @@ export type Database = {
           integration_id?: string
           is_mock?: boolean
           policy?: Json
+          policy_updated_at?: string
+          policy_updated_by?: string | null
+          policy_version?: number
           tenant_id?: string
           updated_at?: string
         }
@@ -144,6 +153,81 @@ export type Database = {
           },
           {
             foreignKeyName: "agent_integration_bindings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_policy_revisions: {
+        Row: {
+          agent_key: string
+          binding_id: string
+          capability_id: string
+          changed_by: string | null
+          created_at: string
+          id: string
+          integration_id: string
+          policy: Json
+          policy_version: number
+          tenant_id: string
+        }
+        Insert: {
+          agent_key: string
+          binding_id: string
+          capability_id: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          integration_id: string
+          policy?: Json
+          policy_version: number
+          tenant_id: string
+        }
+        Update: {
+          agent_key?: string
+          binding_id?: string
+          capability_id?: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          integration_id?: string
+          policy?: Json
+          policy_version?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_policy_revisions_agent_key_fkey"
+            columns: ["agent_key"]
+            isOneToOne: false
+            referencedRelation: "agent_definitions"
+            referencedColumns: ["agent_key"]
+          },
+          {
+            foreignKeyName: "agent_policy_revisions_binding_id_fkey"
+            columns: ["binding_id"]
+            isOneToOne: false
+            referencedRelation: "agent_integration_bindings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_policy_revisions_capability_id_fkey"
+            columns: ["capability_id"]
+            isOneToOne: false
+            referencedRelation: "capabilities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_policy_revisions_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_policy_revisions_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
