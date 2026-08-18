@@ -8,11 +8,18 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { executeLicenseAgent } from "@/lib/agents/license/functions";
+import type {
+  LicenseResultMeta,
+  LicenseSummary,
+  UnusedLicenseCandidates,
+} from "@/lib/agents/license/types";
+
+type Success<T> = { ok: true; data: T; meta: LicenseResultMeta };
 
 export function LicenseAgentLiveAnalysis() {
   const execute = useServerFn(executeLicenseAgent);
-  const [summary, setSummary] = useState<Extract<Awaited<ReturnType<typeof execute>>, { ok: true }> | null>(null);
-  const [candidates, setCandidates] = useState<Extract<Awaited<ReturnType<typeof execute>>, { ok: true }> | null>(null);
+  const [summary, setSummary] = useState<Success<LicenseSummary> | null>(null);
+  const [candidates, setCandidates] = useState<Success<UnusedLicenseCandidates> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const mutation = useMutation({
@@ -37,8 +44,8 @@ export function LicenseAgentLiveAnalysis() {
         setError(candidateResult.error.message);
         return;
       }
-      setSummary(summaryResult);
-      setCandidates(candidateResult);
+      setSummary(summaryResult as Success<LicenseSummary>);
+      setCandidates(candidateResult as Success<UnusedLicenseCandidates>);
     },
     onError: () => setError("The live License Agent analysis could not be completed."),
   });
