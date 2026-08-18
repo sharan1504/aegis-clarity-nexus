@@ -128,7 +128,33 @@ export const simulateGuardrails = createServerFn({ method: "POST" })
     const { buildSimulationContext } = await import("./guardrails/simulation.server");
     try {
       const ctx = await s.resolveGovernanceContext(context.supabase, context.userId);
-      const simulationContext = buildSimulationContext(ctx.tenantId, ctx.roles, data);
+
+      // The simulator UI displays agent names, while enforcement uses the
+      // canonical agent_key. Resolve the submitted value server-side so a
+      // display name such as "License Optimization Agent" cannot bypass an
+      // agent-scoped guardrail such as scope_id="agent-license".
+      let normalizedData = data;
+      const submittedAgent = typeof data["agentKey"] === "string" ? data["agentKey"].trim() : "";
+      if (submittedAgent) {
+        const { data: byKey } = await context.supabase
+          .from("agent_definitions")
+          .select("agent_key")
+          .eq("agent_key", submittedAgent)
+          .maybeSingle();
+
+        if (byKey?.agent_key) {
+          normalizedData = { ...data, agentKey: byKey.agent_key };
+        } else {
+          const { data: byName } = await context.supabase
+            .from("agent_definitions")
+            .select("agent_key")
+            .eq("display_name", submittedAgent)
+            .maybeSingle();
+          if (byName?.agent_key) normalizedData = { ...data, agentKey: byName.agent_key };
+        }
+      }
+
+      const simulationContext = buildSimulationContext(ctx.tenantId, ctx.roles, normalizedData);
       const verdict = await engine.simulateGuardrails(context.supabase, simulationContext, {
         userId: context.userId,
         origin: "simulator",
