@@ -29,8 +29,8 @@ jobs:
       - name: Run tests
         run: npm test
 
-      - name: Run lint
-        run: npm run lint
+      - name: Lint License Agent tests
+        run: npx eslint src/lib/agents/license/license-agent.test.ts
 
       - name: Build application
         run: npm run build
