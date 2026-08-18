@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  LICENSE_AGENT_KEY,
-  LICENSE_OPERATIONS,
-  parseLicenseFilters,
-} from "./types";
+import { LICENSE_AGENT_KEY, LICENSE_OPERATIONS, parseLicenseFilters } from "./types";
 
 describe("License Agent contracts", () => {
   it("uses the existing agent key and exposes only read-only operations", () => {
@@ -19,12 +15,10 @@ describe("License Agent contracts", () => {
   });
 
   it("accepts supported filters", () => {
-    expect(
-      parseLicenseFilters(
-        { licenseName: "CX3", userEmail: "user@example.com" },
-        ["licenseName", "userEmail"],
-      ),
-    ).toEqual({
+    expect(parseLicenseFilters({ licenseName: "CX3", userEmail: "user@example.com" }, [
+      "licenseName",
+      "userEmail",
+    ])).toEqual({
       ok: true,
       filters: {
         licenseName: "CX3",
@@ -34,10 +28,7 @@ describe("License Agent contracts", () => {
   });
 
   it("rejects unsupported filters", () => {
-    const result = parseLicenseFilters(
-      { provider: "Genesys" },
-      ["licenseId"],
-    );
+    const result = parseLicenseFilters({ provider: "Genesys" }, ["licenseId"]);
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -46,28 +37,19 @@ describe("License Agent contracts", () => {
   });
 
   it("rejects malformed email filters", () => {
-    const result = parseLicenseFilters(
-      { userEmail: "not-an-email" },
-      ["userEmail"],
-    );
+    const result = parseLicenseFilters({ userEmail: "not-an-email" }, ["userEmail"]);
 
     expect(result.ok).toBe(false);
   });
 
   it("rejects oversized filter values", () => {
-    const result = parseLicenseFilters(
-      { licenseName: "x".repeat(321) },
-      ["licenseName"],
-    );
+    const result = parseLicenseFilters({ licenseName: "x".repeat(321) }, ["licenseName"]);
 
     expect(result.ok).toBe(false);
   });
 
   it("rejects array input instead of treating it as filters", () => {
-    const result = parseLicenseFilters(
-      ["CX3"],
-      ["licenseName"],
-    );
+    const result = parseLicenseFilters(["CX3"], ["licenseName"]);
 
     expect(result.ok).toBe(false);
   });
