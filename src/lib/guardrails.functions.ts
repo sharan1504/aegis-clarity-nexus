@@ -103,7 +103,7 @@ export const getGuardrailHistory = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { id: string }) => ({ id: String(input.id ?? "") }))
   .handler(async ({ data, context }) => {
-    const s = await import("./guardrails.service.server");
+    const s = await import("./guardrails/service.server");
     try {
       await s.resolveGovernanceContext(context.supabase, context.userId);
       const revisions = await s.listGuardrailRevisions(context.supabase, data.id);
