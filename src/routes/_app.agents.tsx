@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { PageHeader, SeverityBadge } from "@/components/layout/AppLayout";
 import { EmptyIntegrationsState, hasAnyConnected } from "@/components/EmptyIntegrationsState";
 import { AgentDataSourceManager } from "@/components/agents/AgentDataSourceManager";
+import { LicenseAgentLiveAnalysis } from "@/components/agents/LicenseAgentLiveAnalysis";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -141,7 +142,11 @@ function AgentsPage() {
                 <AgentDataSourceManager agentKey={selected.id} agentName={selected.name} />
               </div>
 
-
+              {selected.id === "agent-license" && (
+                <div className="mt-5">
+                  <LicenseAgentLiveAnalysis />
+                </div>
+              )}
 
               <div className="mt-5">
                 <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
