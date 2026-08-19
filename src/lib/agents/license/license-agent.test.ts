@@ -16,15 +16,17 @@ describe("License Agent contracts", () => {
 
   it("accepts supported filters", () => {
     expect(parseLicenseFilters(
-      { licenseName: "CX3", userEmail: "user@example.com" },
+      { licenseName: "CX3", userName: "RonanAgent", userEmail: "user@example.com" },
       [
         "licenseName",
+        "userName",
         "userEmail",
       ],
     )).toEqual({
       ok: true,
       filters: {
         licenseName: "CX3",
+        userName: "RonanAgent",
         userEmail: "user@example.com",
       },
     });

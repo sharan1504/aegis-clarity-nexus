@@ -209,6 +209,7 @@ export interface LicenseFilters {
   licenseId?: string;
   licenseName?: string;
   userId?: string;
+  userName?: string;
   userEmail?: string;
 }
 

@@ -116,6 +116,22 @@ function policiesForEvaluation(routed: {
   );
 }
 
+function resolveUserIdByName(
+  users: Array<{ userId: string; userName: string | null }>,
+  userName: string,
+): { userId: string | null; ambiguous: boolean } {
+  const wanted = userName.trim().toLowerCase();
+  if (!wanted) return { userId: null, ambiguous: false };
+
+  const exact = users.filter((u) => (u.userName ?? "").trim().toLowerCase() === wanted);
+  if (exact.length === 1) return { userId: exact[0].userId, ambiguous: false };
+  if (exact.length > 1) return { userId: null, ambiguous: true };
+
+  const partial = users.filter((u) => (u.userName ?? "").toLowerCase().includes(wanted));
+  if (partial.length === 1) return { userId: partial[0].userId, ambiguous: false };
+  return { userId: null, ambiguous: partial.length > 1 };
+}
+
 /**
  * Execute one read-only License Agent operation.
  *
@@ -136,7 +152,7 @@ export const executeLicenseAgent = createServerFn({ method: "POST" })
       );
     }
 
-    const parsed = parseLicenseFilters(data.filters, ["licenseId", "licenseName", "userId", "userEmail"]);
+    const parsed = parseLicenseFilters(data.filters, ["licenseId", "licenseName", "userId", "userName", "userEmail"]);
     if (!parsed.ok) {
       return invalidRequest("The supplied License Agent filters are not valid.", parsed.issues);
     }
@@ -151,10 +167,8 @@ export const executeLicenseAgent = createServerFn({ method: "POST" })
             capabilityRouter.getLicenseInventory(context.supabase, context.userId, LICENSE_AGENT_KEY, { now }),
             capabilityRouter.getUsers(context.supabase, context.userId, LICENSE_AGENT_KEY, { now }),
           ]);
-
           if (entitlements.denied) return deniedResult(operation, entitlements);
           if (users.denied) return deniedResult(operation, users);
-
           const data = buildLicenseSummary(entitlements.records, users.records);
           return {
             ok: true as const,
@@ -169,44 +183,16 @@ export const executeLicenseAgent = createServerFn({ method: "POST" })
         }
 
         case "get_license_usage": {
-          const routed = await capabilityRouter.getLicenseInventory(
-            context.supabase,
-            context.userId,
-            LICENSE_AGENT_KEY,
-            { now },
-          );
+          const routed = await capabilityRouter.getLicenseInventory(context.supabase, context.userId, LICENSE_AGENT_KEY, { now });
           if (routed.denied) return deniedResult(operation, routed);
-
-          return {
-            ok: true as const,
-            data: buildLicenseUsage(routed.records, filters),
-            meta: resultMeta(operation, routed),
-          };
+          return { ok: true as const, data: buildLicenseUsage(routed.records, filters), meta: resultMeta(operation, routed) };
         }
 
         case "get_license_assignments": {
-          const routed = await capabilityRouter.getLicenseInventory(
-            context.supabase,
-            context.userId,
-            LICENSE_AGENT_KEY,
-            { now },
-          );
+          const routed = await capabilityRouter.getLicenseInventory(context.supabase, context.userId, LICENSE_AGENT_KEY, { now });
           if (routed.denied) return deniedResult(operation, routed);
-
-          const data = buildLicenseAssignments(
-            routed.records,
-            filters,
-            now,
-            MAX_ASSIGNMENT_RESULTS,
-          );
-          return {
-            ok: true as const,
-            data,
-            meta: {
-              ...resultMeta(operation, routed),
-              truncated: data.totalMatched > MAX_ASSIGNMENT_RESULTS,
-            },
-          };
+          const data = buildLicenseAssignments(routed.records, filters, now, MAX_ASSIGNMENT_RESULTS);
+          return { ok: true as const, data, meta: { ...resultMeta(operation, routed), truncated: data.totalMatched > MAX_ASSIGNMENT_RESULTS } };
         }
 
         case "get_user_license_details": {
@@ -214,35 +200,32 @@ export const executeLicenseAgent = createServerFn({ method: "POST" })
             capabilityRouter.getLicenseInventory(context.supabase, context.userId, LICENSE_AGENT_KEY, { now }),
             capabilityRouter.getUsers(context.supabase, context.userId, LICENSE_AGENT_KEY, { now }),
           ]);
-
           if (entitlements.denied) return deniedResult(operation, entitlements);
           if (users.denied) return deniedResult(operation, users);
 
-          const data = buildUserLicenseDetails(users.records, entitlements.records, filters, now);
+          const resolvedFilters = { ...filters };
+          if (!resolvedFilters.userId && !resolvedFilters.userEmail && resolvedFilters.userName) {
+            const resolved = resolveUserIdByName(users.records, resolvedFilters.userName);
+            if (resolved.ambiguous) {
+              return invalidRequest("More than one connected user matches that name. Please specify the user's email address or user ID.", [
+                { field: "userName", message: "The user name is ambiguous." },
+              ]);
+            }
+            if (resolved.userId) resolvedFilters.userId = resolved.userId;
+          }
+
+          const data = buildUserLicenseDetails(users.records, entitlements.records, resolvedFilters, now);
           if (!data) {
             return {
               ok: false as const,
-              error: {
-                code: "not_found" as const,
-                message: LICENSE_ERROR_MESSAGES.not_found,
-                issues: [],
-              },
-              meta: {
-                ...resultMeta(operation, entitlements),
-                sources: [...entitlements.sources, ...users.sources],
-                warnings: [...entitlements.warnings, ...users.warnings],
-              },
+              error: { code: "not_found" as const, message: LICENSE_ERROR_MESSAGES.not_found, issues: [] },
+              meta: { ...resultMeta(operation, entitlements), sources: [...entitlements.sources, ...users.sources], warnings: [...entitlements.warnings, ...users.warnings] },
             };
           }
-
           return {
             ok: true as const,
             data,
-            meta: {
-              ...resultMeta(operation, entitlements),
-              sources: [...entitlements.sources, ...users.sources],
-              warnings: [...entitlements.warnings, ...users.warnings],
-            },
+            meta: { ...resultMeta(operation, entitlements), sources: [...entitlements.sources, ...users.sources], warnings: [...entitlements.warnings, ...users.warnings] },
           };
         }
 
@@ -252,7 +235,6 @@ export const executeLicenseAgent = createServerFn({ method: "POST" })
             capabilityRouter.getUsers(context.supabase, context.userId, LICENSE_AGENT_KEY, { now }),
             capabilityRouter.getQueues(context.supabase, context.userId, LICENSE_AGENT_KEY, { now }),
           ]);
-
           if (entitlements.denied) return deniedResult(operation, entitlements);
           if (users.denied) return deniedResult(operation, users);
           if (queues.denied) return deniedResult(operation, queues);
@@ -261,74 +243,35 @@ export const executeLicenseAgent = createServerFn({ method: "POST" })
           const policyContext: PolicyEvaluationContext = {
             now,
             activeQueueMemberUserIds: [],
-            provisionedAtByUserId: Object.fromEntries(
-              users.records.map((u) => [u.userId, (u.metadata["accountCreatedAt"] as string | null | undefined) ?? null]),
-            ),
+            provisionedAtByUserId: Object.fromEntries(users.records.map((u) => [u.userId, (u.metadata["accountCreatedAt"] as string | null | undefined) ?? null])),
           };
-
-          const evaluations = evaluateEntitlementPolicyPerIntegration(
-            entitlements.records,
-            policies,
-            policyContext,
-          );
-
+          const evaluations = evaluateEntitlementPolicyPerIntegration(entitlements.records, policies, policyContext);
           const built = buildUnusedLicenseCandidates(
             entitlements.records,
             evaluations,
-            Object.fromEntries(
-              Object.entries(policies).map(([integrationId, entry]) => [integrationId, {
-                policy: entry.policy,
-                version: entry.revision?.version ?? 1,
-              }]),
-            ),
+            Object.fromEntries(Object.entries(policies).map(([integrationId, entry]) => [integrationId, { policy: entry.policy, version: entry.revision?.version ?? 1 }])),
             {
               now,
-              queueMembershipAvailableByIntegration: Object.fromEntries(
-                queues.sources.map((s) => [s.integrationId, false]),
-              ),
+              queueMembershipAvailableByIntegration: Object.fromEntries(queues.sources.map((s) => [s.integrationId, false])),
               freshnessByIntegration: freshestByIntegration(entitlements),
             },
           );
-
           return {
             ok: true as const,
             data: built.payload,
             meta: {
               ...resultMeta(operation, entitlements),
-              warnings: [
-                ...entitlements.warnings,
-                ...users.warnings,
-                ...queues.warnings,
-                ...built.warnings,
-              ],
+              warnings: [...entitlements.warnings, ...users.warnings, ...queues.warnings, ...built.warnings],
             },
           };
         }
       }
     } catch (error) {
-      console.error("[license-agent] execution failed", {
-        operation,
-        agentKey: LICENSE_AGENT_KEY,
-        error: error instanceof Error ? error.message : "unknown error",
-      });
-
+      console.error("[license-agent] execution failed", { operation, agentKey: LICENSE_AGENT_KEY, error: error instanceof Error ? error.message : "unknown error" });
       return {
         ok: false as const,
-        error: {
-          code: "unavailable" as const,
-          message: LICENSE_ERROR_MESSAGES.unavailable,
-          issues: [],
-        },
-        meta: {
-          operation,
-          evaluatedAt: new Date(now).toISOString(),
-          freshness: "unavailable" as const,
-          sources: [],
-          warnings: [],
-          policies: {},
-          truncated: false,
-          readOnly: true as const,
-        },
+        error: { code: "unavailable" as const, message: LICENSE_ERROR_MESSAGES.unavailable, issues: [] },
+        meta: { operation, evaluatedAt: new Date(now).toISOString(), freshness: "unavailable" as const, sources: [], warnings: [], policies: {}, truncated: false, readOnly: true as const },
       };
     }
   });
