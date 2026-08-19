@@ -10,8 +10,9 @@ import { executeLicenseOptimization } from "./optimization";
 import { executeLicenseAgent } from "./functions";
 import { LICENSE_AGENT_KEY } from "./types";
 
-const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
-const OPENROUTER_MODEL = "openrouter/free";
+const LOVABLE_AI_ENDPOINT = "https://ai.gateway.lovable.dev/v1/chat/completions";
+// Lovable AI's current default model is Gemini 3 Flash.
+const LOVABLE_AI_MODEL = "google/gemini-3-flash-preview";
 const OUT_OF_SCOPE_MESSAGE = "I don't have access to a connected data source that can answer that question. This License Agent can only answer questions using data from connected and authorized sources.";
 const SOURCE_NOT_CONNECTED_MESSAGE = "I don't have access to the requested license data because a connected and authorized data source is not available. Please connect or enable the appropriate data source for this agent.";
 
@@ -54,30 +55,28 @@ async function askModel(
   messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
   json = false,
 ): Promise<string> {
-  const key = process.env["OPENROUTER_API_KEY"];
-  if (!key) throw new Error("OpenRouter is not configured. Add OPENROUTER_API_KEY as a server-side secret.");
-  const response = await fetch(OPENROUTER_ENDPOINT, {
+  const key = process.env["LOVABLE_API_KEY"];
+  if (!key) throw new Error("Lovable AI is not configured. Enable Lovable AI for this project.");
+  const response = await fetch(LOVABLE_AI_ENDPOINT, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${key}`,
       "Content-Type": "application/json",
-      "HTTP-Referer": process.env["APP_URL"] ?? "http://localhost",
-      "X-Title": "Aegis License Agent",
     },
     body: JSON.stringify({
-      model: OPENROUTER_MODEL,
+      model: LOVABLE_AI_MODEL,
       messages,
-      temperature: 0.1,
+      temperature: 0.05,
       ...(json ? { response_format: { type: "json_object" } } : {}),
     }),
   });
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`OpenRouter request failed (${response.status}): ${text.slice(0, 300)}`);
+    throw new Error(`Lovable AI request failed (${response.status}): ${text.slice(0, 300)}`);
   }
   const body = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
   const content = body.choices?.[0]?.message?.content;
-  if (!content) throw new Error("OpenRouter returned an empty response.");
+  if (!content) throw new Error("Lovable AI returned an empty response.");
   return content;
 }
 
@@ -141,34 +140,21 @@ function buildMultipleLicenseEvidence(
     entitlementName: string | null;
   }>,
 ) {
-  const byUser = new Map<
-    string,
-    {
-      userId: string;
-      userName: string | null;
-      userEmail: string | null;
-      licenses: Set<string>;
-      licenseNames: Set<string>;
-    }
-  >();
-
+  const byUser = new Map<string, { userId: string; userName: string | null; userEmail: string | null; licenses: Set<string>; licenseNames: Set<string> }>();
   for (const record of records) {
-    const row =
-      byUser.get(record.userId) ??
-      {
-        userId: record.userId,
-        userName: record.userName,
-        userEmail: record.userEmail,
-        licenses: new Set<string>(),
-        licenseNames: new Set<string>(),
-      };
+    const row = byUser.get(record.userId) ?? {
+      userId: record.userId,
+      userName: record.userName,
+      userEmail: record.userEmail,
+      licenses: new Set<string>(),
+      licenseNames: new Set<string>(),
+    };
     row.licenses.add(record.entitlementId);
     if (record.entitlementName) row.licenseNames.add(record.entitlementName);
     if (!row.userName && record.userName) row.userName = record.userName;
     if (!row.userEmail && record.userEmail) row.userEmail = record.userEmail;
     byUser.set(record.userId, row);
   }
-
   return [...byUser.values()]
     .filter((row) => row.licenses.size > 1)
     .sort((a, b) => b.licenses.size - a.licenses.size)
@@ -185,15 +171,8 @@ async function collectMultipleLicenseEvidence(
   supabase: Parameters<typeof capabilityRouter.getUsers>[0],
   userId: string,
 ) {
-  const licenses = await capabilityRouter.getLicenseInventory(
-    supabase,
-    userId,
-    LICENSE_AGENT_KEY,
-  );
-  if (licenses.denied || licenses.records.length === 0) {
-    throw new Error(SOURCE_NOT_CONNECTED_MESSAGE);
-  }
-
+  const licenses = await capabilityRouter.getLicenseInventory(supabase, userId, LICENSE_AGENT_KEY);
+  if (licenses.denied || licenses.records.length === 0) throw new Error(SOURCE_NOT_CONNECTED_MESSAGE);
   return {
     type: "multiple_license_users" as const,
     users: buildMultipleLicenseEvidence(licenses.records),
@@ -208,38 +187,18 @@ async function collectEvidence(
   userId: string,
 ) {
   if (!intent.operation) throw new Error(OUT_OF_SCOPE_MESSAGE);
-
   if (intent.operation === "source_access") {
     const sources = await getRealLicenseSources(supabase, userId);
     if (sources.length === 0) throw new Error(SOURCE_NOT_CONNECTED_MESSAGE);
-    return {
-      type: "source_access",
-      sources: sources.map((source) => ({
-        provider: source.provider,
-        integrationId: source.integrationId,
-        capabilities: source.capabilities,
-        freshness: source.freshness,
-      })),
-    };
+    return { type: "source_access", sources: sources.map((source) => ({ provider: source.provider, integrationId: source.integrationId, capabilities: source.capabilities, freshness: source.freshness })) };
   }
-
-  if (intent.operation === "multiple_license_users") {
-    return collectMultipleLicenseEvidence(supabase, userId);
-  }
-
+  if (intent.operation === "multiple_license_users") return collectMultipleLicenseEvidence(supabase, userId);
   if (intent.operation === "summary") {
     const [licenses, users] = await Promise.all([
       capabilityRouter.getLicenseInventory(supabase, userId, LICENSE_AGENT_KEY),
       capabilityRouter.getUsers(supabase, userId, LICENSE_AGENT_KEY),
     ]);
-    if (
-      licenses.denied ||
-      users.denied ||
-      (licenses.records.length === 0 && users.records.length === 0)
-    ) {
-      throw new Error(SOURCE_NOT_CONNECTED_MESSAGE);
-    }
-
+    if (licenses.denied || users.denied || (licenses.records.length === 0 && users.records.length === 0)) throw new Error(SOURCE_NOT_CONNECTED_MESSAGE);
     return {
       type: "summary",
       totalUsers: users.records.length,
@@ -249,48 +208,15 @@ async function collectEvidence(
       freshness: licenses.freshness,
     };
   }
-
   if (intent.operation === "usage") {
-    return {
-      type: "usage",
-      result: await executeLicenseAgent({
-        data: {
-          operation: "get_license_usage",
-          filters: { licenseId: intent.licenseId, licenseName: intent.licenseName },
-        },
-      } as never),
-    };
+    return { type: "usage", result: await executeLicenseAgent({ data: { operation: "get_license_usage", filters: { licenseId: intent.licenseId, licenseName: intent.licenseName } } } as never) };
   }
-
   if (intent.operation === "assignments") {
-    return {
-      type: "assignments",
-      result: await executeLicenseAgent({
-        data: {
-          operation: "get_license_assignments",
-          filters: {
-            licenseId: intent.licenseId,
-            licenseName: intent.licenseName,
-            userId: intent.userId,
-            userEmail: intent.userEmail,
-          },
-        },
-      } as never),
-    };
+    return { type: "assignments", result: await executeLicenseAgent({ data: { operation: "get_license_assignments", filters: { licenseId: intent.licenseId, licenseName: intent.licenseName, userId: intent.userId, userEmail: intent.userEmail } } } as never) };
   }
-
   if (intent.operation === "user_details") {
-    return {
-      type: "user_details",
-      result: await executeLicenseAgent({
-        data: {
-          operation: "get_user_license_details",
-          filters: { userId: intent.userId, userEmail: intent.userEmail },
-        },
-      } as never),
-    };
+    return { type: "user_details", result: await executeLicenseAgent({ data: { operation: "get_user_license_details", filters: { userId: intent.userId, userEmail: intent.userEmail } } } as never) };
   }
-
   const [optimization, summary] = await Promise.all([
     executeLicenseOptimization({} as never),
     executeLicenseAgent({ data: { operation: "get_license_summary" } } as never),
@@ -303,47 +229,24 @@ async function answerWithEvidence(question: string, conversation: LicenseChatMes
     {
       role: "system",
       content:
-        "You are the License Agent. Answer ONLY from the supplied structured evidence from connected, authorized customer data. Never use pretrained/general knowledge as customer data. Never invent facts, dates, usage, savings, license changes, customer configuration, or integrations. For multiple-license users, report only users present in the supplied evidence and state the count; do not infer that any license should be removed. If evidence cannot answer the question, say: 'I don't have access to sufficient connected data to answer that question.' If a requested source is not connected, say: 'I don't have access to that data source because it is not connected or authorized for this agent.' Be concise and business-friendly.",
+        "You are a strict License Agent, not a general-purpose assistant. Answer ONLY from the supplied structured evidence from connected, authorized customer data. Treat the evidence as the complete source of truth for this answer. Never use pretrained knowledge to fill missing fields. Never invent users, licenses, usage, dates, savings, configuration, integrations, or recommendations. If the evidence does not support an answer, say exactly: 'I don't have access to sufficient connected data to answer that question.' If a requested source is not connected, say exactly: 'I don't have access to that data source because it is not connected or authorized for this agent.' For multiple-license users, report only users present in evidence and state the count. Do not infer that a license should be removed. Never claim an action was performed. If evidence is empty, do not answer from general knowledge. Keep answers concise and factual.",
     },
-    {
-      role: "user",
-      content: JSON.stringify({
-        question,
-        conversation: conversation.slice(-8),
-        evidence,
-      }),
-    },
+    { role: "user", content: JSON.stringify({ question, conversation: conversation.slice(-8), evidence }) },
   ]);
 }
 
 export const executeLicenseChat = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { messages: LicenseChatMessage[] }) => ({
-    messages: Array.isArray(input?.messages) ? input.messages.slice(-12) : [],
-  }))
+  .inputValidator((input: { messages: LicenseChatMessage[] }) => ({ messages: Array.isArray(input?.messages) ? input.messages.slice(-12) : [] }))
   .handler(async ({ data, context }) => {
     const latest = data.messages.at(-1)?.content?.trim();
     if (!latest) return { ok: false as const, error: "Please enter a question." };
-
     try {
-      // Fast path: this deterministic customer-data question does not need an
-      // intent-classification LLM call. It also needs only license_inventory,
-      // not user_inventory, because the assignment records already contain the
-      // user identity fields required to answer the question.
       if (isMultipleLicenseQuestion(latest)) {
         await assertRealConnectedSource(context.supabase, context.userId);
-        const evidence = await collectMultipleLicenseEvidence(
-          context.supabase,
-          context.userId,
-        );
+        const evidence = await collectMultipleLicenseEvidence(context.supabase, context.userId);
         const response = await answerWithEvidence(latest, data.messages, evidence);
-        return {
-          ok: true as const,
-          content: response,
-          provider: "OpenRouter",
-          model: OPENROUTER_MODEL,
-          readOnly: true as const,
-        };
+        return { ok: true as const, content: response, provider: "Lovable AI", model: LOVABLE_AI_MODEL, readOnly: true as const };
       }
 
       const intentRaw = await askModel(
@@ -358,32 +261,14 @@ export const executeLicenseChat = createServerFn({ method: "POST" })
         true,
       );
       const intent = parseIntent(intentRaw);
-      if (!intent.inScope || !intent.operation) {
-        return {
-          ok: true as const,
-          content: OUT_OF_SCOPE_MESSAGE,
-          provider: "OpenRouter",
-          model: OPENROUTER_MODEL,
-          readOnly: true as const,
-        };
-      }
+      if (!intent.inScope || !intent.operation) return { ok: true as const, content: OUT_OF_SCOPE_MESSAGE, provider: "Lovable AI", model: LOVABLE_AI_MODEL, readOnly: true as const };
 
       await assertRealConnectedSource(context.supabase, context.userId);
       const evidence = await collectEvidence(intent, context.supabase, context.userId);
       const response = await answerWithEvidence(latest, data.messages, evidence);
-
-      return {
-        ok: true as const,
-        content: response,
-        provider: "OpenRouter",
-        model: OPENROUTER_MODEL,
-        readOnly: true as const,
-      };
+      return { ok: true as const, content: response, provider: "Lovable AI", model: LOVABLE_AI_MODEL, readOnly: true as const };
     } catch (error) {
       console.error("[license-agent-chat] failed", error);
-      return {
-        ok: false as const,
-        error: error instanceof Error ? error.message : "The License Agent chat could not be completed.",
-      };
+      return { ok: false as const, error: error instanceof Error ? error.message : "The License Agent chat could not be completed." };
     }
   });
