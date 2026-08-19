@@ -39,22 +39,25 @@ function ChatPage() {
   }, [messages]);
 
   const mutation = useMutation({
-    mutationFn: async (content: string) => {
-      const next = [...messages, { role: "user" as const, content }];
-      const result = await chat({ data: { messages: next } });
-      return { result, next };
+    mutationFn: async ({ next }: { content: string; next: LicenseChatMessage[] }) => {
+      return chat({ data: { messages: next } });
     },
-    onSuccess: ({ result, next }) => {
+    onSuccess: (result) => {
       if (!result.ok) return;
-      setMessages([...next, { role: "assistant", content: result.content }]);
-      setInput("");
+      setMessages((current) => [...current, { role: "assistant", content: result.content }]);
     },
   });
 
   const send = (text: string) => {
     const content = text.trim();
     if (!content || mutation.isPending) return;
-    mutation.mutate(content);
+
+    // Post the customer's message immediately. The UI must not wait for the
+    // LLM/data call to finish before showing what the customer asked.
+    const next = [...messages, { role: "user" as const, content }];
+    setMessages(next);
+    setInput("");
+    mutation.mutate({ content, next });
   };
 
   return (
@@ -129,7 +132,7 @@ function ChatPage() {
           <div className="border-t border-border p-3">
             <Alert variant="destructive">
               <AlertTitle>Chat unavailable</AlertTitle>
-              <AlertDescription>Unable to contact the License Agent. Check the server configuration and try again.</AlertDescription>
+              <AlertDescription>Unable to contact the License Agent. Your question has been posted above. Check the server configuration and try again.</AlertDescription>
             </Alert>
           </div>
         )}
