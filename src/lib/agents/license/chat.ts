@@ -34,6 +34,7 @@ interface Intent {
   inScope: boolean;
   operation?: LicenseOperation;
   userId?: string;
+  userName?: string;
   userEmail?: string;
   licenseId?: string;
   licenseName?: string;
@@ -99,6 +100,7 @@ function parseIntent(raw: string): Intent {
       inScope: parsed.inScope === true && Boolean(operation),
       operation,
       userId: typeof parsed.userId === "string" ? parsed.userId : undefined,
+      userName: typeof parsed.userName === "string" ? parsed.userName : undefined,
       userEmail: typeof parsed.userEmail === "string" ? parsed.userEmail : undefined,
       licenseId: typeof parsed.licenseId === "string" ? parsed.licenseId : undefined,
       licenseName: typeof parsed.licenseName === "string" ? parsed.licenseName : undefined,
@@ -212,10 +214,10 @@ async function collectEvidence(
     return { type: "usage", result: await executeLicenseAgent({ data: { operation: "get_license_usage", filters: { licenseId: intent.licenseId, licenseName: intent.licenseName } } } as never) };
   }
   if (intent.operation === "assignments") {
-    return { type: "assignments", result: await executeLicenseAgent({ data: { operation: "get_license_assignments", filters: { licenseId: intent.licenseId, licenseName: intent.licenseName, userId: intent.userId, userEmail: intent.userEmail } } } as never) };
+    return { type: "assignments", result: await executeLicenseAgent({ data: { operation: "get_license_assignments", filters: { licenseId: intent.licenseId, licenseName: intent.licenseName, userId: intent.userId, userName: intent.userName, userEmail: intent.userEmail } } } as never) };
   }
   if (intent.operation === "user_details") {
-    return { type: "user_details", result: await executeLicenseAgent({ data: { operation: "get_user_license_details", filters: { userId: intent.userId, userEmail: intent.userEmail } } } as never) };
+    return { type: "user_details", result: await executeLicenseAgent({ data: { operation: "get_user_license_details", filters: { userId: intent.userId, userName: intent.userName, userEmail: intent.userEmail } } } as never) };
   }
   const [optimization, summary] = await Promise.all([
     executeLicenseOptimization({} as never),
@@ -254,7 +256,7 @@ export const executeLicenseChat = createServerFn({ method: "POST" })
           {
             role: "system",
             content:
-              "You are the strict scope router for a License Agent. You are NOT a general assistant. A question is inScope only when it can be answered using connected License Agent data: license assignments, license usage, users, user license details, connected source access, multiple-license users, or evidence-backed license optimization. Questions about weather, news, coding, general knowledge, unrelated products, personal advice, or other topics are out of scope. A question asking what data/sources the agent can access uses source_access. Return JSON only: {inScope:boolean, operation:'summary'|'usage'|'assignments'|'user_details'|'optimization'|'source_access'|'multiple_license_users'|null, userId?, userEmail?, licenseId?, licenseName?}. If out of scope, set inScope=false and operation=null. Never treat general knowledge as License Agent evidence.",
+              "You are the strict scope router for a License Agent. You are NOT a general assistant. A question is inScope only when it can be answered using connected License Agent data: license assignments, license usage, users, user license details, connected source access, multiple-license users, or evidence-backed license optimization. Questions about weather, news, coding, general knowledge, unrelated products, personal advice, or other topics are out of scope. A question asking what data/sources the agent can access uses source_access. For user-specific questions, extract the user's display name into userName when the question names a user and does not provide a user ID or email. Return JSON only: {inScope:boolean, operation:'summary'|'usage'|'assignments'|'user_details'|'optimization'|'source_access'|'multiple_license_users'|null, userId?, userName?, userEmail?, licenseId?, licenseName?}. If out of scope, set inScope=false and operation=null. Never treat general knowledge as License Agent evidence.",
           },
           { role: "user", content: latest },
         ],
