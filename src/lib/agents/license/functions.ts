@@ -27,6 +27,7 @@ import {
   LICENSE_ERROR_MESSAGES,
   LICENSE_OPERATIONS,
   parseLicenseFilters,
+  type FilterIssue,
   type LicenseOperation,
 } from "./types";
 
@@ -37,7 +38,7 @@ export interface LicenseAgentRequest {
   filters?: unknown;
 }
 
-function invalidRequest(message: string, issues = []) {
+function invalidRequest(message: string, issues: FilterIssue[] = []) {
   return {
     ok: false as const,
     error: {
@@ -259,9 +260,6 @@ export const executeLicenseAgent = createServerFn({ method: "POST" })
           const policies = policiesForEvaluation(entitlements);
           const policyContext: PolicyEvaluationContext = {
             now,
-            // The current normalized queue capability exposes queue-level facts,
-            // not per-user membership. Therefore this remains empty and the
-            // analysis correctly fails closed when the policy requires that fact.
             activeQueueMemberUserIds: [],
             provisionedAtByUserId: Object.fromEntries(
               users.records.map((u) => [u.userId, (u.metadata["accountCreatedAt"] as string | null | undefined) ?? null]),
