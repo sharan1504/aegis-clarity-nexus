@@ -4,6 +4,7 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { authorizeCapabilityAccess } from "@/lib/capabilities/authorization.server";
 import { capabilityRouter } from "@/lib/capabilities/router.server";
 import { executeLicenseOptimization } from "./optimization";
 import { executeLicenseAgent } from "./functions";
@@ -12,13 +13,17 @@ import { LICENSE_AGENT_KEY } from "./types";
 const LOVABLE_AI_ENDPOINT = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const LOVABLE_AI_MODEL = "google/gemini-3-flash-preview";
 
+const OUT_OF_SCOPE_MESSAGE = "I don't have access to a connected data source that can answer that question. This License Agent can only answer questions using data from connected and authorized sources.";
+const SOURCE_NOT_CONNECTED_MESSAGE = "I don't have access to the requested license data because a connected and authorized data source is not available. Please connect or enable the appropriate data source for this agent.";
+
 export interface LicenseChatMessage {
   role: "user" | "assistant";
   content: string;
 }
 
 interface Intent {
-  operation: "summary" | "usage" | "assignments" | "user_details" | "optimization";
+  inScope: boolean;
+  operation?: "summary" | "usage" | "assignments" | "user_details" | "optimization";
   userId?: string;
   userEmail?: string;
   licenseId?: string;
@@ -47,17 +52,37 @@ function parseIntent(raw: string): Intent {
   try {
     const parsed = JSON.parse(raw) as Partial<Intent>;
     const allowed: Intent["operation"][] = ["summary", "usage", "assignments", "user_details", "optimization"];
-    if (!allowed.includes(parsed.operation as Intent["operation"])) return { operation: "optimization" };
-    return { operation: parsed.operation as Intent["operation"], userId: typeof parsed.userId === "string" ? parsed.userId : undefined, userEmail: typeof parsed.userEmail === "string" ? parsed.userEmail : undefined, licenseId: typeof parsed.licenseId === "string" ? parsed.licenseId : undefined, licenseName: typeof parsed.licenseName === "string" ? parsed.licenseName : undefined };
+    const operation = allowed.includes(parsed.operation as Intent["operation"])
+      ? (parsed.operation as Intent["operation"])
+      : undefined;
+    return {
+      inScope: parsed.inScope === true && Boolean(operation),
+      operation,
+      userId: typeof parsed.userId === "string" ? parsed.userId : undefined,
+      userEmail: typeof parsed.userEmail === "string" ? parsed.userEmail : undefined,
+      licenseId: typeof parsed.licenseId === "string" ? parsed.licenseId : undefined,
+      licenseName: typeof parsed.licenseName === "string" ? parsed.licenseName : undefined,
+    };
   } catch {
-    return { operation: "optimization" };
+    return { inScope: false };
   }
 }
 
+async function assertRealConnectedSource(supabase: Parameters<typeof capabilityRouter.getUsers>[0], userId: string): Promise<void> {
+  const decision = await authorizeCapabilityAccess(supabase, userId, LICENSE_AGENT_KEY, "license_inventory");
+  if (!decision.ok || decision.sources.length === 0) throw new Error(SOURCE_NOT_CONNECTED_MESSAGE);
+  const realSources = decision.sources.filter((source) => !source.isMock && source.implemented);
+  if (realSources.length === 0) throw new Error(SOURCE_NOT_CONNECTED_MESSAGE);
+}
+
 async function collectEvidence(intent: Intent, supabase: Parameters<typeof capabilityRouter.getUsers>[0], userId: string) {
+  if (!intent.operation) throw new Error(OUT_OF_SCOPE_MESSAGE);
   if (intent.operation === "summary") {
-    const [licenses, users] = await Promise.all([capabilityRouter.getLicenseInventory(supabase, userId, LICENSE_AGENT_KEY), capabilityRouter.getUsers(supabase, userId, LICENSE_AGENT_KEY)]);
-    if (licenses.denied || users.denied) throw new Error("The requested capability is not authorized.");
+    const [licenses, users] = await Promise.all([
+      capabilityRouter.getLicenseInventory(supabase, userId, LICENSE_AGENT_KEY),
+      capabilityRouter.getUsers(supabase, userId, LICENSE_AGENT_KEY),
+    ]);
+    if (licenses.denied || users.denied || (licenses.records.length === 0 && users.records.length === 0)) throw new Error(SOURCE_NOT_CONNECTED_MESSAGE);
     return { type: "summary", licenses: licenses.records, users: users.records, freshness: licenses.freshness };
   }
   if (intent.operation === "usage") return { type: "usage", result: await executeLicenseAgent({ data: { operation: "get_license_usage", filters: { licenseId: intent.licenseId, licenseName: intent.licenseName } } } as never) };
@@ -75,13 +100,15 @@ export const executeLicenseChat = createServerFn({ method: "POST" })
     if (!latest) return { ok: false as const, error: "Please enter a question." };
     try {
       const intentRaw = await askModel([
-        { role: "system", content: "You route License Agent questions to read-only evidence capabilities. Return JSON only with operation equal to one of summary, usage, assignments, user_details, optimization. Include filters only when explicitly present. Never invent IDs or emails. Use optimization for broad recommendation/optimization questions. Use user_details for a named user, assignments for assignment lists, usage for utilization questions, summary for high-level inventory questions." },
+        { role: "system", content: "You are the strict scope router for a License Agent. You are NOT a general assistant. A question is inScope only when it can be answered using connected License Agent data such as license assignments, license usage, users, user license details, or evidence-backed license optimization. Questions about weather, news, coding, general knowledge, unrelated products, personal advice, or any other topic are out of scope. Return JSON only: {inScope:boolean, operation:'summary'|'usage'|'assignments'|'user_details'|'optimization'|null, userId?, userEmail?, licenseId?, licenseName?}. If the question is out of scope, set inScope=false and operation=null. Never treat general knowledge as License Agent evidence." },
         { role: "user", content: latest },
       ], true);
       const intent = parseIntent(intentRaw);
+      if (!intent.inScope || !intent.operation) return { ok: true as const, content: OUT_OF_SCOPE_MESSAGE, provider: "Lovable AI", model: LOVABLE_AI_MODEL, readOnly: true as const };
+      await assertRealConnectedSource(context.supabase, context.userId);
       const evidence = await collectEvidence(intent, context.supabase, context.userId);
       const response = await askModel([
-        { role: "system", content: "You are the License Agent. Answer only from the supplied structured evidence. Do not invent facts, dates, usage, savings, license changes, or customer configuration. If the evidence cannot answer the question, say: 'There is not sufficient information available in the connected data to make a reliable recommendation for this request.' Distinguish a review opportunity from a recommendation to change a license. Never claim to have performed a license change. Be concise and business-friendly. Mention relevant evidence and limitations." },
+        { role: "system", content: "You are the License Agent. You are NOT a general-purpose assistant. Answer ONLY from the supplied structured evidence from connected, authorized customer data. Never use pretrained/general knowledge as a substitute for missing customer data. Never invent facts, dates, usage, savings, license changes, customer configuration, or connected integrations. If evidence cannot answer the question, say: 'I don't have access to sufficient connected data to answer that question.' If the requested data source/capability is not connected, say: 'I don't have access to that data source because it is not connected or authorized for this agent.' Distinguish a review opportunity from a recommendation to change a license. Never claim to have performed a license change. Be concise and business-friendly." },
         { role: "user", content: JSON.stringify({ question: latest, conversation: data.messages.slice(-8), evidence }) },
       ]);
       return { ok: true as const, content: response, provider: "Lovable AI", model: LOVABLE_AI_MODEL, readOnly: true as const };
