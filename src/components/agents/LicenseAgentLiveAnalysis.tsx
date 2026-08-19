@@ -8,34 +8,36 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { executeLicenseAgent } from "@/lib/agents/license/functions";
-import type {
-  LicenseResultMeta,
-  LicenseSummary,
-  UnusedLicenseCandidates,
-} from "@/lib/agents/license/types";
+import { executeLicenseOptimization } from "@/lib/agents/license/optimization";
+import type { LicenseResultMeta, LicenseSummary, UnusedLicenseCandidates } from "@/lib/agents/license/types";
+import type { LicenseOptimizationAnalysis } from "@/lib/agents/license/optimization";
 
 type Success<T> = { ok: true; data: T; meta: LicenseResultMeta };
 
 export function LicenseAgentLiveAnalysis() {
   const execute = useServerFn(executeLicenseAgent);
+  const runOptimization = useServerFn(executeLicenseOptimization);
   const [summary, setSummary] = useState<Success<LicenseSummary> | null>(null);
   const [candidates, setCandidates] = useState<Success<UnusedLicenseCandidates> | null>(null);
+  const [optimization, setOptimization] = useState<LicenseOptimizationAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const [summaryResult, candidateResult] = await Promise.all([
+      const [summaryResult, candidateResult, optimizationResult] = await Promise.all([
         execute({ data: { operation: "get_license_summary" } }),
         execute({ data: { operation: "get_unused_license_candidates" } }),
+        runOptimization(),
       ]);
-      return { summaryResult, candidateResult };
+      return { summaryResult, candidateResult, optimizationResult };
     },
     onMutate: () => {
       setError(null);
       setSummary(null);
       setCandidates(null);
+      setOptimization(null);
     },
-    onSuccess: ({ summaryResult, candidateResult }) => {
+    onSuccess: ({ summaryResult, candidateResult, optimizationResult }) => {
       if (!summaryResult.ok) {
         setError(summaryResult.error.message);
         return;
@@ -46,6 +48,7 @@ export function LicenseAgentLiveAnalysis() {
       }
       setSummary(summaryResult as Success<LicenseSummary>);
       setCandidates(candidateResult as Success<UnusedLicenseCandidates>);
+      setOptimization(optimizationResult);
     },
     onError: () => setError("The live License Agent analysis could not be completed."),
   });
@@ -56,7 +59,7 @@ export function LicenseAgentLiveAnalysis() {
         <div>
           <div className="text-sm font-medium">Live License Analysis</div>
           <p className="text-xs text-muted-foreground">
-            Runs the read-only License Agent against the connected Genesys source. No license changes are possible.
+            Read-only analysis of connected license data. Recommendations are evidence-driven and never perform license changes.
           </p>
         </div>
         <Button size="sm" onClick={() => mutation.mutate()} disabled={mutation.isPending}>
@@ -95,10 +98,49 @@ export function LicenseAgentLiveAnalysis() {
         </Card>
       )}
 
+      {optimization && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">Evidence-driven optimization</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              The agent identifies review opportunities from available evidence. It does not assume a specific inactivity period or invent missing facts.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {optimization.insights.length === 0 ? (
+              <div className="rounded-md border border-border p-3 text-xs text-muted-foreground">
+                No evidence-backed optimization opportunity was identified from the current connected data.
+              </div>
+            ) : (
+              optimization.insights.map((insight) => (
+                <div key={`${insight.kind}:${insight.title}`} className="rounded-md border border-border p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-xs font-medium">{insight.title}</div>
+                    <Badge variant="outline" className="text-[10px]">{insight.confidence} confidence</Badge>
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">{insight.statement}</div>
+                  <ul className="mt-2 list-disc pl-4 text-[11px] text-muted-foreground">
+                    {insight.evidence.map((item) => <li key={item}>{item}</li>)}
+                  </ul>
+                </div>
+              ))
+            )}
+            {optimization.limitations.length > 0 && (
+              <div className="rounded-md bg-muted/40 p-3">
+                <div className="text-[11px] font-medium">Data limitations</div>
+                <ul className="mt-1 list-disc pl-4 text-[11px] text-muted-foreground">
+                  {optimization.limitations.map((item) => <li key={item}>{item}</li>)}
+                </ul>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {candidates && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Optimization candidates</CardTitle>
+            <CardTitle className="text-sm">Policy-based candidates</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
