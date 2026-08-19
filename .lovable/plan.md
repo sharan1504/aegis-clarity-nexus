@@ -41,3 +41,7 @@ Note on behaviour after the fix: the normalized queue capability exposes queue-l
 ### Alternative (if you prefer no new capability grant)
 
 Change `get_unused_license_candidates` to treat `queue_inventory` as optional — degrade with a warning instead of denying when the queue capability is unauthorized. This is a code change to `src/lib/agents/license/functions.ts` and weakens the current strict all-or-nothing contract, so it is offered only as a fallback.
+
+## Pre-existing build error to fix in the same change
+
+`src/lib/agents/license/functions.ts:140` — TS2345: `FilterIssue[]` is not assignable to `never[]`. The `invalidRequest` helper's `issues` field is inferred as `never[]`; type it as `FilterIssue[]`. This is unrelated to the denial, but it must be fixed for the app to build.
