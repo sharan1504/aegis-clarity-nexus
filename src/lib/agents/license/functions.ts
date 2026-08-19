@@ -136,7 +136,7 @@ export const executeLicenseAgent = createServerFn({ method: "POST" })
       );
     }
 
-    const parsed = parseLicenseFilters(data.filters, ["licenseId", "licenseName", "userId", "userEmail"]);
+    const parsed = parseLicenseFilters(data.filters, ["licenseId", "licenseName", "userId", "userName", "userEmail"]);
     if (!parsed.ok) {
       return invalidRequest("The supplied License Agent filters are not valid.", parsed.issues);
     }
@@ -218,7 +218,21 @@ export const executeLicenseAgent = createServerFn({ method: "POST" })
           if (entitlements.denied) return deniedResult(operation, entitlements);
           if (users.denied) return deniedResult(operation, users);
 
-          const data = buildUserLicenseDetails(users.records, entitlements.records, filters, now);
+          // Natural-language chat commonly identifies a user by display name.
+          // Resolve that name to the canonical userId before building details so
+          // the analysis layer can continue to use its provider-neutral filters.
+          const resolvedFilters = { ...filters };
+          if (!resolvedFilters.userId && !resolvedFilters.userEmail && resolvedFilters.userName) {
+            const wantedName = resolvedFilters.userName.trim().toLowerCase();
+            const matchingUsers = users.records.filter(
+              (u) => (u.userName ?? "").trim().toLowerCase() === wantedName,
+            );
+            if (matchingUsers.length > 0) {
+              resolvedFilters.userId = matchingUsers[0].userId;
+            }
+          }
+
+          const data = buildUserLicenseDetails(users.records, entitlements.records, resolvedFilters, now);
           if (!data) {
             return {
               ok: false as const,
