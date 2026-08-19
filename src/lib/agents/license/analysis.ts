@@ -50,6 +50,20 @@ function matchesText(value: string | null | undefined, needle: string): boolean 
   return value.toLowerCase().includes(needle.toLowerCase());
 }
 
+function matchesUserName(value: string | null | undefined, needle: string): boolean {
+  return matchesText(value, needle);
+}
+
+function matchesUserFilter(
+  e: NormalizedEntitlement,
+  filters: LicenseFilters,
+): boolean {
+  if (filters.userId && e.userId !== filters.userId) return false;
+  if (filters.userEmail && (e.userEmail ?? "").toLowerCase() !== filters.userEmail.toLowerCase()) return false;
+  if (filters.userName && !matchesUserName(e.userName, filters.userName)) return false;
+  return true;
+}
+
 // ---------------------------------------------------------------------------
 // get_license_summary / get_license_usage
 // ---------------------------------------------------------------------------
@@ -87,10 +101,7 @@ export function buildLicenseSummary(
 ): LicenseSummary {
   const rows = usageRows(entitlements);
 
-  const byUser = new Map<
-    string,
-    { userName: string | null; userEmail: string | null; licenseIds: Set<string> }
-  >();
+  const byUser = new Map<string, { userName: string | null; userEmail: string | null; licenseIds: Set<string> }>();
   for (const e of entitlements) {
     const entry =
       byUser.get(e.userId) ??
@@ -112,8 +123,6 @@ export function buildLicenseSummary(
     }))
     .sort((a, b) => b.licenseCount - a.licenseCount);
 
-  // Total users comes from user_inventory when available, otherwise from the
-  // distinct users observed in the assignment set.
   const totalUsers = users.length > 0 ? users.length : byUser.size;
 
   return {
@@ -133,6 +142,7 @@ export function buildLicenseUsage(
   const filtered = entitlements.filter((e) => {
     if (filters.licenseId && e.entitlementId !== filters.licenseId) return false;
     if (filters.licenseName && !matchesText(e.entitlementName, filters.licenseName)) return false;
+    if (!matchesUserFilter(e, filters)) return false;
     return true;
   });
   const licenses = usageRows(filtered);
@@ -151,9 +161,8 @@ export function buildLicenseAssignments(
 ): LicenseAssignmentPage {
   const matched = entitlements.filter((e) => {
     if (filters.licenseId && e.entitlementId !== filters.licenseId) return false;
-    if (filters.userId && e.userId !== filters.userId) return false;
-    if (filters.userEmail && (e.userEmail ?? "").toLowerCase() !== filters.userEmail.toLowerCase())
-      return false;
+    if (filters.licenseName && !matchesText(e.entitlementName, filters.licenseName)) return false;
+    if (!matchesUserFilter(e, filters)) return false;
     return true;
   });
 
@@ -187,13 +196,16 @@ export function buildUserLicenseDetails(
     users.find(
       (u) =>
         (filters.userId && u.userId === filters.userId) ||
-        (wantEmail && (u.userEmail ?? "").toLowerCase() === wantEmail),
+        (wantEmail && (u.userEmail ?? "").toLowerCase() === wantEmail) ||
+        (filters.userName && matchesUserName(u.userName, filters.userName)),
     ) ?? null;
 
   const owned = entitlements.filter(
     (e) =>
       (filters.userId && e.userId === filters.userId) ||
-      (wantEmail && (e.userEmail ?? "").toLowerCase() === wantEmail),
+      (wantEmail && (e.userEmail ?? "").toLowerCase() === wantEmail) ||
+      (filters.userName && matchesUserName(e.userName, filters.userName)) ||
+      (user && e.userId === user.userId),
   );
 
   if (!user && owned.length === 0) return null;
@@ -230,25 +242,17 @@ export function buildUserLicenseDetails(
 
 export interface CandidateOptions {
   now: number;
-  /**
-   * Whether per-user queue membership facts are available for the integration.
-   * When the policy excludes active queue members and this is false, no
-   * conclusion may be drawn — the assignment becomes inconclusive.
-   */
   queueMembershipAvailableByIntegration: Record<string, boolean>;
-  /** Worst freshness per integration, taken from the capability sources. */
   freshnessByIntegration: Record<string, FreshnessState>;
 }
 
-/** Derived from policy inputs only; never a hard-coded day count. */
 function riskFor(
   inactivityDays: number,
   thresholdDays: number,
   freshness: FreshnessState,
 ): { risk: RiskThreshold; factors: string[] } {
   const factors: string[] = [];
-  let rank = 1; // medium by default
-
+  let rank = 1;
   const ratio = thresholdDays > 0 ? inactivityDays / thresholdDays : 1;
   if (ratio >= 2) {
     rank = 0;
@@ -260,7 +264,6 @@ function riskFor(
     rank = 2;
     factors.push(`Only marginally beyond the policy threshold of ${thresholdDays} days.`);
   }
-
   if (freshness === "aging") {
     rank = Math.min(3, rank + 1);
     factors.push("Underlying data is aging.");
@@ -268,7 +271,6 @@ function riskFor(
     rank = Math.min(3, rank + 2);
     factors.push("Underlying data is stale.");
   }
-
   const risk = (Object.keys(RISK_RANK) as RiskThreshold[]).find((k) => RISK_RANK[k] === rank)!;
   return { risk, factors };
 }
@@ -309,8 +311,7 @@ export function buildUnusedLicenseCandidates(
     if (!policyEntry) continue;
     const { policy } = policyEntry;
     const freshness = options.freshnessByIntegration[integrationId] ?? "unavailable";
-    const queueDataAvailable =
-      options.queueMembershipAvailableByIntegration[integrationId] ?? false;
+    const queueDataAvailable = options.queueMembershipAvailableByIntegration[integrationId] ?? false;
 
     appliedPolicyByIntegration[integrationId] = {
       version: policyEntry.version,
@@ -319,109 +320,43 @@ export function buildUnusedLicenseCandidates(
     };
 
     if (policy.exclusions.exclude_active_queue_members && !queueDataAvailable) {
-      warnings.push(
-        "Queue membership data is unavailable, so no assignment can be cleared of the active-queue-member exclusion.",
-      );
+      warnings.push("Queue membership data is unavailable, so no assignment can be cleared of the active-queue-member exclusion.");
     }
 
     for (const verdict of evaluation.verdicts) {
       evaluated += 1;
-      const record = entitlementIndex.get(
-        `${verdict.integrationId}::${verdict.userId}::${verdict.entitlementId}`,
-      );
+      const record = entitlementIndex.get(`${verdict.integrationId}::${verdict.userId}::${verdict.entitlementId}`);
       const email = record?.userEmail ?? null;
 
       if (verdict.excluded) {
         excludedCount += 1;
-        inconclusive.push({
-          userId: verdict.userId,
-          email,
-          licenseId: verdict.entitlementId,
-          code: "excluded_by_policy",
-          reason: `Excluded by policy (${verdict.exclusionReasons.join(", ")}).`,
-        });
+        inconclusive.push({ userId: verdict.userId, email, licenseId: verdict.entitlementId, code: "excluded_by_policy", reason: `Excluded by policy (${verdict.exclusionReasons.join(", ")}).` });
         continue;
       }
-
-      // Fail closed on unknown activity: the policy engine treats unknown as
-      // "no observed activity", but the agent may never claim eligibility
-      // without activity evidence.
       if (verdict.inactivityDays === null || !verdict.evidence.lastActivityAt) {
-        inconclusive.push({
-          userId: verdict.userId,
-          email,
-          licenseId: verdict.entitlementId,
-          code: "missing_activity_data",
-          reason:
-            "No last-activity timestamp is available for this user, so reclamation eligibility cannot be determined.",
-        });
+        inconclusive.push({ userId: verdict.userId, email, licenseId: verdict.entitlementId, code: "missing_activity_data", reason: "No last-activity timestamp is available for this user, so reclamation eligibility cannot be determined." });
         continue;
       }
-
       if (freshness === "unavailable" || freshness === "stale") {
-        inconclusive.push({
-          userId: verdict.userId,
-          email,
-          licenseId: verdict.entitlementId,
-          code: "stale_data",
-          reason:
-            "The underlying data is not fresh enough to support a reclamation recommendation.",
-        });
+        inconclusive.push({ userId: verdict.userId, email, licenseId: verdict.entitlementId, code: "stale_data", reason: "The underlying data is not fresh enough to support a reclamation recommendation." });
         continue;
       }
-
       if (policy.exclusions.exclude_active_queue_members && !queueDataAvailable) {
-        inconclusive.push({
-          userId: verdict.userId,
-          email,
-          licenseId: verdict.entitlementId,
-          code: "missing_activity_data",
-          reason:
-            "The policy excludes active queue members, but queue membership data is unavailable for this data source.",
-        });
+        inconclusive.push({ userId: verdict.userId, email, licenseId: verdict.entitlementId, code: "missing_activity_data", reason: "The policy excludes active queue members, but queue membership data is unavailable for this data source." });
         continue;
       }
-
       if (!verdict.unusedByPolicy) {
-        inconclusive.push({
-          userId: verdict.userId,
-          email,
-          licenseId: verdict.entitlementId,
-          code: "below_threshold",
-          reason: `Activity is within the policy threshold of ${verdict.appliedThresholdDays} days.`,
-        });
+        inconclusive.push({ userId: verdict.userId, email, licenseId: verdict.entitlementId, code: "below_threshold", reason: `Activity is within the policy threshold of ${verdict.appliedThresholdDays} days.` });
         continue;
       }
-
-      const confidence = confidenceFor(
-        verdict.inactivityDays,
-        verdict.appliedThresholdDays,
-        freshness,
-      );
+      const confidence = confidenceFor(verdict.inactivityDays, verdict.appliedThresholdDays, freshness);
       if (confidence < policy.minimum_confidence) {
-        inconclusive.push({
-          userId: verdict.userId,
-          email,
-          licenseId: verdict.entitlementId,
-          code: "below_minimum_confidence",
-          reason: `Confidence ${confidence} is below the policy minimum of ${policy.minimum_confidence}.`,
-        });
+        inconclusive.push({ userId: verdict.userId, email, licenseId: verdict.entitlementId, code: "below_minimum_confidence", reason: `Confidence ${confidence} is below the policy minimum of ${policy.minimum_confidence}.` });
         continue;
       }
-
-      const { risk, factors } = riskFor(
-        verdict.inactivityDays,
-        verdict.appliedThresholdDays,
-        freshness,
-      );
+      const { risk, factors } = riskFor(verdict.inactivityDays, verdict.appliedThresholdDays, freshness);
       if (RISK_RANK[risk] > RISK_RANK[policy.risk_threshold]) {
-        inconclusive.push({
-          userId: verdict.userId,
-          email,
-          licenseId: verdict.entitlementId,
-          code: "below_minimum_confidence",
-          reason: `Assessed risk "${risk}" exceeds the policy risk threshold "${policy.risk_threshold}".`,
-        });
+        inconclusive.push({ userId: verdict.userId, email, licenseId: verdict.entitlementId, code: "below_minimum_confidence", reason: `Assessed risk "${risk}" exceeds the policy risk threshold "${policy.risk_threshold}".` });
         continue;
       }
 
@@ -439,38 +374,27 @@ export function buildUnusedLicenseCandidates(
         risk,
         riskFactors: factors,
         approvalRequired: policy.approval_required,
-        provenance: record
-          ? toProvenance(record.provenance)
-          : {
-              provider: verdict.provider,
-              integrationId: verdict.integrationId,
-              sourceSystem: verdict.provider,
-              source: verdict.evidence.source,
-              snapshotId: verdict.evidence.snapshotId,
-              syncId: null,
-              dataAsOf: verdict.evidence.dataAsOf,
-              lastSuccessfulSyncAt: null,
-              freshness: verdict.evidence.freshness,
-            },
+        provenance: record ? toProvenance(record.provenance) : {
+          provider: verdict.provider,
+          integrationId: verdict.integrationId,
+          sourceSystem: verdict.provider,
+          source: verdict.evidence.source,
+          snapshotId: verdict.evidence.snapshotId,
+          syncId: null,
+          dataAsOf: verdict.evidence.dataAsOf,
+          lastSuccessfulSyncAt: null,
+          freshness: verdict.evidence.freshness,
+        },
         dataFreshness: freshness,
       });
     }
   }
 
   recommendations.sort((a, b) => b.inactivityDays - a.inactivityDays);
-
-  // Policy ceiling: maximum_affected_records is the tightest configured cap.
-  const ceiling = Math.min(
-    ...Object.values(policies).map((p) => p.policy.maximum_affected_records),
-    Number.MAX_SAFE_INTEGER,
-  );
+  const ceiling = Math.min(...Object.values(policies).map((p) => p.policy.maximum_affected_records), Number.MAX_SAFE_INTEGER);
   const exceeded = recommendations.length > ceiling;
   const capped = exceeded ? recommendations.slice(0, ceiling) : recommendations;
-  if (exceeded) {
-    warnings.push(
-      `Recommendations were limited to the policy maximum of ${ceiling} affected records.`,
-    );
-  }
+  if (exceeded) warnings.push(`Recommendations were limited to the policy maximum of ${ceiling} affected records.`);
 
   return {
     payload: {
