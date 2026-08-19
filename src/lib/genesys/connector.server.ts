@@ -236,10 +236,11 @@ export async function listUsers(accessToken: string, regionId?: string | null): 
     division?: { name?: string };
     dateCreated?: string;
     dateLastLogin?: string;
+    lastTokenIssued?: { dateIssued?: string };
   };
 
   const users = await pageThrough<RawUser>(
-    (p) => `/api/v2/users?pageSize=50&pageNumber=${p}&state=any&expand=presence`,
+    (p) => `/api/v2/users?pageSize=50&pageNumber=${p}&state=any&expand=presence,dateLastLogin,lasttokenissued`,
     accessToken,
     regionId,
   );
@@ -254,7 +255,7 @@ export async function listUsers(accessToken: string, regionId?: string | null): 
     presence: u.presence?.presenceDefinition?.systemPresence ?? null,
     licenseName: null,
     divisionName: u.division?.name ?? null,
-    lastLoginAt: u.dateLastLogin ?? null,
+    lastLoginAt: u.dateLastLogin ?? u.lastTokenIssued?.dateIssued ?? null,
     dateCreated: u.dateCreated ?? null,
     raw: u,
   }));
@@ -356,14 +357,4 @@ export async function listQueues(accessToken: string, regionId?: string | null):
     dateCreated: q.dateCreated ?? null,
     raw: q,
   }));
-}
-
-/** Lightweight health probe used by "Verify connection". */
-export async function healthCheck(
-  accessToken: string,
-  regionId?: string | null,
-): Promise<{ org: GenesysOrg; me: GenesysMe }> {
-  const org = await getOrganization(accessToken, regionId);
-  const me = await getCurrentUser(accessToken, regionId);
-  return { org, me };
 }
