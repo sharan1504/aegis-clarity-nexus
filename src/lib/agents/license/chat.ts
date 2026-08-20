@@ -2,7 +2,6 @@
 // The model never receives provider credentials and never calls Genesys directly.
 // It receives only structured, read-only evidence returned by authorized capabilities.
 import { createServerFn } from "@tanstack/react-start";
-
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { authorizeCapabilityAccess } from "@/lib/capabilities/authorization.server";
 import { capabilityRouter } from "@/lib/capabilities/router.server";
@@ -11,65 +10,26 @@ import { executeLicenseAgent } from "./functions";
 import { LICENSE_AGENT_KEY } from "./types";
 
 const LOVABLE_AI_ENDPOINT = "https://ai.gateway.lovable.dev/v1/chat/completions";
-// Lovable AI's current default model is Gemini 3 Flash.
 const LOVABLE_AI_MODEL = "google/gemini-3-flash-preview";
 const OUT_OF_SCOPE_MESSAGE = "I don't have access to a connected data source that can answer that question. This License Agent can only answer questions using data from connected and authorized sources.";
 const SOURCE_NOT_CONNECTED_MESSAGE = "I don't have access to the requested license data because a connected and authorized data source is not available. Please connect or enable the appropriate data source for this agent.";
 
-export interface LicenseChatMessage {
-  role: "user" | "assistant";
-  content: string;
-}
-
-type LicenseOperation =
-  | "summary"
-  | "usage"
-  | "assignments"
-  | "user_details"
-  | "optimization"
-  | "source_access"
-  | "multiple_license_users";
-
-interface Intent {
-  inScope: boolean;
-  operation?: LicenseOperation;
-  userId?: string;
-  userName?: string;
-  userEmail?: string;
-  licenseId?: string;
-  licenseName?: string;
-}
+export interface LicenseChatMessage { role: "user" | "assistant"; content: string; }
+type LicenseOperation = "summary" | "usage" | "assignments" | "user_details" | "optimization" | "source_access" | "multiple_license_users";
+interface Intent { inScope: boolean; operation?: LicenseOperation; userId?: string; userName?: string; userEmail?: string; licenseId?: string; licenseName?: string; }
 
 function isMultipleLicenseQuestion(question: string): boolean {
   const normalized = question.toLowerCase().replace(/[?!.,]/g, " ").replace(/\s+/g, " ").trim();
-  return [
-    /\bwhich users have (more than|multiple|several) licenses\b/,
-    /\bwho (has|have) (more than|multiple|several) licenses\b/,
-    /\busers with (more than|multiple|several) licenses\b/,
-    /\busers? assigned (more than|multiple|several) licenses\b/,
-    /\busers? with more than one license\b/,
-    /\bmultiple[- ]license users\b/,
-  ].some((pattern) => pattern.test(normalized));
+  return [/\bwhich users have (more than|multiple|several) licenses\b/, /\bwho (has|have) (more than|multiple|several) licenses\b/, /\busers with (more than|multiple|several) licenses\b/, /\busers? assigned (more than|multiple|several) licenses\b/, /\busers? with more than one license\b/, /\bmultiple[- ]license users\b/].some((pattern) => pattern.test(normalized));
 }
 
-async function askModel(
-  messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
-  json = false,
-): Promise<string> {
+async function askModel(messages: Array<{ role: "system" | "user" | "assistant"; content: string }>, json = false): Promise<string> {
   const key = process.env["LOVABLE_API_KEY"];
   if (!key) throw new Error("Lovable AI is not configured. Enable Lovable AI for this project.");
   const response = await fetch(LOVABLE_AI_ENDPOINT, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: LOVABLE_AI_MODEL,
-      messages,
-      temperature: 0.05,
-      ...(json ? { response_format: { type: "json_object" } } : {}),
-    }),
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model: LOVABLE_AI_MODEL, messages, temperature: 0.05, ...(json ? { response_format: { type: "json_object" } } : {}) }),
   });
   if (!response.ok) {
     const text = await response.text();
@@ -84,110 +44,42 @@ async function askModel(
 function parseIntent(raw: string): Intent {
   try {
     const parsed = JSON.parse(raw) as Partial<Intent>;
-    const allowed: LicenseOperation[] = [
-      "summary",
-      "usage",
-      "assignments",
-      "user_details",
-      "optimization",
-      "source_access",
-      "multiple_license_users",
-    ];
-    const operation = allowed.includes(parsed.operation as LicenseOperation)
-      ? (parsed.operation as LicenseOperation)
-      : undefined;
-    return {
-      inScope: parsed.inScope === true && Boolean(operation),
-      operation,
-      userId: typeof parsed.userId === "string" ? parsed.userId : undefined,
-      userName: typeof parsed.userName === "string" ? parsed.userName : undefined,
-      userEmail: typeof parsed.userEmail === "string" ? parsed.userEmail : undefined,
-      licenseId: typeof parsed.licenseId === "string" ? parsed.licenseId : undefined,
-      licenseName: typeof parsed.licenseName === "string" ? parsed.licenseName : undefined,
-    };
-  } catch {
-    return { inScope: false };
-  }
+    const allowed: LicenseOperation[] = ["summary", "usage", "assignments", "user_details", "optimization", "source_access", "multiple_license_users"];
+    const operation = allowed.includes(parsed.operation as LicenseOperation) ? (parsed.operation as LicenseOperation) : undefined;
+    return { inScope: parsed.inScope === true && Boolean(operation), operation, userId: typeof parsed.userId === "string" ? parsed.userId : undefined, userName: typeof parsed.userName === "string" ? parsed.userName : undefined, userEmail: typeof parsed.userEmail === "string" ? parsed.userEmail : undefined, licenseId: typeof parsed.licenseId === "string" ? parsed.licenseId : undefined, licenseName: typeof parsed.licenseName === "string" ? parsed.licenseName : undefined };
+  } catch { return { inScope: false }; }
 }
 
-async function getRealLicenseSources(
-  supabase: Parameters<typeof capabilityRouter.getUsers>[0],
-  userId: string,
-) {
-  const decision = await authorizeCapabilityAccess(
-    supabase,
-    userId,
-    LICENSE_AGENT_KEY,
-    "license_inventory",
-  );
+async function getRealLicenseSources(supabase: Parameters<typeof capabilityRouter.getUsers>[0], userId: string) {
+  const decision = await authorizeCapabilityAccess(supabase, userId, LICENSE_AGENT_KEY, "license_inventory");
   if (!decision.ok) return [];
   return decision.sources.filter((source) => !source.isMock && source.implemented);
 }
 
-async function assertRealConnectedSource(
-  supabase: Parameters<typeof capabilityRouter.getUsers>[0],
-  userId: string,
-): Promise<void> {
-  if ((await getRealLicenseSources(supabase, userId)).length === 0) {
-    throw new Error(SOURCE_NOT_CONNECTED_MESSAGE);
-  }
+async function assertRealConnectedSource(supabase: Parameters<typeof capabilityRouter.getUsers>[0], userId: string): Promise<void> {
+  if ((await getRealLicenseSources(supabase, userId)).length === 0) throw new Error(SOURCE_NOT_CONNECTED_MESSAGE);
 }
 
-function buildMultipleLicenseEvidence(
-  records: Array<{
-    userId: string;
-    userName: string | null;
-    userEmail: string | null;
-    entitlementId: string;
-    entitlementName: string | null;
-  }>,
-) {
+function buildMultipleLicenseEvidence(records: Array<{ userId: string; userName: string | null; userEmail: string | null; entitlementId: string; entitlementName: string | null }>) {
   const byUser = new Map<string, { userId: string; userName: string | null; userEmail: string | null; licenses: Set<string>; licenseNames: Set<string> }>();
   for (const record of records) {
-    const row = byUser.get(record.userId) ?? {
-      userId: record.userId,
-      userName: record.userName,
-      userEmail: record.userEmail,
-      licenses: new Set<string>(),
-      licenseNames: new Set<string>(),
-    };
+    const row = byUser.get(record.userId) ?? { userId: record.userId, userName: record.userName, userEmail: record.userEmail, licenses: new Set<string>(), licenseNames: new Set<string>() };
     row.licenses.add(record.entitlementId);
     if (record.entitlementName) row.licenseNames.add(record.entitlementName);
     if (!row.userName && record.userName) row.userName = record.userName;
     if (!row.userEmail && record.userEmail) row.userEmail = record.userEmail;
     byUser.set(record.userId, row);
   }
-  return [...byUser.values()]
-    .filter((row) => row.licenses.size > 1)
-    .sort((a, b) => b.licenses.size - a.licenses.size)
-    .map((row) => ({
-      userId: row.userId,
-      userName: row.userName,
-      userEmail: row.userEmail,
-      licenseCount: row.licenses.size,
-      licenses: [...row.licenseNames],
-    }));
+  return [...byUser.values()].filter((row) => row.licenses.size > 1).sort((a, b) => b.licenses.size - a.licenses.size).map((row) => ({ userId: row.userId, userName: row.userName, userEmail: row.userEmail, licenseCount: row.licenses.size, licenses: [...row.licenseNames] }));
 }
 
-async function collectMultipleLicenseEvidence(
-  supabase: Parameters<typeof capabilityRouter.getUsers>[0],
-  userId: string,
-) {
+async function collectMultipleLicenseEvidence(supabase: Parameters<typeof capabilityRouter.getUsers>[0], userId: string) {
   const licenses = await capabilityRouter.getLicenseInventory(supabase, userId, LICENSE_AGENT_KEY);
   if (licenses.denied || licenses.records.length === 0) throw new Error(SOURCE_NOT_CONNECTED_MESSAGE);
-  return {
-    type: "multiple_license_users" as const,
-    users: buildMultipleLicenseEvidence(licenses.records),
-    totalAssignments: licenses.records.length,
-    freshness: licenses.freshness,
-  };
+  return { type: "multiple_license_users" as const, users: buildMultipleLicenseEvidence(licenses.records), totalAssignments: licenses.records.length, freshness: licenses.freshness };
 }
 
-async function collectEvidence(
-  intent: Intent,
-  supabase: Parameters<typeof capabilityRouter.getUsers>[0],
-  userId: string,
-) {
+async function collectEvidence(intent: Intent, supabase: Parameters<typeof capabilityRouter.getUsers>[0], userId: string) {
   if (!intent.operation) throw new Error(OUT_OF_SCOPE_MESSAGE);
   if (intent.operation === "source_access") {
     const sources = await getRealLicenseSources(supabase, userId);
@@ -196,43 +88,31 @@ async function collectEvidence(
   }
   if (intent.operation === "multiple_license_users") return collectMultipleLicenseEvidence(supabase, userId);
   if (intent.operation === "summary") {
-    const [licenses, users] = await Promise.all([
-      capabilityRouter.getLicenseInventory(supabase, userId, LICENSE_AGENT_KEY),
-      capabilityRouter.getUsers(supabase, userId, LICENSE_AGENT_KEY),
-    ]);
+    const [licenses, users] = await Promise.all([capabilityRouter.getLicenseInventory(supabase, userId, LICENSE_AGENT_KEY), capabilityRouter.getUsers(supabase, userId, LICENSE_AGENT_KEY)]);
     if (licenses.denied || users.denied || (licenses.records.length === 0 && users.records.length === 0)) throw new Error(SOURCE_NOT_CONNECTED_MESSAGE);
-    return {
-      type: "summary",
-      totalUsers: users.records.length,
-      totalAssignments: licenses.records.length,
-      totalLicenseTypes: new Set(licenses.records.map((record) => record.entitlementId)).size,
-      multipleLicenseUsers: buildMultipleLicenseEvidence(licenses.records),
-      freshness: licenses.freshness,
-    };
+    return { type: "summary", totalUsers: users.records.length, totalAssignments: licenses.records.length, totalLicenseTypes: new Set(licenses.records.map((record) => record.entitlementId)).size, multipleLicenseUsers: buildMultipleLicenseEvidence(licenses.records), freshness: licenses.freshness };
   }
-  if (intent.operation === "usage") {
-    return { type: "usage", result: await executeLicenseAgent({ data: { operation: "get_license_usage", filters: { licenseId: intent.licenseId, licenseName: intent.licenseName } } } as never) };
-  }
-  if (intent.operation === "assignments") {
-    return { type: "assignments", result: await executeLicenseAgent({ data: { operation: "get_license_assignments", filters: { licenseId: intent.licenseId, licenseName: intent.licenseName, userId: intent.userId, userName: intent.userName, userEmail: intent.userEmail } } } as never) };
-  }
-  if (intent.operation === "user_details") {
-    return { type: "user_details", result: await executeLicenseAgent({ data: { operation: "get_user_license_details", filters: { userId: intent.userId, userName: intent.userName, userEmail: intent.userEmail } } } as never) };
-  }
-  const [optimization, summary] = await Promise.all([
-    executeLicenseOptimization({} as never),
-    executeLicenseAgent({ data: { operation: "get_license_summary" } } as never),
-  ]);
+  if (intent.operation === "usage") return { type: "usage", result: await executeLicenseAgent({ data: { operation: "get_license_usage", filters: { licenseId: intent.licenseId, licenseName: intent.licenseName } } } as never) };
+  if (intent.operation === "assignments") return { type: "assignments", result: await executeLicenseAgent({ data: { operation: "get_license_assignments", filters: { licenseId: intent.licenseId, licenseName: intent.licenseName, userId: intent.userId, userName: intent.userName, userEmail: intent.userEmail } } } as never) };
+  if (intent.operation === "user_details") return { type: "user_details", result: await executeLicenseAgent({ data: { operation: "get_user_license_details", filters: { userId: intent.userId, userName: intent.userName, userEmail: intent.userEmail } } } as never) };
+  const [optimization, summary] = await Promise.all([executeLicenseOptimization({} as never), executeLicenseAgent({ data: { operation: "get_license_summary" } } as never)]);
   return { type: "optimization", optimization, summary };
 }
 
 async function answerWithEvidence(question: string, conversation: LicenseChatMessage[], evidence: unknown) {
   return askModel([
-    {
-      role: "system",
-      content:
-        "You are a strict License Agent, not a general-purpose assistant. Answer ONLY from the supplied structured evidence from connected, authorized customer data. Treat the evidence as the complete source of truth for this answer. Never use pretrained knowledge to fill missing fields. Never invent users, licenses, usage, dates, savings, configuration, integrations, or recommendations. If the evidence does not support an answer, say exactly: 'I don't have access to sufficient connected data to answer that question.' If a requested source is not connected, say exactly: 'I don't have access to that data source because it is not connected or authorized for this agent.' For multiple-license users, report only users present in evidence and state the count. Do not infer that a license should be removed. Never claim an action was performed. If evidence is empty, do not answer from general knowledge. Keep answers concise and factual.",
-    },
+    { role: "system", content: `You are Aegis License Agent. You are a grounded enterprise analyst, not a general-purpose assistant. Use ONLY the supplied connected and authorized evidence. Never fill missing facts from general knowledge. Never invent users, licenses, usage, dates, savings, configuration, integrations, or recommendations.
+
+Write the answer in this structure when the evidence supports it:
+**Answer** — directly answer the customer's question in 1-3 sentences.
+
+**Analysis** — explain the important evidence and reasoning. Distinguish observed facts from interpretation. If the data is stale, say so.
+
+**Recommendations** — provide practical next steps ONLY when supported by the evidence. Recommendations must be framed as review actions, never as automatic license-removal decisions. If there is not enough evidence for a recommendation, say: "No recommendation can be made from the available data."
+
+**Data & Freshness** — state the connected source and relevant freshness/last-sync information when available.
+
+Rules: For user-specific questions, report only the user found in evidence. For multiple matches, do not guess; ask for an email or user ID. For multiple-license questions, report only users in evidence and the count. Never claim an action was performed. If evidence cannot answer the question, say exactly: "I don't have access to sufficient connected data to answer that question." If the requested source is not connected, say exactly: "I don't have access to that data source because it is not connected or authorized for this agent." If evidence is empty, do not answer from pretrained knowledge. Keep recommendations conservative and evidence-backed.` },
     { role: "user", content: JSON.stringify({ question, conversation: conversation.slice(-8), evidence }) },
   ]);
 }
@@ -250,21 +130,12 @@ export const executeLicenseChat = createServerFn({ method: "POST" })
         const response = await answerWithEvidence(latest, data.messages, evidence);
         return { ok: true as const, content: response, provider: "Lovable AI", model: LOVABLE_AI_MODEL, readOnly: true as const };
       }
-
-      const intentRaw = await askModel(
-        [
-          {
-            role: "system",
-            content:
-              "You are the strict scope router for a License Agent. You are NOT a general assistant. A question is inScope only when it can be answered using connected License Agent data: license assignments, license usage, users, user license details, connected source access, multiple-license users, or evidence-backed license optimization. Questions about weather, news, coding, general knowledge, unrelated products, personal advice, or other topics are out of scope. A question asking what data/sources the agent can access uses source_access. For user-specific questions, extract the user's display name into userName when the question names a user and does not provide a user ID or email. Return JSON only: {inScope:boolean, operation:'summary'|'usage'|'assignments'|'user_details'|'optimization'|'source_access'|'multiple_license_users'|null, userId?, userName?, userEmail?, licenseId?, licenseName?}. If out of scope, set inScope=false and operation=null. Never treat general knowledge as License Agent evidence.",
-          },
-          { role: "user", content: latest },
-        ],
-        true,
-      );
+      const intentRaw = await askModel([
+        { role: "system", content: "You are the strict scope router for a License Agent. You are NOT a general assistant. A question is inScope only when it can be answered using connected License Agent data: license assignments, license usage, users, user license details, connected source access, multiple-license users, or evidence-backed license optimization. Questions about weather, news, coding, general knowledge, unrelated products, personal advice, or other topics are out of scope. A question asking what data/sources the agent can access uses source_access. For user-specific questions, extract the user's display name into userName when the question names a user and does not provide a user ID or email. Return JSON only: {inScope:boolean, operation:'summary'|'usage'|'assignments'|'user_details'|'optimization'|'source_access'|'multiple_license_users'|null, userId?, userName?, userEmail?, licenseId?, licenseName?}. If out of scope, set inScope=false and operation=null. Never treat general knowledge as License Agent evidence." },
+        { role: "user", content: latest },
+      ], true);
       const intent = parseIntent(intentRaw);
       if (!intent.inScope || !intent.operation) return { ok: true as const, content: OUT_OF_SCOPE_MESSAGE, provider: "Lovable AI", model: LOVABLE_AI_MODEL, readOnly: true as const };
-
       await assertRealConnectedSource(context.supabase, context.userId);
       const evidence = await collectEvidence(intent, context.supabase, context.userId);
       const response = await answerWithEvidence(latest, data.messages, evidence);
