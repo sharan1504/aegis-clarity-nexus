@@ -1,10 +1,11 @@
 // Sensitive change-control actions. Every one of these writes an immutable
-// audit entry and emits a tenant notification; Realtime pushes the result to
-// every open client.
+audit entry and emits a tenant notification; Realtime pushes the result to
+every open client.
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 import { writeAudit } from "@/lib/audit";
 import { pushNotification } from "@/lib/realtime";
+import { createExternalTicketServer } from "@/lib/integrations/external-ticket.server";
 import {
   CHANGE_STAGES,
   type ChangeRecord,
@@ -155,40 +156,40 @@ export async function initiateRollback(record: ChangeRecord, ctx: ActorContext) 
   });
 }
 
-/** Creates an external ITSM ticket reference against a change record. */
+/** Creates a real Jira or ServiceNow ticket using the tenant's connected provider credentials. */
 export async function createExternalTicket(
   record: ChangeRecord,
   system: ExternalTicket["system"],
   ctx: ActorContext,
 ) {
-  const seq = Math.floor(100000 + Math.random() * 899999);
-  const ticket: ExternalTicket =
-    system === "Jira"
-      ? { system, id: `AEG-${seq}`, url: `https://jira.example.com/browse/AEG-${seq}` }
-      : { system, id: `${system === "ServiceNow" ? "CHG" : "REF"}${seq}`, url: `https://itsm.example.com/${seq}` };
+  if (system !== "Jira" && system !== "ServiceNow") {
+    throw new Error(`${system} ticket creation is not implemented.`);
+  }
+  if (!record.rowId) throw new Error("This change record has no persisted database ID.");
 
-  const tickets = [...record.externalTickets, ticket];
-  const now = new Date().toISOString();
-
-  await appendTimeline(
-    record,
-    {
-      ts: now,
-      actor: ctx.actor,
-      kind: "system",
-      text: `${system} ticket ${ticket.id} created and linked by ${ctx.actor}.`,
+  const ticket = await createExternalTicketServer({
+    data: {
+      changeRecordId: record.rowId,
+      system,
     },
-    { externalTickets: tickets },
-  );
+  });
 
   await writeAudit({
     tenantId: ctx.tenantId,
     action: "ticket.created",
     entityType: "ticket",
-    entityId: record.id,
+    entityId: record.rowId,
     actorRole: ctx.role,
     detail: `${system} ticket ${ticket.id} linked to ${record.id}`,
     payload: { changeId: record.id, system, ticketId: ticket.id, url: ticket.url },
+  });
+
+  await pushNotification({
+    tenantId: ctx.tenantId,
+    kind: "approval_deadline",
+    title: `${system} ticket created — ${ticket.id}`,
+    body: `${ticket.id} was created for ${record.id}.`,
+    href: `/approvals/${record.id}`,
   });
 
   return ticket;
