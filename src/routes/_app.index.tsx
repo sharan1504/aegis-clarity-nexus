@@ -1,401 +1,68 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import {
-  ArrowDownRight,
-  ArrowUpRight,
-  Bot,
-  CheckCircle2,
-  Sparkles,
-  TrendingUp,
-} from "lucide-react";
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-
-import { PageHeader, SeverityBadge } from "@/components/layout/AppLayout";
-import { EmptyIntegrationsState, hasAnyConnected } from "@/components/EmptyIntegrationsState";
-import { WelcomeChecklist } from "@/components/WelcomeChecklist";
-import { DashboardSkeleton } from "@/components/DashboardSkeleton";
+import { Activity, AlertTriangle, Bot, CheckCircle2, Clock3, RefreshCw, ShieldCheck, Users, Workflow } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
+import { PageHeader } from "@/components/layout/AppLayout";
+import { EmptyIntegrationsState } from "@/components/EmptyIntegrationsState";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  costByCloud,
-  healthTrend,
-  incidents,
-  incidentsByService,
-  kpis,
-  recommendations,
-  securityAlerts,
-} from "@/lib/mock-data";
+import { createLiveRecommendationApproval, getLiveWorkspaceData, type LiveWorkspaceData } from "@/lib/live-workspace.functions";
 import { pageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/_app/")({
-  head: () => pageHead({ path: "/", title: "Operations Dashboard — Aegis AI", description: "Track incidents, security alerts, cost savings, and platform health across every connected enterprise system in one AI operations dashboard." }),
+  head: () => pageHead({ path: "/", title: "Operations Dashboard — Aegis AI", description: "Live enterprise operations dashboard powered by connected systems." }),
   component: DashboardPage,
 });
 
-const CHART_COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
-
-type DrillKey = "Active Incidents" | "Security Alerts" | "Cost Savings (MTD)" | "Platform Health";
-
 function DashboardPage() {
-  const connected = hasAnyConnected();
-  const [drill, setDrill] = useState<DrillKey | null>(null);
+  const load = useServerFn(getLiveWorkspaceData);
+  const createApproval = useServerFn(createLiveRecommendationApproval);
+  const navigate = useNavigate();
+  const [data, setData] = useState<LiveWorkspaceData | null>(null);
   const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 900);
-    return () => clearTimeout(t);
-  }, []);
-  return (
-    <div>
-      <PageHeader
-        title="AI Dashboard"
-        description="Real-time executive view across all connected enterprise systems."
-        actions={
-          <>
-            <Button variant="outline" size="sm">Export</Button>
-            <Button size="sm" asChild>
-              <Link to="/chat">
-                <Sparkles className="mr-1.5 h-4 w-4" /> Ask Aegis
-              </Link>
-            </Button>
-          </>
-        }
-      />
+  const [busy, setBusy] = useState<string | null>(null);
 
-      <WelcomeChecklist />
+  const refresh = async () => {
+    setLoading(true);
+    try { setData(await load()); }
+    catch (error) { toast.error("Live dashboard unavailable", { description: error instanceof Error ? error.message : "Try again." }); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { void refresh(); const id = window.setInterval(() => void refresh(), 60_000); return () => window.clearInterval(id); }, []);
 
-      {loading ? (
-        <DashboardSkeleton />
-      ) : !connected ? (
-        <EmptyIntegrationsState />
-      ) : (
-      <>
+  const requestApproval = async (recommendation: LiveWorkspaceData["recommendations"][number]) => {
+    if (!data) return;
+    setBusy(recommendation.key);
+    try {
+      const result = await createApproval({ data: { recommendation, snapshot: data } });
+      toast.success(`${result.changeId} created`, { description: "Opening Approval Center for review." });
+      navigate({ to: "/approvals", search: { stage: "all", risk: "all", mode: "all", team: "all", q: result.changeId, sort: "id", dir: "asc" } });
+    } catch (error) { toast.error("Could not create approval", { description: error instanceof Error ? error.message : "Try again." }); }
+    finally { setBusy(null); }
+  };
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {kpis.map((k) => (
-          <button
-            key={k.label}
-            onClick={() => setDrill(k.label as DrillKey)}
-            className="text-left"
-          >
-            <Card className="relative overflow-hidden transition hover:border-primary/40 hover:shadow-md">
-              <CardHeader className="pb-2">
-                <CardDescription className="text-xs font-medium uppercase tracking-wider">
-                  {k.label}
-                </CardDescription>
-                <CardTitle className="text-3xl tracking-tight">{k.value}</CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                {k.breakdown && (
-                  <div className="mb-1.5 text-xs font-medium text-foreground/80">{k.breakdown}</div>
-                )}
-                <div className="flex items-center justify-between">
-                  <span
-                    className={`inline-flex items-center gap-1 text-xs font-medium ${
-                      k.trend === "up"
-                        ? "text-success"
-                        : k.trend === "down"
-                          ? "text-destructive"
-                          : "text-muted-foreground"
-                    }`}
-                  >
-                    {k.trend === "up" ? (
-                      <ArrowUpRight className="h-3.5 w-3.5" />
-                    ) : (
-                      <ArrowDownRight className="h-3.5 w-3.5" />
-                    )}
-                    {k.delta}
-                  </span>
-                  <span className="text-xs text-muted-foreground">{k.hint}</span>
-                </div>
-              </CardContent>
-              <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-primary/60 via-accent/60 to-transparent" />
-            </Card>
-          </button>
-        ))}
+  return <div>
+    <PageHeader title="AI Operations Dashboard" description="Live telemetry, evidence-backed recommendations and human approval — no demo metrics." actions={<div className="flex gap-2"><Button variant="outline" size="sm" onClick={() => void refresh()} disabled={loading}><RefreshCw className={`mr-1.5 h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh</Button><Button size="sm" asChild><Link to="/chat">Ask Aegis</Link></Button></div>} />
+    {loading && !data ? <div className="py-16 text-center text-sm text-muted-foreground">Loading live connected data…</div> : !data?.connected ? <EmptyIntegrationsState title="Connect Genesys to activate the live dashboard" description="The dashboard intentionally shows no invented metrics. Connect a supported integration and its real telemetry will appear here." /> : <>
+      <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><Badge variant="outline" className="gap-1.5 border-success/40 text-success"><span className="h-1.5 w-1.5 rounded-full bg-success" /> Live</Badge><span>{data.orgName ?? "Genesys Cloud"}</span><span>•</span><span>{data.region}</span><span>•</span><span>Fetched {new Date(data.fetchedAt).toLocaleTimeString()}</span><span>•</span><span>Connector is read-only</span></div>
+      <div className="grid grid-cols-2 gap-4 xl:grid-cols-5">
+        <Kpi icon={Users} label="Genesys users" value={data.users} />
+        <Kpi icon={Activity} label="Active users" value={data.activeUsers} />
+        <Kpi icon={ShieldCheck} label="Licensed users" value={data.licensedUsers} />
+        <Kpi icon={Workflow} label="License assignments" value={data.licenseAssignments} />
+        <Kpi icon={Clock3} label="Queues" value={data.queues} />
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
-          <CardHeader className="flex-row items-center justify-between">
-            <div>
-              <CardTitle className="text-base">Platform Health & Spend</CardTitle>
-              <CardDescription>Rolling 7-day trend across all connected systems</CardDescription>
-            </div>
-            <Badge variant="secondary" className="gap-1.5">
-              <TrendingUp className="h-3 w-3" /> Improving
-            </Badge>
-          </CardHeader>
-          <CardContent className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={healthTrend} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="gHealth" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.5} />
-                    <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="gCost" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--chart-2)" stopOpacity={0.4} />
-                    <stop offset="100%" stopColor="var(--chart-2)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="t" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
-                <Tooltip
-                  contentStyle={{
-                    background: "var(--popover)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 8,
-                    fontSize: 12,
-                  }}
-                />
-                <Area type="monotone" dataKey="health" stroke="var(--chart-1)" strokeWidth={2} fill="url(#gHealth)" />
-                <Area type="monotone" dataKey="cost" stroke="var(--chart-2)" strokeWidth={2} fill="url(#gCost)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Spend by Provider</CardTitle>
-            <CardDescription>Month to date</CardDescription>
-          </CardHeader>
-          <CardContent className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={costByCloud}
-                  dataKey="value"
-                  nameKey="name"
-                  innerRadius={55}
-                  outerRadius={90}
-                  paddingAngle={2}
-                >
-                  {costByCloud.map((_, i) => (
-                    <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    background: "var(--popover)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 8,
-                    fontSize: 12,
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="mt-2 grid grid-cols-2 gap-1.5 text-xs">
-              {costByCloud.map((c, i) => (
-                <div key={c.name} className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
-                  <span className="text-muted-foreground">{c.name}</span>
-                  <span className="ml-auto font-medium">${(c.value / 1000).toFixed(0)}K</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      <div className="mt-6 grid gap-4 xl:grid-cols-3">
+        <Card className="xl:col-span-2"><CardHeader><div className="flex items-center justify-between"><div><CardTitle className="text-base">Live operational snapshot</CardTitle><CardDescription>Derived directly from the current Genesys API response.</CardDescription></div><Badge variant="outline">{data.healthStatus ?? "unknown"}</Badge></div></CardHeader><CardContent className="grid gap-3 sm:grid-cols-2"><Snapshot label="License types" value={data.licenseTypes} /><Snapshot label="Multiple-license users" value={data.multipleLicenseUsers} /><Snapshot label="90+ day inactive licensed users" value={data.inactiveLicensedUsers} /><Snapshot label="Empty queues" value={data.emptyQueues} /></CardContent></Card>
+        <Card><CardHeader><CardTitle className="text-base">Data freshness</CardTitle><CardDescription>Source health and sync state</CardDescription></CardHeader><CardContent className="space-y-3"><div className="flex items-center gap-2 text-sm"><CheckCircle2 className="h-4 w-4 text-success" /> Direct Genesys API read</div><div className="text-xs text-muted-foreground">Last persisted sync: {data.lastSyncAt ? new Date(data.lastSyncAt).toLocaleString() : "Not available"}</div><div className="text-xs text-muted-foreground">Live fetch: {new Date(data.fetchedAt).toLocaleString()}</div></CardContent></Card>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
-          <CardHeader className="flex-row items-center justify-between">
-            <div>
-              <CardTitle className="text-base">Active Incidents</CardTitle>
-              <CardDescription>Live from Genesys, AWS, Azure, ServiceNow, Salesforce</CardDescription>
-            </div>
-            <Button variant="ghost" size="sm" onClick={() => setDrill("Active Incidents")}>
-              View all
-            </Button>
-          </CardHeader>
-          <CardContent className="px-0 overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Service</TableHead>
-                  <TableHead>Severity</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Opened</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {incidents.map((i) => (
-                  <TableRow key={i.id}>
-                    <TableCell className="font-mono text-xs">{i.id}</TableCell>
-                    <TableCell className="max-w-[280px] truncate font-medium">{i.title}</TableCell>
-                    <TableCell className="text-muted-foreground">{i.service}</TableCell>
-                    <TableCell><SeverityBadge severity={i.severity} /></TableCell>
-                    <TableCell className="capitalize text-muted-foreground">{i.status}</TableCell>
-                    <TableCell className="text-right text-muted-foreground">{i.opened}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Incidents by Service</CardTitle>
-            <CardDescription>By priority</CardDescription>
-          </CardHeader>
-          <CardContent className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={incidentsByService} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} />
-                <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
-                <Bar dataKey="p1" stackId="a" fill="var(--destructive)" />
-                <Bar dataKey="p2" stackId="a" fill="var(--warning)" />
-                <Bar dataKey="p3" stackId="a" fill="var(--chart-2)" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="mt-6">
-        <CardHeader className="flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Bot className="h-4 w-4 text-primary" /> AI Recommendations
-            </CardTitle>
-            <CardDescription>Actions proposed by your agents — awaiting approval</CardDescription>
-          </div>
-          <Button size="sm" variant="outline" asChild>
-            <Link to="/approvals" search={{ stage: "all", risk: "all", mode: "all", team: "all", q: "", sort: "id", dir: "asc" }}>
-              <CheckCircle2 className="mr-1.5 h-4 w-4" /> Approval Center
-            </Link>
-          </Button>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {recommendations.slice(0, 4).map((r) => (
-            <Link
-              key={r.id}
-              to="/approvals"
-              search={{ stage: "all", risk: "all", mode: "all", team: "all", q: "", sort: "id", dir: "asc" }}
-              className="group flex items-start gap-3 rounded-lg border border-border bg-card p-3 transition hover:border-primary/40 hover:bg-accent/5"
-            >
-              <div className="mt-0.5"><SeverityBadge severity={r.severity} /></div>
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium leading-snug">{r.title}</div>
-                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                  <span>{r.agent}</span><span>•</span>
-                  <span className="text-success font-medium">{r.impact}</span>
-                </div>
-              </div>
-              <span className="opacity-0 text-xs text-primary transition group-hover:opacity-100">Review →</span>
-            </Link>
-          ))}
-        </CardContent>
-      </Card>
-      </>
-      )}
-
-      <KpiDrillSheet open={drill} onClose={() => setDrill(null)} />
-    </div>
-  );
+      <Card className="mt-6"><CardHeader><div className="flex items-center justify-between"><div><CardTitle className="flex items-center gap-2 text-base"><Bot className="h-4 w-4 text-primary" /> Live recommendations</CardTitle><CardDescription>Only evidence-backed recommendations from the connected Genesys data.</CardDescription></div><Button size="sm" variant="outline" asChild><Link to="/approvals" search={{ stage: "all", risk: "all", mode: "all", team: "all", q: "", sort: "id", dir: "asc" }}>Approval Center</Link></Button></div></CardHeader><CardContent className="space-y-3">{data.recommendations.length ? data.recommendations.map((r) => <div key={r.key} className="rounded-lg border p-4"><div className="flex flex-wrap items-start gap-3"><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><Badge variant="outline" className={r.severity === "high" ? "border-warning/40 text-warning-foreground" : ""}>{r.severity}</Badge><span className="text-sm font-semibold">{r.title}</span></div><p className="mt-2 text-sm text-muted-foreground">{r.evidence}</p><p className="mt-2 text-xs"><span className="font-medium">Recommendation:</span> {r.action}</p></div><div className="shrink-0 text-right"><div className="text-xs text-muted-foreground">Impact</div><div className="text-sm font-medium">{r.impact}</div></div></div><div className="mt-3 flex items-center justify-between gap-3 border-t pt-3"><div className="flex items-center gap-1.5 text-xs text-muted-foreground"><AlertTriangle className="h-3.5 w-3.5" /> Human approval required</div><Button size="sm" onClick={() => void requestApproval(r)} disabled={busy === r.key}>{busy === r.key ? "Creating…" : "Create approval"}</Button></div></div>) : <div className="rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground">No evidence-backed recommendation is currently available. This is intentional — Aegis does not invent actions when the live data does not support one.</div>}</CardContent></Card>
+    </>}
+  </div>;
 }
-
-function KpiDrillSheet({ open, onClose }: { open: DrillKey | null; onClose: () => void }) {
-  return (
-    <Sheet open={!!open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>{open}</SheetTitle>
-          <SheetDescription>
-            {open === "Active Incidents" && "All open incidents across connected services."}
-            {open === "Security Alerts" && "Findings from the Security & Compliance agent."}
-            {open === "Cost Savings (MTD)" && "Optimizations applied this month."}
-            {open === "Platform Health" && "Signals contributing to your health score."}
-          </SheetDescription>
-        </SheetHeader>
-
-        <div className="mt-5 space-y-2">
-          {open === "Active Incidents" &&
-            incidents.map((i) => (
-              <div key={i.id} className="rounded-lg border border-border p-3 hover:border-primary/40 transition">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-xs text-muted-foreground">{i.id}</span>
-                  <SeverityBadge severity={i.severity} />
-                </div>
-                <div className="mt-1 text-sm font-medium">{i.title}</div>
-                <div className="mt-1 flex justify-between text-xs text-muted-foreground">
-                  <span>{i.service} · {i.owner}</span>
-                  <span className="capitalize">{i.status} · {i.opened}</span>
-                </div>
-              </div>
-            ))}
-
-          {open === "Security Alerts" &&
-            securityAlerts.map((a) => (
-              <div key={a.id} className="rounded-lg border border-border p-3 hover:border-primary/40 transition">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-xs text-muted-foreground">{a.id}</span>
-                  <SeverityBadge severity={a.severity} />
-                </div>
-                <div className="mt-1 text-sm font-medium">{a.title}</div>
-                <div className="mt-1 flex justify-between text-xs text-muted-foreground">
-                  <span>{a.service}</span>
-                  <span className="capitalize">{a.status} · {a.detected}</span>
-                </div>
-              </div>
-            ))}
-
-          {open === "Cost Savings (MTD)" &&
-            recommendations
-              .filter((r) => r.category === "Cost" || r.category === "License")
-              .map((r) => (
-                <div key={r.id} className="rounded-lg border border-border p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs text-muted-foreground">{r.agent}</span>
-                    <span className="text-xs font-semibold text-success">{r.impact}</span>
-                  </div>
-                  <div className="mt-1 text-sm font-medium">{r.title}</div>
-                </div>
-              ))}
-
-          {open === "Platform Health" && (
-            <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
-              Health score aggregates uptime, error budget, and integration health across all connected systems. Drill into individual services from the Incidents view.
-            </div>
-          )}
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
-}
+function Kpi({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: number }) { return <Card><CardContent className="p-4"><Icon className="h-4 w-4 text-muted-foreground" /><div className="mt-2 text-2xl font-semibold">{value.toLocaleString()}</div><div className="text-xs text-muted-foreground">{label}</div></CardContent></Card>; }
+function Snapshot({ label, value }: { label: string; value: number }) { return <div className="rounded-lg border bg-muted/20 p-3"><div className="text-xs text-muted-foreground">{label}</div><div className="mt-1 text-xl font-semibold">{value.toLocaleString()}</div></div>; }
