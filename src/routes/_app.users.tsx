@@ -1,122 +1,155 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { UserPlus, Shield } from "lucide-react";
+import { useEffect, useState } from "react";
+import { UserPlus, Shield, Loader2, Mail, RefreshCw } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { users, auditLog } from "@/lib/mock-data";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { listTenantUsers, inviteTenantUser } from "@/lib/users.functions";
 import { pageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/_app/users")({
-  head: () => pageHead({ path: "/users", title: "Team & Roles — Aegis AI", description: "Manage members and role-based access for Admin, Manager, Analyst, and Viewer users across your Aegis AI tenant." }),
+  head: () => pageHead({ path: "/users", title: "Team & Roles — Aegis AI", description: "Manage members and role-based access for your Aegis AI workspace." }),
   component: UsersPage,
 });
 
 const roleColor: Record<string, string> = {
-  Admin: "bg-primary/15 text-primary border-primary/30",
-  Manager: "bg-info/15 text-info border-info/30",
-  Analyst: "bg-accent/15 text-accent-foreground border-accent/30",
-  Viewer: "bg-muted text-muted-foreground border-border",
+  admin: "bg-primary/15 text-primary border-primary/30",
+  manager: "bg-info/15 text-info border-info/30",
+  analyst: "bg-accent/15 text-accent-foreground border-accent/30",
+  viewer: "bg-muted text-muted-foreground border-border",
 };
 
+type Member = Awaited<ReturnType<typeof listTenantUsers>>["members"][number];
+
 function UsersPage() {
+  const [members, setMembers] = useState<Member[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [form, setForm] = useState({ fullName: "", email: "", organization: "", role: "viewer" });
+
+  const load = async (isRefresh = false) => {
+    isRefresh ? setRefreshing(true) : setLoading(true);
+    setError(null);
+    try {
+      const result = await listTenantUsers();
+      setMembers(result.members);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to load workspace users.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => { void load(); }, []);
+
+  const submitInvite = async () => {
+    setSubmitting(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      await inviteTenantUser({ data: form });
+      setSuccess(`Invitation sent to ${form.email}.`);
+      setForm({ fullName: "", email: "", organization: "", role: "viewer" });
+      setOpen(false);
+      await load(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Invitation could not be sent.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div>
       <PageHeader
         title="User Management"
-        description="Multi-tenant RBAC, SSO-ready, with full audit trail."
+        description="Manage members of your current Aegis workspace. Only real authenticated workspace members are shown."
         actions={
-          <Button size="sm">
-            <UserPlus className="mr-1.5 h-4 w-4" /> Invite user
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => void load(true)} disabled={refreshing}>
+              {refreshing ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1.5 h-4 w-4" />} Refresh
+            </Button>
+            <Button size="sm" onClick={() => { setError(null); setSuccess(null); setOpen(true); }}>
+              <UserPlus className="mr-1.5 h-4 w-4" /> Invite user
+            </Button>
+          </div>
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base">Members</CardTitle>
-            <CardDescription>5 users across 2 tenants</CardDescription>
-          </CardHeader>
-          <CardContent className="px-0">
+      {error && <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}
+      {success && <div className="mb-4 rounded-md border border-success/30 bg-success/5 p-3 text-sm text-success">{success}</div>}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Workspace members</CardTitle>
+          <CardDescription>Users are loaded from the authenticated tenant. No demo or seeded users are displayed.</CardDescription>
+        </CardHeader>
+        <CardContent className="px-0">
+          {loading ? (
+            <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading real workspace members…</div>
+          ) : members.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="mb-3 rounded-full bg-muted p-3"><UserPlus className="h-5 w-5 text-muted-foreground" /></div>
+              <p className="font-medium">No other workspace members</p>
+              <p className="mt-1 max-w-md text-sm text-muted-foreground">Invite a colleague to give them access to this Aegis workspace.</p>
+              <Button className="mt-4" size="sm" onClick={() => setOpen(true)}><UserPlus className="mr-1.5 h-4 w-4" /> Invite user</Button>
+            </div>
+          ) : (
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Tenant</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Last active</TableHead>
-                </TableRow>
-              </TableHeader>
+              <TableHeader><TableRow><TableHead>User</TableHead><TableHead>Organization</TableHead><TableHead>Role</TableHead><TableHead>Status</TableHead><TableHead>Joined</TableHead></TableRow></TableHeader>
               <TableBody>
-                {users.map((u) => (
-                  <TableRow key={u.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2.5">
-                        <Avatar className="h-8 w-8">
-                          <AvatarFallback className="bg-muted text-xs">
-                            {u.name.split(" ").map((n) => n[0]).join("")}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="leading-tight">
-                          <div className="text-sm font-medium">{u.name}</div>
-                          <div className="text-xs text-muted-foreground">{u.email}</div>
+                {members.map((u) => {
+                  const name = u.full_name || u.email || "Unnamed user";
+                  return (
+                    <TableRow key={u.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2.5">
+                          <Avatar className="h-8 w-8"><AvatarFallback className="bg-muted text-xs">{name.split(" ").filter(Boolean).map((n) => n[0]).slice(0, 2).join("").toUpperCase()}</AvatarFallback></Avatar>
+                          <div className="leading-tight"><div className="text-sm font-medium">{name}</div><div className="text-xs text-muted-foreground">{u.email ?? "No email"}</div></div>
                         </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{u.tenant}</TableCell>
-                    <TableCell>
-                      <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium ${roleColor[u.role]}`}>
-                        <Shield className="mr-1 h-3 w-3" /> {u.role}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={u.status === "active" ? "border-success/40 text-success" : ""}
-                      >
-                        {u.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right text-muted-foreground">{u.lastActive}</TableCell>
-                  </TableRow>
-                ))}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">Current workspace</TableCell>
+                      <TableCell><span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium ${roleColor[u.role] ?? roleColor.viewer}`}><Shield className="mr-1 h-3 w-3" /> {u.role}</span></TableCell>
+                      <TableCell><Badge variant="outline" className="border-success/40 text-success">{u.status}</Badge></TableCell>
+                      <TableCell className="text-muted-foreground">{new Date(u.created_at).toLocaleDateString()}</TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
+          )}
+        </CardContent>
+      </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Audit Log</CardTitle>
-            <CardDescription>Today</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {auditLog.map((a, i) => (
-              <div key={i} className="flex gap-3 text-xs">
-                <div className="w-14 shrink-0 font-mono text-muted-foreground">{a.ts}</div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-foreground">
-                    <span className="font-medium">{a.actor}</span> {a.action}
-                  </div>
-                  <div className="text-muted-foreground">{a.target}</div>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Invite a user</DialogTitle>
+            <DialogDescription>Enter the user's details. A real invitation email will be sent and the user will be added to this workspace with the selected role.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2"><Label htmlFor="fullName">Full name *</Label><Input id="fullName" value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} placeholder="Jane Smith" /></div>
+            <div className="space-y-2"><Label htmlFor="email">Email *</Label><Input id="email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="jane@company.com" /></div>
+            <div className="space-y-2"><Label htmlFor="organization">Organization *</Label><Input id="organization" value={form.organization} onChange={(e) => setForm({ ...form, organization: e.target.value })} placeholder="Company name" /></div>
+            <div className="space-y-2"><Label>Role *</Label><Select value={form.role} onValueChange={(role) => setForm({ ...form, role })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="viewer">Viewer</SelectItem><SelectItem value="analyst">Analyst</SelectItem><SelectItem value="manager">Manager</SelectItem><SelectItem value="admin">Admin</SelectItem></SelectContent></Select></div>
+            <div className="flex gap-2 rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground"><Mail className="mt-0.5 h-4 w-4 shrink-0" /> Aegis will send the invitation through the configured Supabase authentication email provider. No fake invitation is created.</div>
+          </div>
+          <DialogFooter><Button variant="outline" onClick={() => setOpen(false)} disabled={submitting}>Cancel</Button><Button onClick={() => void submitInvite()} disabled={submitting || !form.fullName || !form.email || !form.organization}>{submitting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Mail className="mr-1.5 h-4 w-4" />}{submitting ? "Sending…" : "Send invitation"}</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
