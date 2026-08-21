@@ -3,7 +3,7 @@
 // Supabase remains the source of truth; this module is deliberately read-only with
 // respect to provider data and never exposes provider credentials to the chat model.
 import { capabilityRouter } from "@/lib/capabilities/router.server";
-import { authorizeCapabilityAccess } from "@/lib/capabilities/authorization.server";
+import { authorizeCapabilityAccess, DENIAL_MESSAGES } from "@/lib/capabilities/authorization.server";
 import { LICENSE_AGENT_KEY } from "./types";
 
 export interface LicenseSyncResult {
