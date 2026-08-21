@@ -30,7 +30,6 @@ import {
 
 export type UserClient = SupabaseClient<Database>;
 
-/** Callers that can reach the gate. Recorded on every evaluation. */
 export type ExecutionOrigin =
   | "ui"
   | "agent"
@@ -43,10 +42,6 @@ export type ExecutionOrigin =
 
 const ROLE_RANK = ["admin", "manager", "analyst", "viewer"];
 
-/**
- * Builds a user-scoped Supabase client from a verified bearer token. RLS applies
- * as that user, so even a gate bug cannot read another tenant's rows.
- */
 export function userClientFromToken(token: string): UserClient {
   const url = process.env["SUPABASE_URL"];
   const key = process.env["SUPABASE_PUBLISHABLE_KEY"];
@@ -58,9 +53,7 @@ export function userClientFromToken(token: string): UserClient {
       headers: { Authorization: `Bearer ${token}` },
       fetch: (input, init) => {
         const headers = new Headers(init?.headers);
-        if (isOpaque && headers.get("Authorization") === `Bearer ${key}`) {
-          headers.delete("Authorization");
-        }
+        if (isOpaque && headers.get("Authorization") === `Bearer ${key}`) headers.delete("Authorization");
         headers.set("apikey", key);
         headers.set("Authorization", `Bearer ${token}`);
         return fetch(input, { ...init, headers });
@@ -74,38 +67,21 @@ export interface ActorContext {
   userId: string;
   tenantId: string;
   roles: string[];
-  /** Highest-authority role held, used for role-conditioned guardrails. */
   actorRole: string;
 }
 
-/**
- * Resolves who is asking, from the database. Throws when the actor has no
- * workspace — an operation without a tenant can never be governed, so it is
- * denied rather than run.
- */
 export async function resolveActor(supabase: UserClient, userId: string): Promise<ActorContext> {
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("tenant_id")
-    .eq("id", userId)
-    .maybeSingle();
+  const { data: profile, error } = await supabase.from("profiles").select("tenant_id").eq("id", userId).maybeSingle();
   if (error) throw new Error(`governance_unavailable: ${error.message}`);
   const tenantId = profile?.tenant_id;
   if (!tenantId) throw new Error("no_tenant");
 
-  const { data: roleRows } = await supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .eq("tenant_id", tenantId);
+  const { data: roleRows } = await supabase.from("user_roles").select("role").eq("user_id", userId).eq("tenant_id", tenantId);
   const roles = (roleRows ?? []).map((r) => String(r.role));
-  const actorRole =
-    ROLE_RANK.find((r) => roles.includes(r)) ?? (roles[0] as string | undefined) ?? "viewer";
-
+  const actorRole = ROLE_RANK.find((r) => roles.includes(r)) ?? (roles[0] as string | undefined) ?? "viewer";
   return { userId, tenantId, roles, actorRole };
 }
 
-/** Everything the caller may describe about the operation. Never identity. */
 export interface GovernedOperation {
   origin: ExecutionOrigin;
   actionKey: string;
@@ -127,28 +103,12 @@ export interface GovernedOperation {
 
 export type GovernedResult<T> =
   | { ok: true; result: T; verdict: GuardrailVerdict; capped: boolean }
-  | {
-      ok: false;
-      decision: GuardrailVerdict["decision"];
-      reasons: string[];
-      requiredActions: string[];
-    };
+  | { ok: false; decision: GuardrailVerdict["decision"]; reasons: string[]; requiredActions: string[] };
 
-function denial(
-  decision: GuardrailVerdict["decision"],
-  reasons: string[],
-  requiredActions: string[],
-): GovernedResult<never> {
+function denial(decision: GuardrailVerdict["decision"], reasons: string[], requiredActions: string[]): GovernedResult<never> {
   return { ok: false, decision, reasons, requiredActions };
 }
 
-/**
- * Applies a guardrail record cap server-side. Arrays are truncated; an object
- * whose only array field is the payload has that field truncated. Anything the
- * gate cannot confidently cap is passed through unchanged — the cap is enforced
- * by the guardrail's own `limit` effect in that case, which already escalated
- * the decision.
- */
 function applyRecordCap<T>(value: T, maxRecords: number | null): { value: T; capped: boolean } {
   if (maxRecords == null || maxRecords < 0) return { value, capped: false };
   if (Array.isArray(value)) {
@@ -169,18 +129,17 @@ function applyRecordCap<T>(value: T, maxRecords: number | null): { value: T; cap
   return { value, capped: false };
 }
 
-/**
- * The single entry point for any protected operation.
- *
- * `run` is only ever invoked when the verdict allows the operation. Callers
- * cannot pass a tenant, a role, or a pre-computed verdict.
- */
-export async function runGovernedOperation<T>(
-  supabase: UserClient,
-  actor: ActorContext,
-  operation: GovernedOperation,
-  run: (verdict: GuardrailVerdict) => Promise<T> | T,
-): Promise<GovernedResult<T>> {
+async function requireWorkspaceApprovalForWrite(supabase: UserClient, tenantId: string, operation: GovernedOperation): Promise<GovernedResult<never> | null> {
+  if (operation.executionClass !== "write") return null;
+  const { data, error } = await supabase.from("tenants").select("analytics_settings").eq("id", tenantId).single();
+  if (error) return denial("unavailable", ["Workspace security settings could not be evaluated; the write was denied."], ["Resolve workspace settings access and retry."]);
+  const settings = data?.analytics_settings && typeof data.analytics_settings === "object" ? data.analytics_settings as Record<string, unknown> : {};
+  const security = settings.security && typeof settings.security === "object" ? settings.security as Record<string, unknown> : {};
+  if (security.requireApprovalForWrites === false || operation.hasApproval === true) return null;
+  return denial("block", ["Workspace policy requires an approved change record before write actions can execute."], ["Create or link an approved change record before executing this write."]);
+}
+
+export async function runGovernedOperation<T>(supabase: UserClient, actor: ActorContext, operation: GovernedOperation, run: (verdict: GuardrailVerdict) => Promise<T> | T): Promise<GovernedResult<T>> {
   const descriptor: ToolCallDescriptor = {
     tenantId: actor.tenantId,
     userId: actor.userId,
@@ -195,37 +154,24 @@ export async function runGovernedOperation<T>(
     affectedRecords: operation.affectedRecords ?? null,
     confidence: operation.confidence ?? null,
     ...(operation.freshness ? { freshness: operation.freshness } : {}),
-    ...(operation.dataClassification
-      ? { dataClassification: operation.dataClassification }
-      : {}),
+    ...(operation.dataClassification ? { dataClassification: operation.dataClassification } : {}),
     hasChangeTicket: Boolean(operation.hasChangeTicket),
     hasApproval: Boolean(operation.hasApproval),
     hasRollbackPlan: Boolean(operation.hasRollbackPlan),
     origin: operation.origin,
   };
 
+  const policy = await requireWorkspaceApprovalForWrite(supabase, actor.tenantId, operation);
+  if (policy) return policy;
+
   let verdict: GuardrailVerdict;
   try {
     const { userId, origin, ...ctx } = descriptor;
-    verdict = await enforceGuardrails(supabase, ctx as GuardrailContext, {
-      userId,
-      origin,
-      changeRecordId: operation.changeRecordId ?? null,
-    });
+    verdict = await enforceGuardrails(supabase, ctx as GuardrailContext, { userId, origin, changeRecordId: operation.changeRecordId ?? null });
   } catch (error) {
-    if (error instanceof GuardrailViolation) {
-      return denial(
-        error.verdict.decision,
-        error.verdict.reasons,
-        error.verdict.requiredActions,
-      );
-    }
+    if (error instanceof GuardrailViolation) return denial(error.verdict.decision, error.verdict.reasons, error.verdict.requiredActions);
     console.error("[gateway] guardrail evaluation failed", (error as Error).message);
-    return denial(
-      "unavailable",
-      ["Guardrails could not be evaluated, so the operation was denied."],
-      ["Resolve the governance service error and retry."],
-    );
+    return denial("unavailable", ["Guardrails could not be evaluated, so the operation was denied."], ["Resolve the governance service error and retry."]);
   }
 
   let raw: T;
@@ -240,24 +186,8 @@ export async function runGovernedOperation<T>(
   return { ok: true, result: guardToolOutput(value, verdict), verdict, capped };
 }
 
-/**
- * Convenience wrapper for callers that only hold a bearer token (MCP tools,
- * webhooks, job runners). Identity is resolved from the token, then the normal
- * gate runs. Any failure to establish identity denies the operation.
- */
-export async function runGovernedWithToken<T>(
-  token: string | undefined,
-  userId: string | undefined,
-  operation: GovernedOperation,
-  run: (verdict: GuardrailVerdict, supabase: UserClient, actor: ActorContext) => Promise<T> | T,
-): Promise<GovernedResult<T>> {
-  if (!token || !userId) {
-    return denial(
-      "block",
-      ["This operation requires an authenticated caller."],
-      ["Sign in and retry."],
-    );
-  }
+export async function runGovernedWithToken<T>(token: string | undefined, userId: string | undefined, operation: GovernedOperation, run: (verdict: GuardrailVerdict, supabase: UserClient, actor: ActorContext) => Promise<T> | T): Promise<GovernedResult<T>> {
+  if (!token || !userId) return denial("block", ["This operation requires an authenticated caller."], ["Sign in and retry."]);
 
   let supabase: UserClient;
   let actor: ActorContext;
@@ -267,18 +197,8 @@ export async function runGovernedWithToken<T>(
   } catch (error) {
     const message = (error as Error).message;
     console.error("[gateway] actor resolution failed", message);
-    return denial(
-      message === "no_tenant" ? "block" : "unavailable",
-      [
-        message === "no_tenant"
-          ? "Your account is not attached to a workspace, so no operation can be governed."
-          : "The governance layer could not verify who is asking, so the operation was denied.",
-      ],
-      ["Contact a workspace administrator."],
-    );
+    return denial(message === "no_tenant" ? "block" : "unavailable", [message === "no_tenant" ? "Your account is not attached to a workspace, so no operation can be governed." : "The governance layer could not verify who is asking, so the operation was denied."], ["Contact a workspace administrator."]);
   }
 
-  return runGovernedOperation(supabase, actor, operation, (verdict) =>
-    run(verdict, supabase, actor),
-  );
+  return runGovernedOperation(supabase, actor, operation, (verdict) => run(verdict, supabase, actor));
 }
