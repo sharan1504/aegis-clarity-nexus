@@ -45,7 +45,7 @@ export async function syncLicenseSnapshot(
         recordCount: 0,
         freshness: "unavailable",
         sources: [],
-        warnings: [access.denied?.message ?? "License inventory access is not authorized."],
+        warnings: [access.reason ? DENIAL_MESSAGES[access.reason] : "License inventory access is not authorized."],
         error: "license_inventory_not_authorized",
       };
     }
