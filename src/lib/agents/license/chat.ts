@@ -84,7 +84,7 @@ async function collectEvidence(intent: Intent, supabase: Parameters<typeof capab
   if (intent.operation === "source_access") {
     const sources = await getRealLicenseSources(supabase, userId);
     if (sources.length === 0) throw new Error(SOURCE_NOT_CONNECTED_MESSAGE);
-    return { type: "source_access", sources: sources.map((source) => ({ provider: source.provider, integrationId: source.integrationId, capabilities: source.capabilities, freshness: source.freshness })) };
+    return { type: "source_access", sources: sources.map((source) => ({ provider: source.provider, integrationId: source.integrationId, status: source.status, freshness: source.freshness })) };
   }
   if (intent.operation === "multiple_license_users") return collectMultipleLicenseEvidence(supabase, userId);
   if (intent.operation === "summary") {

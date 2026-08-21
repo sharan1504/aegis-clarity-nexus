@@ -139,3 +139,15 @@ export async function listQueues(accessToken: string, regionId?: string | null):
   const queues = await pageThrough<RawQueue>((p) => `/api/v2/routing/queues?pageSize=100&pageNumber=${p}`, accessToken, regionId);
   return queues.map((q) => ({ id: q.id, name: q.name ?? null, description: q.description ?? null, divisionName: q.division?.name ?? null, memberCount: q.memberCount ?? null, mediaSettings: q.mediaSettings ?? {}, dateCreated: q.dateCreated ?? null, raw: q }));
 }
+
+/** Verifies a token by reading the org and the authorizing user (read-only). */
+export async function healthCheck(
+  accessToken: string,
+  regionId?: string | null,
+): Promise<{ org: GenesysOrg; me: GenesysMe }> {
+  const [org, me] = await Promise.all([
+    getOrganization(accessToken, regionId),
+    getCurrentUser(accessToken, regionId),
+  ]);
+  return { org, me };
+}

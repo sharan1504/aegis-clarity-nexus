@@ -3,7 +3,7 @@
 // Supabase remains the source of truth; this module is deliberately read-only with
 // respect to provider data and never exposes provider credentials to the chat model.
 import { capabilityRouter } from "@/lib/capabilities/router.server";
-import { authorizeCapabilityAccess } from "@/lib/capabilities/authorization.server";
+import { authorizeCapabilityAccess, DENIAL_MESSAGES } from "@/lib/capabilities/authorization.server";
 import { LICENSE_AGENT_KEY } from "./types";
 
 export interface LicenseSyncResult {
@@ -45,7 +45,7 @@ export async function syncLicenseSnapshot(
         recordCount: 0,
         freshness: "unavailable",
         sources: [],
-        warnings: [access.denied?.message ?? "License inventory access is not authorized."],
+        warnings: [access.reason ? DENIAL_MESSAGES[access.reason] : "License inventory access is not authorized."],
         error: "license_inventory_not_authorized",
       };
     }

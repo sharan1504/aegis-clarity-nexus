@@ -89,7 +89,7 @@ async function listAll<T>(url: string, accessToken: string, maxPages = 1000): Pr
   let next: string | undefined = url;
   let pages = 0;
   while (next && pages < maxPages) {
-    const page = await graphGet<GraphPage<T>>(next, accessToken);
+    const page: GraphPage<T> = await graphGet<GraphPage<T>>(next, accessToken);
     result.push(...(page.value ?? []));
     next = page["@odata.nextLink"];
     pages += 1;
