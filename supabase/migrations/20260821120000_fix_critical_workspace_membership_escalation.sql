@@ -18,10 +18,6 @@ WITH CHECK (
 -- -----------------------------------------------------------------------------
 -- 2. Roles: remove the vulnerable self-bootstrap rule that allowed a user to
 --    insert an admin role for themselves in an arbitrary tenant.
---
--- Existing admin assignment remains available through the separate admin-only
--- INSERT policy below. Self-bootstrap is limited to the user's current tenant
--- and viewer role, and only when the user has no role there yet.
 -- -----------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Bootstrap own role or admin assigns roles" ON public.user_roles;
 
@@ -49,7 +45,6 @@ WITH CHECK (
   )
 );
 
--- Keep the previously-added self-escalation protection explicit and defensive.
 DROP POLICY IF EXISTS "Admins can update roles in tenant" ON public.user_roles;
 DROP POLICY IF EXISTS "Admins can delete roles in tenant" ON public.user_roles;
 DROP POLICY IF EXISTS "Admins can update other members roles" ON public.user_roles;
@@ -79,21 +74,46 @@ USING (
 );
 
 -- -----------------------------------------------------------------------------
--- 3. Revision history: revisions are append-only and created exclusively by
---    SECURITY DEFINER database triggers. Authenticated users must not be able
---    to forge, modify, or delete historical records.
---
--- Explicit DENY-by-absence is intentional: no authenticated write policy is
--- created. The trigger functions are the controlled write path.
+-- 3. Revision history is append-only and database-trigger owned.
+--    Explicit deny policies make the intended write boundary visible to
+--    security scanners while the SECURITY DEFINER triggers remain the only
+--    supported write path.
 -- -----------------------------------------------------------------------------
+
 REVOKE INSERT, UPDATE, DELETE ON public.guardrail_revisions FROM authenticated;
 REVOKE INSERT, UPDATE, DELETE ON public.organization_instruction_revisions FROM authenticated;
 
--- Keep trigger-owned history writable by the function owner while preventing
--- direct Data API writes. These statements are idempotent.
+DROP POLICY IF EXISTS "guardrail_revisions_deny_direct_insert" ON public.guardrail_revisions;
+CREATE POLICY "guardrail_revisions_deny_direct_insert"
+ON public.guardrail_revisions FOR INSERT TO authenticated
+WITH CHECK (false);
+
+DROP POLICY IF EXISTS "guardrail_revisions_deny_direct_update" ON public.guardrail_revisions;
+CREATE POLICY "guardrail_revisions_deny_direct_update"
+ON public.guardrail_revisions FOR UPDATE TO authenticated
+USING (false)
+WITH CHECK (false);
+
+DROP POLICY IF EXISTS "guardrail_revisions_deny_direct_delete" ON public.guardrail_revisions;
+CREATE POLICY "guardrail_revisions_deny_direct_delete"
+ON public.guardrail_revisions FOR DELETE TO authenticated
+USING (false);
+
+DROP POLICY IF EXISTS "organization_instruction_revisions_deny_direct_insert" ON public.organization_instruction_revisions;
+CREATE POLICY "organization_instruction_revisions_deny_direct_insert"
+ON public.organization_instruction_revisions FOR INSERT TO authenticated
+WITH CHECK (false);
+
+DROP POLICY IF EXISTS "organization_instruction_revisions_deny_direct_update" ON public.organization_instruction_revisions;
+CREATE POLICY "organization_instruction_revisions_deny_direct_update"
+ON public.organization_instruction_revisions FOR UPDATE TO authenticated
+USING (false)
+WITH CHECK (false);
+
+DROP POLICY IF EXISTS "organization_instruction_revisions_deny_direct_delete" ON public.organization_instruction_revisions;
+CREATE POLICY "organization_instruction_revisions_deny_direct_delete"
+ON public.organization_instruction_revisions FOR DELETE TO authenticated
+USING (false);
+
 REVOKE ALL ON FUNCTION public.guardrail_record_revision() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.instruction_record_revision() FROM PUBLIC, anon, authenticated;
-
--- Ensure the immutable history triggers cannot be bypassed by normal clients.
-REVOKE UPDATE, DELETE ON public.guardrail_revisions FROM authenticated;
-REVOKE UPDATE, DELETE ON public.organization_instruction_revisions FROM authenticated;
