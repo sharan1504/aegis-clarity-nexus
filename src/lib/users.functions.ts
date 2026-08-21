@@ -36,8 +36,16 @@ export const inviteTenantUser = createServerFn({ method: "POST" }).middleware([r
   const { data: inviterRole } = await context.supabase.from("user_roles").select("role").eq("user_id", context.userId).eq("tenant_id", inviter.tenant_id).in("role", ["admin", "manager"]).limit(1).maybeSingle();
   if (!inviterRole) throw new Error("Only workspace administrators and managers can invite users.");
   if (data.role === "admin" && inviterRole.role !== "admin") throw new Error("Only an administrator can invite another administrator.");
+
   const admin = adminClient();
-  const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(data.email, { data: { full_name: data.fullName, organization: data.organization, invited_tenant_id: inviter.tenant_id, invited_role: data.role } });
+  const appUrl = process.env.APP_URL ?? process.env.VITE_APP_URL;
+  if (!appUrl) throw new Error("Application URL is not configured for invitations.");
+  const redirectTo = `${appUrl.replace(/\/$/, "")}/auth/accept-invite`;
+
+  const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(data.email, {
+    redirectTo,
+    data: { full_name: data.fullName, organization: data.organization, invited_tenant_id: inviter.tenant_id, invited_role: data.role },
+  });
   if (inviteError || !invited.user) throw new Error(inviteError?.message ?? "Invitation could not be sent.");
   const { error: profileError } = await admin.from("profiles").upsert({ id: invited.user.id, tenant_id: inviter.tenant_id, email: data.email, full_name: data.fullName });
   if (profileError) throw new Error(`Invitation sent, but workspace membership could not be created: ${profileError.message}`);
