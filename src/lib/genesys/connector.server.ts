@@ -79,34 +79,32 @@ export async function getCurrentUser(accessToken: string, regionId?: string | nu
 }
 
 interface Paged<T> { entities?: T[]; pageCount?: number; pageNumber?: number; }
-async function pageThrough<T>(buildPath: (page: number) => string, accessToken: string, regionId: string | null | undefined, maxPages = 25): Promise<T[]> {
-  const out: T[] = []; let page = 1;
+async function pageThrough<T>(buildPath: (page: number) => string, accessToken: string, regionId: string | null | undefined, maxPages = 1000): Promise<T[]> {
+  const out: T[] = [];
+  let page = 1;
   for (;;) {
     const res = await apiGet<Paged<T>>(buildPath(page), accessToken, regionId);
     out.push(...(res.entities ?? []));
     const pageCount = res.pageCount ?? 1;
-    if (page >= pageCount || page >= maxPages) break;
+    if (pageCount > maxPages) {
+      throw new IntegrationError("provider_error", `Genesys pagination exceeded the safety limit of ${maxPages} pages.`);
+    }
+    if (page >= pageCount) break;
     page += 1;
   }
   return out;
 }
 
-/** Read-only activity enrichment using the Genesys Analytics user-details API. */
 async function latestObservedUserActivity(accessToken: string, regionId: string | null | undefined): Promise<Map<string, string>> {
   type Presence = { startTime?: string };
   type UserDetail = { userId?: string; primaryPresence?: Presence[]; routingStatus?: Presence[] };
   const end = new Date();
   const start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
-  const body = {
-    interval: `${start.toISOString()}/${end.toISOString()}`,
-    order: "desc",
-    paging: { pageSize: 100, pageNumber: 1 },
-  };
+  const body = { interval: `${start.toISOString()}/${end.toISOString()}`, order: "desc", paging: { pageSize: 100, pageNumber: 1 } };
   const response = await apiPost<{ userDetails?: UserDetail[] }>("/api/v2/analytics/users/details/query", body, accessToken, regionId);
   const latest = new Map<string, string>();
   for (const detail of response.userDetails ?? []) {
-    const times = [...(detail.primaryPresence ?? []), ...(detail.routingStatus ?? [])]
-      .map((x) => x.startTime).filter((x): x is string => Boolean(x));
+    const times = [...(detail.primaryPresence ?? []), ...(detail.routingStatus ?? [])].map((x) => x.startTime).filter((x): x is string => Boolean(x));
     if (detail.userId && times.length) latest.set(detail.userId, times.sort().at(-1)!);
   }
   return latest;
@@ -116,8 +114,7 @@ export async function listUsers(accessToken: string, regionId?: string | null): 
   type RawUser = { id: string; name?: string; email?: string; title?: string; department?: string; state?: string; presence?: { presenceDefinition?: { systemPresence?: string } }; division?: { name?: string }; dateCreated?: string; dateLastLogin?: string; };
   const users = await pageThrough<RawUser>((p) => `/api/v2/users?pageSize=50&pageNumber=${p}&state=any&expand=presence`, accessToken, regionId);
   let activity = new Map<string, string>();
-  try { activity = await latestObservedUserActivity(accessToken, regionId); }
-  catch (error) { console.warn("[genesys] analytics activity enrichment unavailable; continuing with user login data", error instanceof Error ? error.message : "unknown error"); }
+  try { activity = await latestObservedUserActivity(accessToken, regionId); } catch (error) { console.warn("[genesys] analytics activity enrichment unavailable; continuing with user login data", error instanceof Error ? error.message : "unknown error"); }
   return users.map((u) => ({ id: u.id, name: u.name ?? null, email: u.email ?? null, title: u.title ?? null, department: u.department ?? null, state: u.state ?? null, presence: u.presence?.presenceDefinition?.systemPresence ?? null, licenseName: null, divisionName: u.division?.name ?? null, lastLoginAt: activity.get(u.id) ?? u.dateLastLogin ?? null, dateCreated: u.dateCreated ?? null, raw: u }));
 }
 
@@ -140,14 +137,7 @@ export async function listQueues(accessToken: string, regionId?: string | null):
   return queues.map((q) => ({ id: q.id, name: q.name ?? null, description: q.description ?? null, divisionName: q.division?.name ?? null, memberCount: q.memberCount ?? null, mediaSettings: q.mediaSettings ?? {}, dateCreated: q.dateCreated ?? null, raw: q }));
 }
 
-/** Verifies a token by reading the org and the authorizing user (read-only). */
-export async function healthCheck(
-  accessToken: string,
-  regionId?: string | null,
-): Promise<{ org: GenesysOrg; me: GenesysMe }> {
-  const [org, me] = await Promise.all([
-    getOrganization(accessToken, regionId),
-    getCurrentUser(accessToken, regionId),
-  ]);
+export async function healthCheck(accessToken: string, regionId?: string | null): Promise<{ org: GenesysOrg; me: GenesysMe }> {
+  const [org, me] = await Promise.all([getOrganization(accessToken, regionId), getCurrentUser(accessToken, regionId)]);
   return { org, me };
 }
