@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveTenant } from "@/lib/genesys/store.server";
 
-const TIMEZONES = Intl.supportedValuesOf ? Intl.supportedValuesOf("timeZone") : ["UTC"];
+const TIMEZONES = ["UTC", ...(Intl.supportedValuesOf ? Intl.supportedValuesOf("timeZone") : [])].filter((value, index, all) => all.indexOf(value) === index);
 
 export const getWorkspaceSettings = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
   const { tenantId } = await resolveTenant(context.supabase, context.userId);
