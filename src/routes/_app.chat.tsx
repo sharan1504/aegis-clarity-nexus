@@ -1,175 +1,37 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useRef, useState, useEffect } from "react";
-import { ArrowUp, Bot, ShieldCheck, Sparkles, User as UserIcon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowUp, Bot, CheckCircle2, ChevronRight, ShieldCheck, Sparkles, User as UserIcon } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
-
 import { PageHeader } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { executeLicenseChat, type LicenseChatMessage } from "@/lib/agents/license/chat";
+import { executeEnterpriseChat, type EnterpriseChatMessage } from "@/lib/enterprise-chat.functions";
 import { pageHead } from "@/lib/seo";
 
-export const Route = createFileRoute("/_app/chat")({
-  head: () => pageHead({
-    path: "/chat",
-    title: "Ask Aegis — License Agent Chat",
-    description: "Ask grounded questions about connected license data and receive evidence-based answers.",
-  }),
-  component: ChatPage,
-});
+export const Route = createFileRoute("/_app/chat")({ head: () => pageHead({ path: "/chat", title: "Aegis Enterprise AI", description: "Enterprise analysis, recommendations and evidence from connected systems." }), component: ChatPage });
+
+type Result = { answer?: string; analysis?: string; recommendations?: Array<{ title?: string; rationale?: string; impact?: string; risk?: string; nextStep?: string }>; sources?: string[]; confidence?: number; actionRequired?: boolean; fetchedAt?: string };
+type Message = EnterpriseChatMessage & { result?: Result };
 
 function ChatPage() {
-  const chat = useServerFn(executeLicenseChat);
-  const [messages, setMessages] = useState<LicenseChatMessage[]>([
-    {
-      role: "assistant",
-      content:
-        "Hi — I'm Aegis License Agent. I can answer questions using connected and authorized license data. If the required data source isn't connected or the question is outside my available data, I'll tell you rather than guess.",
-    },
-  ]);
+  const chat = useServerFn(executeEnterpriseChat);
+  const [messages, setMessages] = useState<Message[]>([{ role: "assistant", content: "I’m Aegis Enterprise AI. I can analyze the live connected workspace, explain the evidence, identify risks and recommend next actions. I will never invent data or claim a change was executed." }]);
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }); }, [messages]);
+  const mutation = useMutation({ mutationFn: (next: EnterpriseChatMessage[]) => chat({ data: { messages: next } }), onSuccess: (result) => { if (result.ok) setMessages((current) => [...current, { role: "assistant", content: result.answer ?? "Analysis complete.", result }]); } });
+  const send = (text: string) => { const content = text.trim(); if (!content || mutation.isPending) return; const next = [...messages.map(({ role, content: value }) => ({ role, content: value })), { role: "user" as const, content }]; setMessages((current) => [...current, { role: "user", content }]); setInput(""); mutation.mutate(next); };
 
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages]);
-
-  const mutation = useMutation({
-    mutationFn: async ({ next }: { content: string; next: LicenseChatMessage[] }) => {
-      return chat({ data: { messages: next } });
-    },
-    onSuccess: (result) => {
-      if (!result.ok) return;
-      setMessages((current) => [...current, { role: "assistant", content: result.content }]);
-    },
-  });
-
-  const send = (text: string) => {
-    const content = text.trim();
-    if (!content || mutation.isPending) return;
-
-    // Post the customer's message immediately. The UI must not wait for the
-    // LLM/data call to finish before showing what the customer asked.
-    const next = [...messages, { role: "user" as const, content }];
-    setMessages(next);
-    setInput("");
-    mutation.mutate({ content, next });
-  };
-
-  return (
-    <div className="flex h-[calc(100vh-7rem)] flex-col">
-      <PageHeader
-        title="AI Chat Assistant"
-        description="Ask questions about connected license data. Answers are grounded in authorized evidence."
-      />
-
-      <Card className="flex flex-1 flex-col overflow-hidden">
-        <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto p-6">
-          {messages.map((m, i) => (
-            <div key={i} className={`flex gap-3 ${m.role === "user" ? "justify-end" : ""}`}>
-              {m.role === "assistant" && (
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent text-primary-foreground">
-                  <Bot className="h-4 w-4" />
-                </div>
-              )}
-              <div
-                className={`max-w-[75%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-                  m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted/50 text-foreground"
-                }`}
-              >
-                {m.content.split(/\*\*(.+?)\*\*/g).map((part, idx) =>
-                  idx % 2 === 1 ? <strong key={idx}>{part}</strong> : <span key={idx}>{part}</span>,
-                )}
-              </div>
-              {m.role === "user" && (
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">
-                  <UserIcon className="h-4 w-4" />
-                </div>
-              )}
-            </div>
-          ))}
-
-          {mutation.isPending && (
-            <div className="flex gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent">
-                <Bot className="h-4 w-4 text-primary-foreground" />
-              </div>
-              <div className="rounded-2xl bg-muted/50 px-4 py-3 text-xs text-muted-foreground">
-                Analyzing connected license evidence…
-              </div>
-            </div>
-          )}
-        </div>
-
-        {messages.length <= 1 && (
-          <div className="border-t border-border p-4">
-            <div className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Sparkles className="h-3 w-3" /> Try asking
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {[
-                "What license optimization opportunities do we have?",
-                "Which users have multiple licenses?",
-                "What license data can you access?",
-              ].map((suggestion) => (
-                <button
-                  key={suggestion}
-                  onClick={() => send(suggestion)}
-                  className="rounded-full border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
-                >
-                  {suggestion}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {mutation.isError && (
-          <div className="border-t border-border p-3">
-            <Alert variant="destructive">
-              <AlertTitle>Chat unavailable</AlertTitle>
-              <AlertDescription>Unable to contact the License Agent. Your question has been posted above. Check the server configuration and try again.</AlertDescription>
-            </Alert>
-          </div>
-        )}
-
-        <CardContent className="border-t border-border p-3">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              send(input);
-            }}
-            className="flex items-end gap-2"
-          >
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  send(input);
-                }
-              }}
-              placeholder="Ask the License Agent…"
-              className="min-h-[48px] resize-none"
-              rows={1}
-              disabled={mutation.isPending}
-            />
-            <Button type="submit" size="icon" aria-label="Send message" disabled={!input.trim() || mutation.isPending}>
-              <ArrowUp className="h-4 w-4" />
-            </Button>
-          </form>
-          <div className="mt-2 flex items-center gap-1.5 text-[10px] text-muted-foreground">
-            <ShieldCheck className="h-3 w-3" />
-            <Badge variant="outline" className="text-[9px]">read only</Badge>
-            No mock data or license changes are allowed through this chat.
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
+  return <div className="flex h-[calc(100vh-7rem)] flex-col"><PageHeader title="Aegis Enterprise AI" description="Analysis + evidence + recommendations across connected enterprise systems." actions={<div className="flex items-center gap-2"><Badge variant="outline" className="gap-1.5 border-success/40 text-success"><span className="h-1.5 w-1.5 rounded-full bg-success" /> Live data</Badge><Badge variant="outline">Human approval required</Badge></div>} />
+    <Card className="flex flex-1 flex-col overflow-hidden"><div ref={scrollRef} className="flex-1 space-y-5 overflow-y-auto p-6">{messages.map((m, i) => <div key={i} className={`flex gap-3 ${m.role === "user" ? "justify-end" : ""}`}>{m.role === "assistant" ? <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground"><Bot className="h-4 w-4" /></div> : null}<div className={`max-w-[90%] rounded-2xl ${m.role === "user" ? "bg-primary text-primary-foreground px-4 py-3" : "bg-muted/40 p-4"}`}><div className="whitespace-pre-wrap text-sm leading-relaxed">{m.content}</div>{m.result && <AnalysisPanel result={m.result} />}</div>{m.role === "user" ? <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted"><UserIcon className="h-4 w-4" /></div> : null}</div>)}{mutation.isPending && <div className="flex gap-3"><div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground"><Bot className="h-4 w-4" /></div><div className="rounded-2xl bg-muted/40 px-4 py-3 text-xs text-muted-foreground">Gathering live evidence and analyzing risk…</div></div>}</div>
+      {messages.length === 1 && <div className="border-t p-4"><div className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground"><Sparkles className="h-3 w-3" /> Suggested analyses</div><div className="flex flex-wrap gap-2">{["What are the biggest license optimization opportunities right now?", "Analyze the current Genesys operational risks and recommend actions.", "Give me an executive summary of the connected workspace.", "Which changes should I send to the approval center?"] .map((q) => <button key={q} onClick={() => send(q)} className="rounded-full border bg-background px-3 py-1.5 text-xs text-muted-foreground hover:border-primary/40 hover:text-foreground">{q}</button>)}</div></div>}
+      {mutation.isError && <div className="border-t p-3"><Alert variant="destructive"><AlertTitle>Enterprise AI unavailable</AlertTitle><AlertDescription>{mutation.error instanceof Error ? mutation.error.message : "Try again."}</AlertDescription></Alert></div>}
+      <CardContent className="border-t p-3"><form onSubmit={(e) => { e.preventDefault(); send(input); }} className="flex items-end gap-2"><Textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(input); } }} placeholder="Ask Aegis to analyze, compare, investigate or recommend…" className="min-h-[52px] resize-none" rows={1} disabled={mutation.isPending} /><Button type="submit" size="icon" disabled={!input.trim() || mutation.isPending}><ArrowUp className="h-4 w-4" /></Button></form><div className="mt-2 flex items-center gap-1.5 text-[10px] text-muted-foreground"><ShieldCheck className="h-3 w-3" /> Grounded in authorized live data · no provider mutations from chat</div></CardContent></Card></div>;
 }
+
+function AnalysisPanel({ result }: { result: Result }) { return <div className="mt-4 space-y-3 border-t pt-3"><Section title="Analysis">{result.analysis ?? "No additional analysis was returned."}</Section>{result.recommendations?.length ? <div><div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground"><Sparkles className="h-3 w-3" /> Recommendations</div><div className="space-y-2">{result.recommendations.map((r, i) => <div key={i} className="rounded-lg border bg-background p-3"><div className="flex items-start gap-2"><ChevronRight className="mt-0.5 h-4 w-4 text-primary" /><div className="min-w-0 flex-1"><div className="text-sm font-medium">{r.title}</div><div className="mt-1 text-xs text-muted-foreground">{r.rationale}</div><div className="mt-2 flex flex-wrap gap-2 text-[11px]"><Badge variant="outline">Risk: {r.risk ?? "review"}</Badge><Badge variant="outline">Impact: {r.impact ?? "not quantified"}</Badge></div><div className="mt-2 text-xs"><span className="font-medium">Next step:</span> {r.nextStep}</div></div></div></div>)}</div></div> : null}<div className="grid gap-2 sm:grid-cols-2"><Section title="Evidence sources">{result.sources?.length ? result.sources.join("\n") : "Connected live workspace telemetry"}</Section><Section title="Confidence"><div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-success" /> {result.confidence ?? 0}%</div></Section></div></div>; }
+function Section({ title, children }: { title: string; children: React.ReactNode }) { return <div><div className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</div><div className="whitespace-pre-wrap text-xs leading-relaxed text-foreground/80">{children}</div></div>; }
