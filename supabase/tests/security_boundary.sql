@@ -16,6 +16,7 @@ DECLARE
   v_row_id uuid;
   v_claims jsonb;
   v_failed boolean;
+  v_rows integer;
 BEGIN
   SELECT ur.user_id, ur.tenant_id INTO v_actor, v_actor_tenant
   FROM public.user_roles ur
@@ -41,7 +42,7 @@ BEGIN
   PERFORM set_config('request.jwt.role', 'authenticated', true);
   PERFORM set_config('role', 'authenticated', true);
 
-  -- 1. Self-assign admin in an arbitrary tenant.
+  -- 1. Self-assign admin in an arbitrary tenant must raise an RLS error.
   v_failed := false;
   BEGIN
     INSERT INTO public.user_roles(user_id, tenant_id, role) VALUES (v_actor, v_target_tenant, 'admin');
@@ -49,21 +50,28 @@ BEGIN
   END;
   IF NOT v_failed THEN RAISE EXCEPTION 'FAILED: self-assignment of admin role was permitted'; END IF;
 
-  -- 2. Move another user's profile across tenants.
+  -- 2. Cross-tenant profile move must either raise or affect zero rows.
   v_failed := false;
+  v_rows := 0;
   BEGIN
     UPDATE public.profiles SET tenant_id = v_actor_tenant WHERE id = v_target_user;
+    GET DIAGNOSTICS v_rows = ROW_COUNT;
   EXCEPTION WHEN OTHERS THEN v_failed := true;
   END;
-  IF NOT v_failed THEN RAISE EXCEPTION 'FAILED: cross-tenant profile move was permitted'; END IF;
+  IF NOT v_failed AND v_rows <> 0 THEN RAISE EXCEPTION 'FAILED: cross-tenant profile move affected % row(s)', v_rows; END IF;
 
   -- 3. Non-admin cannot update another member's role.
   SELECT id INTO v_row_id FROM public.user_roles
   WHERE user_id = v_other_member AND tenant_id = v_other_tenant LIMIT 1;
   IF v_row_id IS NOT NULL THEN
     v_failed := false;
-    BEGIN UPDATE public.user_roles SET role = 'admin' WHERE id = v_row_id; EXCEPTION WHEN OTHERS THEN v_failed := true; END;
-    IF NOT v_failed THEN RAISE EXCEPTION 'FAILED: non-admin role update was permitted'; END IF;
+    v_rows := 0;
+    BEGIN
+      UPDATE public.user_roles SET role = 'admin' WHERE id = v_row_id;
+      GET DIAGNOSTICS v_rows = ROW_COUNT;
+    EXCEPTION WHEN OTHERS THEN v_failed := true;
+    END;
+    IF NOT v_failed AND v_rows <> 0 THEN RAISE EXCEPTION 'FAILED: non-admin role update affected % row(s)', v_rows; END IF;
   END IF;
 
   -- 4. Non-admin cannot insert a role for another user.
@@ -87,11 +95,13 @@ BEGIN
   SELECT id INTO v_row_id FROM public.guardrail_revisions WHERE tenant_id = v_actor_tenant LIMIT 1;
   IF v_row_id IS NOT NULL THEN
     v_failed := false;
-    BEGIN UPDATE public.guardrail_revisions SET reason = 'tamper-test' WHERE id = v_row_id; EXCEPTION WHEN OTHERS THEN v_failed := true; END;
-    IF NOT v_failed THEN RAISE EXCEPTION 'FAILED: direct authenticated UPDATE of guardrail_revisions was permitted'; END IF;
+    v_rows := 0;
+    BEGIN UPDATE public.guardrail_revisions SET reason = 'tamper-test' WHERE id = v_row_id; GET DIAGNOSTICS v_rows = ROW_COUNT; EXCEPTION WHEN OTHERS THEN v_failed := true; END;
+    IF NOT v_failed AND v_rows <> 0 THEN RAISE EXCEPTION 'FAILED: direct authenticated UPDATE of guardrail_revisions affected % row(s)', v_rows; END IF;
     v_failed := false;
-    BEGIN DELETE FROM public.guardrail_revisions WHERE id = v_row_id; EXCEPTION WHEN OTHERS THEN v_failed := true; END;
-    IF NOT v_failed THEN RAISE EXCEPTION 'FAILED: direct authenticated DELETE of guardrail_revisions was permitted'; END IF;
+    v_rows := 0;
+    BEGIN DELETE FROM public.guardrail_revisions WHERE id = v_row_id; GET DIAGNOSTICS v_rows = ROW_COUNT; EXCEPTION WHEN OTHERS THEN v_failed := true; END;
+    IF NOT v_failed AND v_rows <> 0 THEN RAISE EXCEPTION 'FAILED: direct authenticated DELETE of guardrail_revisions affected % row(s)', v_rows; END IF;
   END IF;
 
   -- 6. Append-only organization instruction revisions reject INSERT/UPDATE/DELETE.
@@ -107,11 +117,13 @@ BEGIN
   SELECT id INTO v_row_id FROM public.organization_instruction_revisions WHERE tenant_id = v_actor_tenant LIMIT 1;
   IF v_row_id IS NOT NULL THEN
     v_failed := false;
-    BEGIN UPDATE public.organization_instruction_revisions SET name = name || ' tamper-test' WHERE id = v_row_id; EXCEPTION WHEN OTHERS THEN v_failed := true; END;
-    IF NOT v_failed THEN RAISE EXCEPTION 'FAILED: direct authenticated UPDATE of organization_instruction_revisions was permitted'; END IF;
+    v_rows := 0;
+    BEGIN UPDATE public.organization_instruction_revisions SET name = name || ' tamper-test' WHERE id = v_row_id; GET DIAGNOSTICS v_rows = ROW_COUNT; EXCEPTION WHEN OTHERS THEN v_failed := true; END;
+    IF NOT v_failed AND v_rows <> 0 THEN RAISE EXCEPTION 'FAILED: direct authenticated UPDATE of organization_instruction_revisions affected % row(s)', v_rows; END IF;
     v_failed := false;
-    BEGIN DELETE FROM public.organization_instruction_revisions WHERE id = v_row_id; EXCEPTION WHEN OTHERS THEN v_failed := true; END;
-    IF NOT v_failed THEN RAISE EXCEPTION 'FAILED: direct authenticated DELETE of organization_instruction_revisions was permitted'; END IF;
+    v_rows := 0;
+    BEGIN DELETE FROM public.organization_instruction_revisions WHERE id = v_row_id; GET DIAGNOSTICS v_rows = ROW_COUNT; EXCEPTION WHEN OTHERS THEN v_failed := true; END;
+    IF NOT v_failed AND v_rows <> 0 THEN RAISE EXCEPTION 'FAILED: direct authenticated DELETE of organization_instruction_revisions affected % row(s)', v_rows; END IF;
   END IF;
 END $$;
 
