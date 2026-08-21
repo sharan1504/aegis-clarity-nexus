@@ -19,14 +19,8 @@ import { pageHead } from "@/lib/seo";
 export const Route = createFileRoute("/_app/approvals/")({ head: () => pageHead({ path: "/approvals", title: "Approval Center — Aegis AI", description: "Review and approve live Aegis change proposals." }), component: ApprovalCenter });
 
 function ApprovalCenter() {
-  const { records, connected, lastEventAt } = useRealtime();
-  const { tenantId, user } = useTenantContext();
-  const { role, can } = useRole();
-  const navigate = useNavigate();
-  const [query, setQuery] = useState("");
-  const [stage, setStage] = useState("all");
-  const [selected, setSelected] = useState<string[]>([]);
-  const [busy, setBusy] = useState(false);
+  const { records, connected, lastEventAt } = useRealtime(); const { tenantId, user } = useTenantContext(); const { role, can } = useRole(); const navigate = useNavigate();
+  const [query, setQuery] = useState(""); const [stage, setStage] = useState("all"); const [selected, setSelected] = useState<string[]>([]); const [busy, setBusy] = useState(false);
   const teams = useMemo(() => Array.from(new Set(records.map((r) => r.ownerTeam))).sort(), [records]);
   const filtered = useMemo(() => records.filter((r) => (!query || `${r.id} ${r.title} ${r.agent}`.toLowerCase().includes(query.toLowerCase())) && (stage === "all" || r.stage === stage)), [records, query, stage]);
   const decide = async (action: "approved" | "rejected") => { if (!tenantId || !selected.length) return; setBusy(true); try { await bulkDecideChanges(records.filter((r) => selected.includes(r.id)), action, { tenantId, actor: user?.email ?? "unknown", role }); setSelected([]); toast.success(`${action === "approved" ? "Approved" : "Rejected"} ${selected.length} change${selected.length > 1 ? "s" : ""}`); } catch (e) { toast.error("Approval action failed", { description: e instanceof Error ? e.message : "Try again." }); } finally { setBusy(false); } };
@@ -38,3 +32,6 @@ function ApprovalCenter() {
     <div className="mt-4 text-xs text-muted-foreground"><RefreshCw className="mr-1 inline h-3 w-3" /> Teams available from real records: {teams.length ? teams.join(", ") : "none yet"}.</div>
   </div>;
 }
+
+export function RiskChip({ tier, score }: { tier: string; score: number }) { return <Badge variant="outline">{tier} · {score}</Badge>; }
+export function ModeChip({ mode }: { mode: string }) { return <Badge variant="secondary">{mode}</Badge>; }
