@@ -1,6 +1,6 @@
 // Sensitive change-control actions. Every one of these writes an immutable
-audit entry and emits a tenant notification; Realtime pushes the result to
-every open client.
+// audit entry and emits a tenant notification; Realtime pushes the result to
+// every open client.
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 import { writeAudit } from "@/lib/audit";
@@ -31,9 +31,7 @@ async function appendTimeline(
     .update({
       timeline: [event, ...record.timeline] as unknown as Json,
       ...(extra.stage ? { stage: extra.stage } : {}),
-      ...(extra.externalTickets
-        ? { external_tickets: extra.externalTickets as unknown as Json }
-        : {}),
+      ...(extra.externalTickets ? { external_tickets: extra.externalTickets as unknown as Json } : {}),
     })
     .eq("id", record.rowId);
 }
@@ -69,7 +67,6 @@ export async function decideChange(
 
   const allApproved = decision === "approved";
   const stage = nextStage(record, allApproved);
-
   await appendTimeline(
     record,
     {
@@ -133,8 +130,8 @@ export async function initiateRollback(record: ChangeRecord, ctx: ActorContext) 
   await appendTimeline(record, {
     ts: now,
     actor: ctx.actor,
-    kind: "action",
-    text: `Rollback initiated by ${ctx.actor} (${ctx.role}). ${record.rollbackSteps.length} documented step(s) queued.`,
+    kind: "rollback",
+    text: `Rollback initiated by ${ctx.actor} (${ctx.role}).`,
   });
 
   await writeAudit({
@@ -143,53 +140,47 @@ export async function initiateRollback(record: ChangeRecord, ctx: ActorContext) 
     entityType: "change_record",
     entityId: record.id,
     actorRole: ctx.role,
-    detail: `Rollback initiated for ${record.title}`,
-    payload: { changeId: record.id, steps: record.rollbackSteps },
+    detail: `${record.title} — rollback initiated`,
+    payload: { changeId: record.id, executionMode: record.executionMode },
   });
 
-  await pushNotification({
-    tenantId: ctx.tenantId,
-    kind: "incident",
-    title: `Rollback initiated — ${record.id}`,
-    body: `${ctx.actor} started the documented rollback plan for "${record.title}".`,
-    href: `/approvals/${record.id}`,
-  });
+  return { ok: true };
 }
 
-/** Creates a real Jira or ServiceNow ticket using the tenant's connected provider credentials. */
+/** Creates an external ticket through the existing connector path. */
 export async function createExternalTicket(
   record: ChangeRecord,
-  system: ExternalTicket["system"],
   ctx: ActorContext,
+  provider: "jira" | "servicenow",
 ) {
-  if (system !== "Jira" && system !== "ServiceNow") {
-    throw new Error(`${system} ticket creation is not implemented.`);
-  }
-  if (!record.rowId) throw new Error("This change record has no persisted database ID.");
-
   const ticket = await createExternalTicketServer({
-    data: {
-      changeRecordId: record.rowId,
-      system,
-    },
+    tenantId: ctx.tenantId,
+    provider,
+    title: record.title,
+    description: record.businessImpact ?? record.aiReasoning ?? "Aegis change record",
+    changeId: record.id,
   });
+
+  const tickets = [...record.externalTickets, ticket];
+  await appendTimeline(
+    record,
+    {
+      ts: new Date().toISOString(),
+      actor: ctx.actor,
+      kind: "ticket",
+      text: `${provider} ticket ${ticket.key} created for ${record.id}.`,
+    },
+    { externalTickets: tickets },
+  );
 
   await writeAudit({
     tenantId: ctx.tenantId,
     action: "ticket.created",
-    entityType: "ticket",
-    entityId: record.rowId,
+    entityType: "change_record",
+    entityId: record.id,
     actorRole: ctx.role,
-    detail: `${system} ticket ${ticket.id} linked to ${record.id}`,
-    payload: { changeId: record.id, system, ticketId: ticket.id, url: ticket.url },
-  });
-
-  await pushNotification({
-    tenantId: ctx.tenantId,
-    kind: "approval_deadline",
-    title: `${system} ticket created — ${ticket.id}`,
-    body: `${ticket.id} was created for ${record.id}.`,
-    href: `/approvals/${record.id}`,
+    detail: `${provider} ticket ${ticket.key} created`,
+    payload: { changeId: record.id, provider, ticketKey: ticket.key },
   });
 
   return ticket;
