@@ -7,6 +7,7 @@ export const Route = createFileRoute("/_app")({
   beforeLoad: async () => {
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw redirect({ to: "/auth" });
+    if (data.user.user_metadata?.force_password_change === true) throw redirect({ to: "/auth/change-password" });
     return { user: data.user };
   },
   component: AppLayout,

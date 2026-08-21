@@ -26,12 +26,32 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
   };
 }
 
+/**
+ * The Lovable Cloud preview normally injects the VITE_* Supabase variables at
+ * build time. The published deployment that exposed the blank-screen regression
+ * did not inject them, even though the project is still connected to the same
+ * Supabase project. Keep the normal environment-variable path first, but use the
+ * project's public Supabase URL/key as a last-resort client fallback so a missing
+ * deployment environment cannot prevent the application shell from loading.
+ *
+ * These are intentionally the public Supabase URL + publishable key. Never put a
+ * Supabase service-role/secret key in this file or in frontend configuration.
+ */
+const CONNECTED_SUPABASE_URL = 'https://zvvtvhocznuemcshkdla.supabase.co';
+const CONNECTED_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_uFxR1k_8rT7YOjidSgEiyw_3UCKQppq';
 
 function createSupabaseClient() {
   // Use import.meta.env for client-side (Vite build-time replacement)
-  // Fall back to process.env for SSR (server-side rendering)
-  const SUPABASE_URL = import.meta.env['VITE_SUPABASE_URL'] || process.env['SUPABASE_URL'];
-  const SUPABASE_PUBLISHABLE_KEY = import.meta.env['VITE_SUPABASE_PUBLISHABLE_KEY'] || process.env['SUPABASE_PUBLISHABLE_KEY'];
+  // Fall back to process.env for SSR (server-side rendering), then to the
+  // public configuration of the already-connected Aegis Supabase project.
+  const SUPABASE_URL =
+    import.meta.env['VITE_SUPABASE_URL'] ||
+    process.env['SUPABASE_URL'] ||
+    CONNECTED_SUPABASE_URL;
+  const SUPABASE_PUBLISHABLE_KEY =
+    import.meta.env['VITE_SUPABASE_PUBLISHABLE_KEY'] ||
+    process.env['SUPABASE_PUBLISHABLE_KEY'] ||
+    CONNECTED_SUPABASE_PUBLISHABLE_KEY;
 
   if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
     const missing = [
@@ -65,4 +85,3 @@ export const supabase = new Proxy({} as ReturnType<typeof createSupabaseClient>,
     return Reflect.get(_supabase, prop, receiver);
   },
 });
-
