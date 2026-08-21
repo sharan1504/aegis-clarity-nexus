@@ -12,6 +12,9 @@ export interface ProviderConnectionInput {
   accessToken?: string;
   refreshToken?: string;
   apiToken?: string;
+  accessKeyId?: string;
+  secretAccessKey?: string;
+  sessionToken?: string;
   region?: string;
 }
 
@@ -39,6 +42,80 @@ async function jsonRequest(url: string, init: RequestInit = {}) {
   try { body = text ? JSON.parse(text) : {}; } catch { body = { raw: text }; }
   if (!response.ok) throw new Error(`Provider request failed (${response.status}): ${typeof body === "object" ? JSON.stringify(body) : String(body)}`);
   return body as Record<string, unknown>;
+}
+
+function hmac(key: Buffer | string, value: string): Buffer {
+  return crypto.createHmac("sha256", key).update(value, "utf8").digest();
+}
+
+function sha256(value: string): string {
+  return crypto.createHash("sha256").update(value, "utf8").digest("hex");
+}
+
+/**
+ * Validate AWS credentials by calling STS GetCallerIdentity using AWS Signature
+ * Version 4. STS returns the caller account/ARN and requires no IAM permission
+ * for this identity call. This is a real authentication check, not a simulated
+ * Connected response.
+ */
+async function validateAwsCredentials(input: ProviderConnectionInput): Promise<ProviderConnectionResult> {
+  const accessKeyId = required(input.accessKeyId, "AWS access key ID");
+  const secretAccessKey = required(input.secretAccessKey, "AWS secret access key");
+  const region = required(input.region, "AWS region");
+  const sessionToken = input.sessionToken?.trim();
+  const service = "sts";
+  const host = `sts.${region}.amazonaws.com`;
+  const endpoint = `https://${host}/`;
+  const now = new Date();
+  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "");
+  const dateStamp = amzDate.slice(0, 8);
+  const payload = "Action=GetCallerIdentity&Version=2011-06-15";
+  const payloadHash = sha256(payload);
+
+  const headers: Record<string, string> = {
+    "content-type": "application/x-www-form-urlencoded; charset=utf-8",
+    host,
+    "x-amz-date": amzDate,
+  };
+  if (sessionToken) headers["x-amz-security-token"] = sessionToken;
+
+  const signedHeaderNames = Object.keys(headers).sort();
+  const canonicalHeaders = signedHeaderNames.map((name) => `${name}:${headers[name].trim()}\n`).join("");
+  const signedHeaders = signedHeaderNames.join(";");
+  const canonicalRequest = ["POST", "/", "", canonicalHeaders, signedHeaders, payloadHash].join("\n");
+  const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
+  const stringToSign = ["AWS4-HMAC-SHA256", amzDate, credentialScope, sha256(canonicalRequest)].join("\n");
+  const kDate = hmac(`AWS4${secretAccessKey}`, dateStamp);
+  const kRegion = hmac(kDate, region);
+  const kService = hmac(kRegion, service);
+  const kSigning = hmac(kService, "aws4_request");
+  const signature = crypto.createHmac("sha256", kSigning).update(stringToSign, "utf8").digest("hex");
+
+  headers.authorization = `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+
+  const response = await fetch(endpoint, { method: "POST", headers, body: payload });
+  const xml = await response.text();
+  if (!response.ok) {
+    const code = xml.match(/<Code>([^<]+)<\/Code>/)?.[1];
+    const message = xml.match(/<Message>([^<]+)<\/Message>/)?.[1];
+    throw new Error(`AWS authentication failed${code ? ` (${code})` : ""}: ${message ?? `HTTP ${response.status}`}`);
+  }
+
+  const account = xml.match(/<Account>([^<]+)<\/Account>/)?.[1];
+  const arn = xml.match(/<Arn>([^<]+)<\/Arn>/)?.[1];
+  const userId = xml.match(/<UserId>([^<]+)<\/UserId>/)?.[1];
+  if (!account || !arn) throw new Error("AWS STS authenticated but returned no account identity.");
+
+  return {
+    ok: true,
+    provider: "aws",
+    status: "connected",
+    externalId: account,
+    displayName: `AWS ${account}`,
+    // Keep the actual AWS credentials out of the returned result. The caller
+    // encrypts the submitted credentials directly before persistence.
+    error: userId ? undefined : undefined,
+  };
 }
 
 export function oauthState(payload: Record<string, string>): string {
@@ -78,12 +155,8 @@ export async function validateProviderConnection(input: ProviderConnectionInput)
         const subscriptions = await jsonRequest("https://management.azure.com/subscriptions?api-version=2020-01-01", { headers: { authorization: `Bearer ${accessToken}` } });
         return { ok: true, provider: input.provider, status: "connected", externalId: String((subscriptions.value as Array<Record<string, unknown>> | undefined)?.[0]?.subscriptionId ?? tenant), displayName: `${tenant} Azure`, accessToken, expiresAt: new Date(Date.now() + Number(token.expires_in ?? 3600) * 1000).toISOString() };
       }
-      case "aws": {
-        // AWS does not provide a generic OAuth login for arbitrary customer accounts.
-        // Require short-lived credentials or an external role session; never pretend OAuth exists.
-        required(input.accessToken, "AWS temporary access token/role credential");
-        return { ok: true, provider: input.provider, status: "connected", externalId: input.tenantId, displayName: `AWS ${input.region ?? "account"}` };
-      }
+      case "aws":
+        return await validateAwsCredentials(input);
       case "jira": {
         required(input.accessToken, "Jira OAuth access token");
         const sites = await jsonRequest("https://api.atlassian.com/oauth/token/accessible-resources", { headers: { authorization: `Bearer ${input.accessToken}` } });
