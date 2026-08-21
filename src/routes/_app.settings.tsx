@@ -17,6 +17,11 @@ import { getWorkspaceSettings, updateWorkspaceSettings } from "@/lib/settings.fu
 import { createWebhook, deleteWebhook, listWebhooks } from "@/lib/webhooks.functions";
 import { pageHead } from "@/lib/seo";
 
+type AnalyticsSettings = { dataMasking?: boolean };
+type SecuritySettings = { requireApprovalForWrites: boolean; autoGenerateRollbackPlans: boolean };
+type WebhookRecord = { id: string; target_url: string; event_types: string[]; enabled: boolean; created_at: string };
+type DeliveryAttempt = { id: string; event_type: string; status_code: number | null; success: boolean; attempted_at: string };
+
 export const Route = createFileRoute("/_app/settings")({ head: () => pageHead({ path: "/settings", title: "Workspace Settings — Aegis AI", description: "Manage organization, security, appearance, AI safety and workspace preferences." }), component: SettingsPage });
 
 function SettingsPage() {
@@ -37,15 +42,40 @@ function SettingsPage() {
   const [autoGenerateRollbackPlans, setAutoGenerateRollbackPlans] = useState(true);
   const [webhookUrl, setWebhookUrl] = useState("");
   const [webhookEvents, setWebhookEvents] = useState<string[]>(["change.approved", "change.rejected"]);
-  const [webhooks, setWebhooks] = useState<any[]>([]);
-  const [attempts, setAttempts] = useState<any[]>([]);
+  const [webhooks, setWebhooks] = useState<WebhookRecord[]>([]);
+  const [attempts, setAttempts] = useState<DeliveryAttempt[]>([]);
   const [eventTypes, setEventTypes] = useState<string[]>([]);
   const [webhookLoading, setWebhookLoading] = useState(false);
 
   const refreshWebhooks = async () => {
     try { const result = await loadWebhooks(); setWebhooks(result.webhooks); setAttempts(result.attempts); setEventTypes(result.eventTypes); } catch (e) { toast.error("Webhook settings could not be loaded", { description: e instanceof Error ? e.message : "Try again." }); }
   };
-  useEffect(() => { void load().then((r) => { setOrg(r.organizationName); setDomain(r.primaryDomain); setTimezone(r.timezone); setTimezones(r.timezones); setMasking(Boolean((r.analyticsSettings as any).dataMasking ?? true)); setRequireApprovalForWrites(r.securitySettings.requireApprovalForWrites); setAutoGenerateRollbackPlans(r.securitySettings.autoGenerateRollbackPlans); }).catch((e) => toast.error("Settings could not be loaded", { description: e instanceof Error ? e.message : "Try again." })).finally(() => setLoading(false)); void refreshWebhooks(); }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const initialize = async () => {
+      try {
+        const [settings] = await Promise.all([load(), refreshWebhooks()]);
+        if (cancelled) return;
+        setOrg(settings.organizationName);
+        setDomain(settings.primaryDomain);
+        setTimezone(settings.timezone);
+        setTimezones(settings.timezones);
+        const analytics = settings.analyticsSettings as AnalyticsSettings;
+        const security = settings.securitySettings as SecuritySettings;
+        setMasking(Boolean(analytics.dataMasking ?? true));
+        setRequireApprovalForWrites(security.requireApprovalForWrites);
+        setAutoGenerateRollbackPlans(security.autoGenerateRollbackPlans);
+      } catch (e) {
+        if (!cancelled) toast.error("Settings could not be loaded", { description: e instanceof Error ? e.message : "Try again." });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    void initialize();
+    return () => { cancelled = true; };
+  }, [load, loadWebhooks]);
+
   const submit = async () => { setSaving(true); try { await save({ data: { organizationName: org, primaryDomain: domain, timezone, analyticsSettings: { dataMasking: masking }, securitySettings: { requireApprovalForWrites, autoGenerateRollbackPlans } } }); toast.success("Workspace settings saved"); } catch (e) { toast.error("Could not save workspace settings", { description: e instanceof Error ? e.message : "Try again." }); } finally { setSaving(false); } };
   const create = async () => { setWebhookLoading(true); try { const result = await addWebhook({ data: { targetUrl: webhookUrl, eventTypes: webhookEvents } }); setWebhookUrl(""); toast.success("Webhook created", { description: `Save this signing secret now: ${result.secret}` }); await refreshWebhooks(); } catch (e) { toast.error("Webhook could not be created", { description: e instanceof Error ? e.message : "Try again." }); } finally { setWebhookLoading(false); } };
   const remove = async (id: string) => { try { await removeWebhook({ data: { id } }); await refreshWebhooks(); toast.success("Webhook deleted"); } catch (e) { toast.error("Webhook could not be deleted", { description: e instanceof Error ? e.message : "Try again." }); } };
@@ -56,7 +86,7 @@ function SettingsPage() {
     <Card className="xl:col-span-2"><CardHeader><CardTitle className="flex items-center gap-2 text-base"><Webhook className="h-4 w-4" /> Outbound webhooks</CardTitle><CardDescription>Receive signed Aegis events asynchronously. Webhook failures never block the originating change or approval.</CardDescription></CardHeader><CardContent className="space-y-5">
       <div className="grid gap-3 md:grid-cols-[1fr_auto]"><Input value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} placeholder="https://your-system.example/aegis/webhook" /><Button onClick={() => void create()} disabled={webhookLoading || !webhookUrl.trim() || webhookEvents.length === 0}>{webhookLoading ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Webhook className="mr-1.5 h-4 w-4" />}Subscribe</Button></div>
       <div className="flex flex-wrap gap-2">{eventTypes.map((event) => <Button key={event} type="button" variant={webhookEvents.includes(event) ? "default" : "outline"} size="sm" onClick={() => setWebhookEvents((current) => current.includes(event) ? current.filter((x) => x !== event) : [...current, event])}>{event}</Button>)}</div>
-      <div className="space-y-2">{webhooks.length === 0 ? <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">No webhook subscriptions configured.</div> : webhooks.map((hook) => <div key={hook.id} className="flex items-center justify-between gap-3 rounded-lg border p-3"><div className="min-w-0"><div className="truncate text-sm font-medium">{hook.target_url}</div><div className="mt-1 flex flex-wrap gap-1">{hook.event_types.map((event: string) => <Badge key={event} variant="outline">{event}</Badge>)}</div></div><Button variant="ghost" size="icon" onClick={() => void remove(hook.id)} aria-label="Delete webhook"><Trash2 className="h-4 w-4" /></Button></div>)}</div>
+      <div className="space-y-2">{webhooks.length === 0 ? <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">No webhook subscriptions configured.</div> : webhooks.map((hook) => <div key={hook.id} className="flex items-center justify-between gap-3 rounded-lg border p-3"><div className="min-w-0"><div className="truncate text-sm font-medium">{hook.target_url}</div><div className="mt-1 flex flex-wrap gap-1">{hook.event_types.map((event) => <Badge key={event} variant="outline">{event}</Badge>)}</div></div><Button variant="ghost" size="icon" onClick={() => void remove(hook.id)} aria-label="Delete webhook"><Trash2 className="h-4 w-4" /></Button></div>)}</div>
       <div><div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Recent delivery attempts</div>{attempts.length === 0 ? <div className="text-sm text-muted-foreground">No deliveries yet.</div> : <div className="space-y-2">{attempts.slice(0, 20).map((attempt) => <div key={attempt.id} className="flex items-center justify-between gap-3 rounded border p-2 text-xs"><span>{attempt.event_type}</span><span>{attempt.success ? `Delivered (${attempt.status_code})` : `Failed${attempt.status_code ? ` (${attempt.status_code})` : ""}`}</span><span className="text-muted-foreground">{new Date(attempt.attempted_at).toLocaleString()}</span></div>)}</div>}</div>
     </CardContent></Card>
   </div>}</div>;
