@@ -11,6 +11,7 @@ import {
   Settings,
   Sparkles,
   Store,
+  History,
 } from "lucide-react";
 
 import {
@@ -42,6 +43,7 @@ const nav = [
     section: "Data & Systems",
     items: [
       { title: "Integrations", url: "/integrations", icon: Plug },
+      { title: "Audit Viewer", url: "/audit", icon: History },
       { title: "Reports", url: "/reports", icon: FileBarChart },
     ],
   },
