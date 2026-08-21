@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
@@ -38,9 +39,9 @@ export const inviteTenantUser = createServerFn({ method: "POST" }).middleware([r
   if (data.role === "admin" && inviterRole.role !== "admin") throw new Error("Only an administrator can invite another administrator.");
 
   const admin = adminClient();
-  const appUrl = process.env.APP_URL ?? process.env.VITE_APP_URL;
-  if (!appUrl) throw new Error("Application URL is not configured for invitations.");
-  const redirectTo = `${appUrl.replace(/\/$/, "")}/auth/accept-invite`;
+  const request = getRequest();
+  if (!request?.url) throw new Error("Application URL is not available for invitations.");
+  const redirectTo = new URL("/auth/accept-invite", request.url).toString();
 
   const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(data.email, {
     redirectTo,
