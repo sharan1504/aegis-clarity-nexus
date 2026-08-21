@@ -1,30 +1,25 @@
 import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
-
-import { incidents, securityAlerts } from "@/lib/mock-data";
+import { getMcpTenantContext, normalizeSeverity } from "@/lib/mcp/tenant-data";
 
 export default defineTool({
   name: "list_incidents_and_alerts",
   title: "List incidents and security alerts",
-  description:
-    "List open operational incidents and security alerts, optionally filtered by severity (critical, high, medium, low, info).",
-  inputSchema: {
-    severity: z.string().optional().describe("Filter both lists by severity."),
-  },
+  description: "List only real incident and security-alert signals present in the tenant's synchronized provider data. No fallback or demo data is used.",
+  inputSchema: { severity: z.string().optional().describe("Filter by provider-reported severity when present.") },
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
-  handler: ({ severity }, ctx) => {
-    if (!ctx.isAuthenticated()) {
-      return { content: [{ type: "text", text: "Not authenticated" }], isError: true };
+  handler: async ({ severity }, rawCtx) => {
+    try {
+      const { supabase, actor } = await getMcpTenantContext(rawCtx);
+      const { data, error } = await supabase.from("provider_sync_entities").select("provider,entity_type,entity_key,payload,observed_at").eq("tenant_id", actor.tenantId).eq("stale", false).in("entity_type", ["incident", "alert", "security_alert", "securityAlert"]);
+      if (error) throw error;
+      const wanted = normalizeSeverity(severity);
+      const incidents = (data ?? []).filter((row: any) => ["incident"].includes(row.entity_type) && (!wanted || normalizeSeverity(row.payload?.severity) === wanted));
+      const securityAlerts = (data ?? []).filter((row: any) => ["alert", "security_alert", "securityAlert"].includes(row.entity_type) && (!wanted || normalizeSeverity(row.payload?.severity) === wanted));
+      const payload = { incidents, securityAlerts };
+      return { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }], structuredContent: payload };
+    } catch (error) {
+      return { content: [{ type: "text", text: error instanceof Error ? error.message : "Unable to read incident data." }], isError: true };
     }
-    const wanted = severity?.trim().toLowerCase();
-    const payload = {
-      incidents: incidents.filter((i) => !wanted || i.severity === wanted),
-      securityAlerts: securityAlerts.filter((a) => !wanted || a.severity === wanted),
-    };
-
-    return {
-      content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
-      structuredContent: payload,
-    };
   },
 });
