@@ -32,7 +32,7 @@ export const inviteTenantUser = createServerFn({ method: "POST" }).middleware([r
   if (!data.fullName || !data.email || !data.organization) throw new Error("Full name, email, and organization are required.");
   if (!/^\S+@\S+\.\S+$/.test(data.email)) throw new Error("Enter a valid email address.");
   if (!allowedRoles.includes(data.role as AppRole)) throw new Error("Invalid role.");
-  const { data: inviter, error: inviterError } = await context.supabase.from("profiles").select("tenant_id").eq("id", context.userId).single();
+  const { data: inviter, error: inviterError } = await context.supabase.from("profiles").select("tenant_id, full_name, email").eq("id", context.userId).single();
   if (inviterError || !inviter?.tenant_id) throw new Error("Unable to determine the current workspace.");
   const { data: inviterRole } = await context.supabase.from("user_roles").select("role").eq("user_id", context.userId).eq("tenant_id", inviter.tenant_id).in("role", ["admin", "manager"]).limit(1).maybeSingle();
   if (!inviterRole) throw new Error("Only workspace administrators and managers can invite users.");
@@ -42,15 +42,33 @@ export const inviteTenantUser = createServerFn({ method: "POST" }).middleware([r
   const request = getRequest();
   if (!request?.url) throw new Error("Application URL is not available for invitations.");
   const redirectTo = new URL("/auth/accept-invite", request.url).toString();
-
-  const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(data.email, {
-    redirectTo,
-    data: { full_name: data.fullName, organization: data.organization, invited_tenant_id: inviter.tenant_id, invited_role: data.role },
-  });
+  const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(data.email, { redirectTo, data: { full_name: data.fullName, organization: data.organization, invited_tenant_id: inviter.tenant_id, invited_role: data.role } });
   if (inviteError || !invited.user) throw new Error(inviteError?.message ?? "Invitation could not be sent.");
   const { error: profileError } = await admin.from("profiles").upsert({ id: invited.user.id, tenant_id: inviter.tenant_id, email: data.email, full_name: data.fullName });
   if (profileError) throw new Error(`Invitation sent, but workspace membership could not be created: ${profileError.message}`);
   const { error: roleError } = await admin.from("user_roles").insert({ user_id: invited.user.id, tenant_id: inviter.tenant_id, role: data.role as AppRole });
   if (roleError && !roleError.message.toLowerCase().includes("duplicate")) throw new Error(`Invitation sent, but the workspace role could not be created: ${roleError.message}`);
+
+  await admin.from("audit_events").insert({
+    tenant_id: inviter.tenant_id,
+    correlation_id: `invite_${invited.user.id}`,
+    actor_id: context.userId,
+    actor_name: inviter.full_name ?? inviter.email ?? "Workspace administrator",
+    actor_email: inviter.email ?? "",
+    actor_role: inviterRole.role === "admin" ? "Admin" : "Manager",
+    actor_type: "human",
+    action: "user.added",
+    resource_type: "user",
+    resource_name: data.fullName,
+    target_id: invited.user.id,
+    changes: [{ field: "membership", oldValue: null, newValue: `${data.role} (invited)` }],
+    reason: "Workspace invitation sent",
+    result: "success",
+    risk: data.role === "admin" ? "high" : "low",
+    source: { channel: "web" },
+    metadata: { email: data.email, organization: data.organization },
+    seeded: false,
+  });
+
   return { ok: true as const, userId: invited.user.id, email: data.email };
 });
