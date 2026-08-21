@@ -47,7 +47,7 @@ export const connectProvider = createServerFn({ method: "POST" })
       const tenantId = roles?.find((r) => r.role === "admin" || r.role === "manager")?.tenant_id;
       if (!tenantId) return { ok: false as const, error: "Admin/manager access is required to connect an integration." };
       const result = await validateProviderConnection({ ...data, tenantId });
-      const encrypted = result.ok ? encryptCredentials({ accessToken: result.accessToken, refreshToken: result.refreshToken, clientId: data.clientId, clientSecret: data.clientSecret, apiToken: data.apiToken, tenant: data.tenant, baseUrl: data.baseUrl, region: data.region }) : null;
+      const encrypted = result.ok ? encryptCredentials({ accessToken: result.accessToken, refreshToken: result.refreshToken, clientId: data.clientId, clientSecret: data.clientSecret, apiToken: data.apiToken, accessKeyId: data.accessKeyId, secretAccessKey: data.secretAccessKey, sessionToken: data.sessionToken, tenant: data.tenant, baseUrl: data.baseUrl, region: data.region }) : null;
       const { error } = await context.supabase.rpc("upsert_provider_connection", {
         p_tenant_id: tenantId,
         p_provider: data.provider,
