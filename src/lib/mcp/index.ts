@@ -8,33 +8,28 @@ import listChangeRecords from "./tools/list-change-records";
 import listIncidentsAndAlerts from "./tools/list-incidents-and-alerts";
 import listIntegrations from "./tools/list-integrations";
 import listReportsAndRecommendations from "./tools/list-reports-and-recommendations";
+import proposeChangeRecord from "./tools/propose-change-record";
 
-// The OAuth issuer must be the direct Supabase host; the project ref is the only
-// value that survives publish unchanged and Vite inlines it at build time.
 const projectRef = import.meta.env['VITE_SUPABASE_PROJECT_ID'] ?? "project-ref-unset";
 
 export default defineMcp({
   name: "aegis-operations-hub",
   title: "Aegis Operations Hub",
-  version: "0.1.0",
+  version: "0.2.0",
   instructions:
-    "Read-only tools for the Aegis AI enterprise operations platform. Use get_operations_overview for executive KPIs and trends, list_change_records / get_change_record for the Change Control Center (stages, risk scores, approvals, rollback plans, audit history), list_agents for AI agent status and findings, list_integrations for connected systems, list_incidents_and_alerts for operational and security signals, and list_reports_and_recommendations for executive report datasets and pending AI recommendations.",
+    "Aegis exposes governed enterprise operations tools. Read tools provide live tenant-scoped information. propose_change_record is the only write-capable MCP operation: it drafts a Proposed change record with pending approval and enters the normal Aegis approval pipeline. It can never approve a change, choose an execution mode, execute a provider mutation, or mark a record ready/executed. Every tool is identity-verified, tenant-scoped, guardrail-evaluated fail-closed, record-capped and output-sanitized.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated",
   }),
-  // Every tool runs through the unified execution gate: verified identity,
-  // server-side guardrail evaluation, record caps, then output scrubbing.
   tools: [
     guardedTool(getOperationsOverview, { capability: "operations_overview" }),
     guardedTool(listChangeRecords, { capability: "change_records" }),
     guardedTool(getChangeRecord, { capability: "change_records" }),
+    guardedTool(proposeChangeRecord, { capability: "change_records", executionClass: "low_risk", actionKey: "change_records.propose" }),
     guardedTool(listAgents, { capability: "agent_inventory" }),
     guardedTool(listIntegrations, { capability: "integration_inventory" }),
-    guardedTool(listIncidentsAndAlerts, {
-      capability: "incident_signals",
-      dataClassification: "internal",
-    }),
+    guardedTool(listIncidentsAndAlerts, { capability: "incident_signals", dataClassification: "internal" }),
     guardedTool(listReportsAndRecommendations, { capability: "report_inventory" }),
   ],
 });
