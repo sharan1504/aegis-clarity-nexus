@@ -35,4 +35,14 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": "off",
     },
   },
+  {
+    files: ["src/lib/analytics.functions.ts", "src/lib/agents/license/functions.ts"],
+    rules: {
+      // These legacy server adapters intentionally pass through provider-neutral
+      // capability payloads whose concrete shapes are defined by the router.
+      // Keep the existing runtime contracts while the generated provider types
+      // are migrated to a shared discriminated schema.
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
 );
