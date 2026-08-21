@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveTenant } from "@/lib/genesys/store.server";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const FALLBACK_TIMEZONES = [
   "UTC",
@@ -113,11 +112,11 @@ export const updateWorkspaceSettings = createServerFn({ method: "POST" })
 
     const timezones = getTimezones();
     const timezone = normalizeTimezone(data.timezone, timezones);
-    if (!timezones.includes(timezone)) throw new Error("Select a valid timezone.");
 
-    // The caller is authenticated and tenant/role checked above. Use the server-only
-    // client for this tenant row so a valid admin is not blocked by restrictive
-    // client-side RLS policies intended to prevent arbitrary membership changes.
+    // Authentication and tenant/admin authorization are established above. The
+    // server-only client is loaded inside the handler so service-role credentials
+    // can never be included in the browser bundle.
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: current, error: currentError } = await supabaseAdmin
       .from("tenants")
       .select("analytics_settings")
