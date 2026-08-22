@@ -289,6 +289,95 @@ export type Database = {
           },
         ]
       }
+      audit_events: {
+        Row: {
+          action: string
+          actor_email: string
+          actor_id: string | null
+          actor_name: string
+          actor_role: string
+          actor_type: string
+          agent: string | null
+          approval_id: string | null
+          approval_status: string | null
+          changes: Json
+          correlation_id: string
+          id: string
+          integration: string | null
+          metadata: Json
+          reason: string | null
+          resource_name: string
+          resource_type: string
+          result: string
+          risk: string
+          seeded: boolean
+          source: Json
+          target_id: string | null
+          tenant_id: string
+          timestamp: string
+        }
+        Insert: {
+          action: string
+          actor_email?: string
+          actor_id?: string | null
+          actor_name: string
+          actor_role?: string
+          actor_type?: string
+          agent?: string | null
+          approval_id?: string | null
+          approval_status?: string | null
+          changes?: Json
+          correlation_id: string
+          id?: string
+          integration?: string | null
+          metadata?: Json
+          reason?: string | null
+          resource_name: string
+          resource_type: string
+          result: string
+          risk: string
+          seeded?: boolean
+          source?: Json
+          target_id?: string | null
+          tenant_id: string
+          timestamp?: string
+        }
+        Update: {
+          action?: string
+          actor_email?: string
+          actor_id?: string | null
+          actor_name?: string
+          actor_role?: string
+          actor_type?: string
+          agent?: string | null
+          approval_id?: string | null
+          approval_status?: string | null
+          changes?: Json
+          correlation_id?: string
+          id?: string
+          integration?: string | null
+          metadata?: Json
+          reason?: string | null
+          resource_name?: string
+          resource_type?: string
+          result?: string
+          risk?: string
+          seeded?: boolean
+          source?: Json
+          target_id?: string | null
+          tenant_id?: string
+          timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -1606,6 +1695,159 @@ export type Database = {
           },
         ]
       }
+      provider_connections: {
+        Row: {
+          connected_at: string | null
+          created_by: string | null
+          credential_expires_at: string | null
+          display_name: string | null
+          encrypted_credentials: string | null
+          external_id: string | null
+          id: string
+          last_error: string | null
+          last_sync_at: string | null
+          provider: string
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          connected_at?: string | null
+          created_by?: string | null
+          credential_expires_at?: string | null
+          display_name?: string | null
+          encrypted_credentials?: string | null
+          external_id?: string | null
+          id?: string
+          last_error?: string | null
+          last_sync_at?: string | null
+          provider: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          connected_at?: string | null
+          created_by?: string | null
+          credential_expires_at?: string | null
+          display_name?: string | null
+          encrypted_credentials?: string | null
+          external_id?: string | null
+          id?: string
+          last_error?: string | null
+          last_sync_at?: string | null
+          provider?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_connections_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_sync_entities: {
+        Row: {
+          created_at: string
+          entity_key: string
+          entity_type: string
+          id: string
+          observed_at: string
+          payload: Json
+          provider: string
+          stale: boolean
+          sync_run_id: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          entity_key: string
+          entity_type: string
+          id?: string
+          observed_at?: string
+          payload: Json
+          provider: string
+          stale?: boolean
+          sync_run_id?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          entity_key?: string
+          entity_type?: string
+          id?: string
+          observed_at?: string
+          payload?: Json
+          provider?: string
+          stale?: boolean
+          sync_run_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_sync_entities_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_sync_runs: {
+        Row: {
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          provider: string
+          records_seen: number
+          records_staled: number
+          records_upserted: number
+          started_at: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          provider: string
+          records_seen?: number
+          records_staled?: number
+          records_upserted?: number
+          started_at?: string
+          status: string
+          tenant_id: string
+        }
+        Update: {
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          provider?: string
+          records_seen?: number
+          records_staled?: number
+          records_upserted?: number
+          started_at?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_sync_runs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reports: {
         Row: {
           created_at: string
@@ -1791,6 +2033,73 @@ export type Database = {
           },
         ]
       }
+      webhook_outbox: {
+        Row: {
+          attempts: number
+          audit_log_id: string
+          created_at: string
+          event_type: string
+          id: string
+          last_error: string | null
+          next_attempt_at: string
+          payload: Json
+          status: string
+          tenant_id: string
+          updated_at: string
+          webhook_id: string
+        }
+        Insert: {
+          attempts?: number
+          audit_log_id: string
+          created_at?: string
+          event_type: string
+          id?: string
+          last_error?: string | null
+          next_attempt_at?: string
+          payload: Json
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          webhook_id: string
+        }
+        Update: {
+          attempts?: number
+          audit_log_id?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          last_error?: string | null
+          next_attempt_at?: string
+          payload?: Json
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          webhook_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_outbox_audit_log_id_fkey"
+            columns: ["audit_log_id"]
+            isOneToOne: false
+            referencedRelation: "audit_log"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webhook_outbox_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webhook_outbox_webhook_id_fkey"
+            columns: ["webhook_id"]
+            isOneToOne: false
+            referencedRelation: "webhooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       webhooks: {
         Row: {
           created_at: string
@@ -1841,6 +2150,19 @@ export type Database = {
       has_tenant_role: {
         Args: { _role: string; _tenant_id: string }
         Returns: boolean
+      }
+      upsert_provider_connection: {
+        Args: {
+          p_credential_expires_at: string
+          p_display_name: string
+          p_encrypted_credentials: string
+          p_external_id: string
+          p_last_error: string
+          p_provider: string
+          p_status: string
+          p_tenant_id: string
+        }
+        Returns: string
       }
     }
     Enums: {
