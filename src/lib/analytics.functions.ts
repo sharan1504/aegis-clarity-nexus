@@ -3,24 +3,39 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveTenant } from "@/lib/genesys/store.server";
 
+const MAX_DAYS = 90;
 const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
+const dateOnly = (value: string) => new Date(`${value}T00:00:00`).getTime();
+const isoDay = (value: Date) => value.toISOString().slice(0, 10);
 
 export const getAnalytics = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input?: { days?: number }) => ({ days: Math.min(90, Math.max(7, Number(input?.days ?? 30))) }))
+  .inputValidator((input?: { days?: number; from?: string; to?: string }) => {
+    const from = String(input?.from ?? "").trim();
+    const to = String(input?.to ?? "").trim();
+    if (from || to) {
+      if (!from || !to) throw new Error("Both start and end dates are required for a custom analytics range.");
+      const start = dateOnly(from);
+      const end = dateOnly(to) + 86_400_000 - 1;
+      if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) throw new Error("Analytics start date must be before the end date.");
+      if (end - start > MAX_DAYS * 86_400_000) throw new Error("Analytics custom range cannot exceed 90 days.");
+      return { days: Math.max(1, Math.ceil((end - start + 1) / 86_400_000)), from, to };
+    }
+    return { days: Math.min(MAX_DAYS, Math.max(7, Number(input?.days ?? 30))), from: "", to: "" };
+  })
   .handler(async ({ data, context }) => {
     const { tenantId } = await resolveTenant(context.supabase, context.userId);
     const db = context.supabase as any;
-    const since = daysAgo(data.days);
-    const now = new Date().toISOString();
+    const since = data.from ? new Date(`${data.from}T00:00:00`).toISOString() : daysAgo(data.days);
+    const until = data.to ? new Date(`${data.to}T23:59:59.999`).toISOString() : new Date().toISOString();
     const [audit, auditEvents, users, roles, agents, changes, aiUsage, settings] = await Promise.all([
-      db.from("audit_log").select("action,actor_email,entity_type,entity_id,created_at,payload").eq("tenant_id", tenantId).gte("created_at", since).order("created_at", { ascending: false }).limit(5000),
-      db.from("audit_events").select("action,actor_email,resource_type,target_id,created_at,metadata").eq("tenant_id", tenantId).gte("created_at", since).order("created_at", { ascending: false }).limit(5000),
+      db.from("audit_log").select("action,actor_email,entity_type,entity_id,created_at,payload").eq("tenant_id", tenantId).gte("created_at", since).lte("created_at", until).order("created_at", { ascending: false }).limit(10000),
+      db.from("audit_events").select("action,actor_email,resource_type,target_id,created_at,metadata").eq("tenant_id", tenantId).gte("created_at", since).lte("created_at", until).order("created_at", { ascending: false }).limit(10000),
       db.from("profiles").select("id,created_at").eq("tenant_id", tenantId),
       db.from("user_roles").select("user_id,role,created_at").eq("tenant_id", tenantId),
       db.from("agent_definitions").select("agent_key,display_name,category"),
-      db.from("change_records").select("agent,stage,severity,risk,created_at").eq("tenant_id", tenantId).gte("created_at", since),
-      db.from("ai_usage_events").select("agent_key,model,input_tokens,output_tokens,total_tokens,latency_ms,created_at").eq("tenant_id", tenantId).gte("created_at", since),
+      db.from("change_records").select("id,agent,stage,severity,risk,created_at,estimated_savings_amount,estimated_savings_currency,estimated_cost_amount,estimated_cost_currency,estimated_downtime_minutes").eq("tenant_id", tenantId).gte("created_at", since).lte("created_at", until),
+      db.from("ai_usage_events").select("agent_key,model,input_tokens,output_tokens,total_tokens,latency_ms,created_at").eq("tenant_id", tenantId).gte("created_at", since).lte("created_at", until),
       db.from("tenants").select("analytics_settings").eq("id", tenantId).single(),
     ]);
     const auditRows = [...(audit.data ?? []), ...(auditEvents.data ?? []).map((x: any) => ({ ...x, entity_type: x.resource_type, entity_id: x.target_id, payload: x.metadata }))].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -30,25 +45,40 @@ export const getAnalytics = createServerFn({ method: "GET" })
     const inputTokens = usageRows.reduce((sum: number, x: any) => sum + Number(x.input_tokens ?? 0), 0);
     const outputTokens = usageRows.reduce((sum: number, x: any) => sum + Number(x.output_tokens ?? 0), 0);
     const avgLatency = usageRows.length ? Math.round(usageRows.reduce((sum: number, x: any) => sum + Number(x.latency_ms ?? 0), 0) / usageRows.length) : 0;
-    const agentMap = new Map<string, { name: string; category: string; actions: number; changes: number; tokens: number }>();
-    for (const agent of agents.data ?? []) agentMap.set(agent.agent_key, { name: agent.display_name, category: agent.category ?? "Uncategorized", actions: 0, changes: 0, tokens: 0 });
-    for (const row of changeRows) { const key = String(row.agent ?? "Unknown"); const current = agentMap.get(key) ?? { name: key, category: "Operations", actions: 0, changes: 0, tokens: 0 }; current.changes += 1; agentMap.set(key, current); }
-    for (const row of usageRows) { const current = agentMap.get(row.agent_key) ?? { name: row.agent_key, category: "AI", actions: 0, changes: 0, tokens: 0 }; current.actions += 1; current.tokens += Number(row.total_tokens ?? 0); agentMap.set(row.agent_key, current); }
+    const agentMap = new Map<string, any>();
+    for (const agent of agents.data ?? []) agentMap.set(agent.agent_key, { name: agent.display_name, category: agent.category ?? "Uncategorized", actions: 0, changes: 0, tokens: 0, averageLatencyMs: 0, latencySamples: 0, savings: {}, costs: {}, downtimeMinutes: 0, severityCounts: {}, recentChanges: [], firstActivity: null, lastActivity: null });
+    const ensureAgent = (key: string, fallbackName = key) => {
+      const current = agentMap.get(key) ?? { name: fallbackName, category: "Operations", actions: 0, changes: 0, tokens: 0, averageLatencyMs: 0, latencySamples: 0, savings: {}, costs: {}, downtimeMinutes: 0, severityCounts: {}, recentChanges: [], firstActivity: null, lastActivity: null };
+      agentMap.set(key, current); return current;
+    };
+    for (const row of changeRows) {
+      const key = String(row.agent ?? "Unknown"); const current = ensureAgent(key);
+      current.changes += 1;
+      const timestamp = String(row.created_at); current.firstActivity = current.firstActivity && current.firstActivity < timestamp ? current.firstActivity : timestamp; current.lastActivity = current.lastActivity && current.lastActivity > timestamp ? current.lastActivity : timestamp;
+      const severity = String(row.severity ?? "unknown").toLowerCase(); current.severityCounts[severity] = (current.severityCounts[severity] ?? 0) + 1;
+      const savings = Number(row.estimated_savings_amount); if (Number.isFinite(savings) && row.estimated_savings_currency) current.savings[row.estimated_savings_currency] = (current.savings[row.estimated_savings_currency] ?? 0) + savings;
+      const cost = Number(row.estimated_cost_amount); if (Number.isFinite(cost) && row.estimated_cost_currency) current.costs[row.estimated_cost_currency] = (current.costs[row.estimated_cost_currency] ?? 0) + cost;
+      current.downtimeMinutes += Number(row.estimated_downtime_minutes ?? 0);
+      if (current.recentChanges.length < 20) current.recentChanges.push({ id: row.id, stage: row.stage, severity: row.severity, risk: row.risk, createdAt: row.created_at, estimatedSavingsAmount: row.estimated_savings_amount, estimatedSavingsCurrency: row.estimated_savings_currency, estimatedCostAmount: row.estimated_cost_amount, estimatedCostCurrency: row.estimated_cost_currency, estimatedDowntimeMinutes: row.estimated_downtime_minutes });
+    }
+    for (const row of usageRows) { const current = ensureAgent(String(row.agent_key), String(row.agent_key)); current.actions += 1; current.tokens += Number(row.total_tokens ?? 0); current.averageLatencyMs += Number(row.latency_ms ?? 0); current.latencySamples += 1; const timestamp = String(row.created_at); current.firstActivity = current.firstActivity && current.firstActivity < timestamp ? current.firstActivity : timestamp; current.lastActivity = current.lastActivity && current.lastActivity > timestamp ? current.lastActivity : timestamp; }
+    for (const current of agentMap.values()) current.averageLatencyMs = current.latencySamples ? Math.round(current.averageLatencyMs / current.latencySamples) : 0;
+
+    const startDate = data.from ? new Date(`${data.from}T00:00:00`) : new Date(Date.now() - (data.days - 1) * 86_400_000);
     const daily = new Map<string, { events: number; changes: number; aiRequests: number }>();
-    for (let offset = data.days - 1; offset >= 0; offset -= 1) daily.set(new Date(Date.now() - offset * 86_400_000).toISOString().slice(0, 10), { events: 0, changes: 0, aiRequests: 0 });
+    for (let offset = 0; offset < data.days; offset += 1) { const date = new Date(startDate.getTime() + offset * 86_400_000); daily.set(isoDay(date), { events: 0, changes: 0, aiRequests: 0 }); }
     for (const row of auditRows) { const bucket = daily.get(String(row.created_at).slice(0, 10)); if (bucket) bucket.events += 1; }
     for (const row of changeRows) { const bucket = daily.get(String(row.created_at).slice(0, 10)); if (bucket) bucket.changes += 1; }
     for (const row of usageRows) { const bucket = daily.get(String(row.created_at).slice(0, 10)); if (bucket) bucket.aiRequests += 1; }
     const severityCounts = changeRows.reduce((acc: Record<string, number>, row: any) => { const severity = String(row.severity ?? "unknown").toLowerCase(); acc[severity] = (acc[severity] ?? 0) + 1; return acc; }, {});
     const analyticsSettings = (settings.data?.analytics_settings ?? {}) as Record<string, any>;
     return {
-      period: { days: data.days, from: since, to: now },
+      period: { days: data.days, from: since, to: until },
       platform: { totalEvents: auditRows.length, activeUsers: new Set(auditRows.map((x: any) => x.actor_email).filter(Boolean)).size, totalUsers: userRows.length, connectedRoles: new Set(roleRows.map((x: any) => x.role)).size, changeRecords: changeRows.length, pendingChanges: changeRows.filter((x: any) => ["Proposed", "Owner Review", "Change Created", "Team Approvals", "Ready to Execute"].includes(x.stage)).length },
       userActivity: { additions: byAction(/user\.(added|created|invited)/i), removals: byAction(/user\.(removed|deleted)/i), updates: byAction(/user\.(updated|role_changed|changed)/i), uniqueActors: new Set(auditRows.map((x: any) => x.actor_email).filter(Boolean)).size },
-      agents: [...agentMap.values()].sort((a, b) => b.actions + b.changes - (a.actions + a.changes)),
+      agents: [...agentMap.values()].map(({ latencySamples, ...agent }) => agent).sort((a, b) => b.actions + b.changes - (a.actions + a.changes)),
       ai: { requests: usageRows.length, inputTokens, outputTokens, totalTokens, averageLatencyMs: avgLatency },
-      trends: [...daily.entries()].map(([date, values]) => ({ date, ...values })),
-      severityCounts,
+      trends: [...daily.entries()].map(([date, values]) => ({ date, ...values })), severityCounts,
       governance: { serviceLevel: analyticsSettings.serviceLevel ?? { targetSeconds: 30, targetPercent: 80 }, dataMasking: analyticsSettings.dataMasking ?? true, disconnectMetricWindowMinutes: analyticsSettings.disconnectMetricWindowMinutes ?? 30, retentionDays: analyticsSettings.retentionDays ?? 90 },
       recentEvents: auditRows.slice(0, 100),
     };
