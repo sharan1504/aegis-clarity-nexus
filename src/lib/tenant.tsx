@@ -176,35 +176,46 @@ async function seedTenant(tenantId: string, userId: string) {
   });
 }
 
+const EMPTY_TENANT_STATE = {
+  user: null,
+  tenantId: null,
+  tenantName: null,
+  primaryDomain: null,
+  roles: [] as AppRole[],
+  loading: true,
+};
+
 /** Session + tenant state for the app shell. */
 export function useTenant(): TenantContextValue {
-  const [state, setState] = useState<TenantContextValue>({
-    user: null,
-    tenantId: null,
-    tenantName: null,
-    roles: [],
-    loading: true,
-  });
+  const [state, setState] = useState<Omit<TenantContextValue, "refreshTenant">>(EMPTY_TENANT_STATE);
+  const activeRef = useRef(true);
+
+  // Single resolver shared by auth events and explicit refreshes, so the
+  // organization name has exactly one source of truth (the database).
+  const resolve = useCallback(async (user: User | null) => {
+    if (!user) {
+      if (activeRef.current) setState({ ...EMPTY_TENANT_STATE, loading: false });
+      return;
+    }
+    try {
+      const { tenantId, tenantName, primaryDomain, roles } = await ensureTenantBootstrap(user);
+      if (activeRef.current) {
+        setState({ user, tenantId, tenantName, primaryDomain, roles, loading: false });
+      }
+    } catch {
+      if (activeRef.current) {
+        setState({ ...EMPTY_TENANT_STATE, user, loading: false });
+      }
+    }
+  }, []);
+
+  const refreshTenant = useCallback(async () => {
+    const { data } = await supabase.auth.getUser();
+    await resolve(data.user ?? null);
+  }, [resolve]);
 
   useEffect(() => {
-    let active = true;
-
-    const resolve = async (user: User | null) => {
-      if (!user) {
-        if (active) {
-          setState({ user: null, tenantId: null, tenantName: null, roles: [], loading: false });
-        }
-        return;
-      }
-      try {
-        const { tenantId, tenantName, roles } = await ensureTenantBootstrap(user);
-        if (active) setState({ user, tenantId, tenantName, roles, loading: false });
-      } catch {
-        if (active) {
-          setState({ user, tenantId: null, tenantName: null, roles: [], loading: false });
-        }
-      }
-    };
+    activeRef.current = true;
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
@@ -214,21 +225,19 @@ export function useTenant(): TenantContextValue {
     void supabase.auth.getUser().then(({ data }) => resolve(data.user ?? null));
 
     return () => {
-      active = false;
+      activeRef.current = false;
       sub.subscription.unsubscribe();
     };
-  }, []);
+  }, [resolve]);
 
-  return state;
+  return { ...state, refreshTenant };
 }
 
 const TenantContext = createContext<TenantContextValue>({
-  user: null,
-  tenantId: null,
-  tenantName: null,
-  roles: [],
-  loading: true,
+  ...EMPTY_TENANT_STATE,
+  refreshTenant: async () => {},
 });
+
 
 /** Provides session + tenant state and keeps Realtime bound to the active tenant. */
 export function TenantProvider({ children }: { children: ReactNode }) {
