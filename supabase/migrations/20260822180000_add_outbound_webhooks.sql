@@ -80,3 +80,7 @@ create index if not exists webhooks_tenant_enabled_idx on public.webhooks(tenant
 create index if not exists webhook_attempts_webhook_time_idx on public.webhook_delivery_attempts(webhook_id, attempted_at desc);
 
 comment on column public.webhooks.secret is 'Server-only HMAC secret. Authenticated clients never receive this column; outbound dispatch uses it only in the trusted Edge Function.';
+
+-- PostgREST may retain a schema cache after DDL; explicitly reload it so the
+-- server functions can see the new tables immediately.
+notify pgrst, 'reload schema';
