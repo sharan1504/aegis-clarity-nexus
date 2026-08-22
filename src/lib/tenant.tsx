@@ -23,7 +23,6 @@ export interface TenantContextValue {
   refreshTenant: () => Promise<void>;
 }
 
-
 function tenantNameFromEmail(email: string | undefined) {
   const domain = (email ?? "").split("@")[1] ?? "workspace";
   const base = domain.split(".")[0] ?? "workspace";
@@ -62,8 +61,7 @@ export async function ensureTenantBootstrap(user: User): Promise<{
 
   let tenantId = existing?.tenant_id ?? null;
   let tenantName = existingTenant?.name ?? null;
-  let primaryDomain = existingTenant?.primary_domain ?? null;
-
+  const primaryDomain = existingTenant?.primary_domain ?? null;
 
   if (!existing) {
     await supabase.from("profiles").insert({
@@ -105,7 +103,6 @@ export async function ensureTenantBootstrap(user: User): Promise<{
     primaryDomain,
     roles: (roleRows ?? []).map((r) => r.role as AppRole),
   };
-
 }
 
 /** Seeds a brand-new tenant with the reference change-management dataset. */
@@ -237,7 +234,6 @@ const TenantContext = createContext<TenantContextValue>({
   ...EMPTY_TENANT_STATE,
   refreshTenant: async () => {},
 });
-
 
 /** Provides session + tenant state and keeps Realtime bound to the active tenant. */
 export function TenantProvider({ children }: { children: ReactNode }) {
