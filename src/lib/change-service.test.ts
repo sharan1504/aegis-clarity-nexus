@@ -5,17 +5,19 @@ const mocks = vi.hoisted(() => ({
   notify: vi.fn(),
   externalTicket: vi.fn(),
   approvalUpdate: vi.fn(),
+  approvalIn: vi.fn(),
   recordUpdate: vi.fn(),
+  recordEq: vi.fn(),
 }));
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
     from: vi.fn((table: string) => {
       if (table === "change_approvals") {
-        return { update: vi.fn(() => ({ in: mocks.approvalUpdate })) };
+        return { update: mocks.approvalUpdate };
       }
       if (table === "change_records") {
-        return { update: vi.fn(() => ({ eq: mocks.recordUpdate })) };
+        return { update: mocks.recordUpdate };
       }
       throw new Error(`Unexpected table ${table}`);
     }),
@@ -58,8 +60,13 @@ const actor = { tenantId: "tenant-1", actor: "Admin", role: "admin" };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.approvalUpdate.mockResolvedValue({ error: null });
-  mocks.recordUpdate.mockResolvedValue({ error: null });
+  mocks.approvalUpdate.mockImplementation(() => ({ in: mocks.approvalIn }));
+  mocks.approvalIn.mockResolvedValue({ error: null });
+  mocks.recordUpdate.mockImplementation((payload: Record<string, unknown>) => {
+    mocks.recordEq(payload);
+    return { eq: mocks.recordEq };
+  });
+  mocks.recordEq.mockResolvedValue({ error: null });
   mocks.audit.mockResolvedValue(undefined);
   mocks.notify.mockResolvedValue(undefined);
 });
@@ -73,6 +80,7 @@ describe("change-service edge cases", () => {
     await decideChange(change, "rejected", actor, "Not ready");
 
     expect(mocks.approvalUpdate).toHaveBeenCalledTimes(1);
+    expect(mocks.approvalIn).toHaveBeenCalledWith("id", ["approval-1"]);
     expect(mocks.recordUpdate).toHaveBeenCalledTimes(1);
     const updatePayload = mocks.recordUpdate.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(updatePayload.stage).toBeUndefined();
