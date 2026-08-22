@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useTheme } from "@/lib/theme";
+import { useTenantContext } from "@/lib/tenant";
 import { getWorkspaceSettings, updateWorkspaceSettings } from "@/lib/settings.functions";
 import { createWebhook, deleteWebhook, listWebhooks } from "@/lib/webhooks.functions";
 import { pageHead } from "@/lib/seo";
@@ -33,6 +34,7 @@ export const Route = createFileRoute("/_app/settings")({ head: () => pageHead({ 
 
 function SettingsPage() {
   const { theme, toggle } = useTheme();
+  const { refreshTenant } = useTenantContext();
   const load = useServerFn(getWorkspaceSettings);
   const save = useServerFn(updateWorkspaceSettings);
   const loadWebhooks = useServerFn(listWebhooks);
@@ -93,6 +95,9 @@ function SettingsPage() {
       setDomain(saved.primaryDomain);
       setTimezone(saved.timezone || "UTC");
       setTimezones(saved.timezones?.length ? saved.timezones : DEFAULT_TIMEZONES);
+      // Refresh the shared tenant context so the sidebar and all other
+      // platform-wide organization displays immediately use the saved values.
+      await refreshTenant();
       toast.success("Workspace settings saved");
     } catch (e) {
       toast.error("Could not save workspace settings", { description: e instanceof Error ? e.message : "Try again." });
@@ -114,4 +119,4 @@ function SettingsPage() {
   </div>}</div>;
 }
 function Field({ label, children }: { label: string; children: React.ReactNode }) { return <div className="grid gap-2"><Label>{label}</Label>{children}</div>; }
-function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) { return <div className="flex items-center justify-between gap-4"><div><div className="text-sm font-medium">{label}</div>{hint && <div className="text-xs text-muted-foreground">{hint}</div>}</div>{children}</div>; }
+function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) { return <div className="flex items-center justify-between gap-4"><div><div className="text-sm font-medium">{label}</div>{hint && <div className="text-xs text-muted-foreground">{hint}</div>}</div>{children}</Row>; }
