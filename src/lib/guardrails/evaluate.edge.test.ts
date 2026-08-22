@@ -30,14 +30,14 @@ const rule = (overrides: Partial<GuardrailRecord> = {}): GuardrailRecord => ({
 });
 
 describe("evaluateGuardrailSet edge cases", () => {
-  it("requires approval at the exact record limit only when the operation exceeds it", () => {
+  it("requires approval only when a record-limit operation exceeds its limit", () => {
     const rules = [rule({ guardrailType: "limit_records", action: { effect: "limit", max_records: 10 } })];
 
     expect(evaluateGuardrailSet(rules, context({ executionClass: "high_risk", affectedRecords: 10 })).decision).toBe("allow");
     expect(evaluateGuardrailSet(rules, context({ executionClass: "high_risk", affectedRecords: 11 })).decision).toBe("require_approval");
   });
 
-  it("fails closed for missing confidence when a confidence threshold is configured", () => {
+  it("does not match a confidence guardrail when confidence is missing", () => {
     const rules = [rule({ conditions: { confidence_lt: 90 }, action: { effect: "require_confirmation" } })];
 
     expect(evaluateGuardrailSet(rules, context({ confidence: null })).decision).toBe("allow");
