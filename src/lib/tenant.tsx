@@ -16,9 +16,13 @@ export interface TenantContextValue {
   user: User | null;
   tenantId: string | null;
   tenantName: string | null;
+  primaryDomain: string | null;
   roles: AppRole[];
   loading: boolean;
+  /** Re-reads tenant identity (name, primary domain, roles) from the database. */
+  refreshTenant: () => Promise<void>;
 }
+
 
 function tenantNameFromEmail(email: string | undefined) {
   const domain = (email ?? "").split("@")[1] ?? "workspace";
