@@ -47,17 +47,23 @@ function slugify(input: string) {
 export async function ensureTenantBootstrap(user: User): Promise<{
   tenantId: string;
   tenantName: string;
+  primaryDomain: string | null;
   roles: AppRole[];
 }> {
   const { data: existing } = await supabase
     .from("profiles")
-    .select("id, tenant_id, tenants(name)")
+    .select("id, tenant_id, tenants(name, primary_domain)")
     .eq("id", user.id)
     .maybeSingle();
 
+  const existingTenant = (existing as {
+    tenants?: { name?: string | null; primary_domain?: string | null } | null;
+  } | null)?.tenants ?? null;
+
   let tenantId = existing?.tenant_id ?? null;
-  let tenantName =
-    (existing as { tenants?: { name?: string } | null } | null)?.tenants?.name ?? null;
+  let tenantName = existingTenant?.name ?? null;
+  let primaryDomain = existingTenant?.primary_domain ?? null;
+
 
   if (!existing) {
     await supabase.from("profiles").insert({
