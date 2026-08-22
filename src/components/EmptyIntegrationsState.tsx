@@ -2,11 +2,6 @@ import { Link } from "@tanstack/react-router";
 import { Plug, ArrowRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { integrations } from "@/lib/mock-data";
-
-export function hasAnyConnected() {
-  return integrations.some((i) => i.status === "connected");
-}
 
 export function EmptyIntegrationsState({
   title = "Connect your first integration",
