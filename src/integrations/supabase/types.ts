@@ -1661,27 +1661,36 @@ export type Database = {
       }
       tenants: {
         Row: {
+          analytics_settings: Json
           created_at: string
           id: string
           name: string
+          primary_domain: string | null
           report_retention_days: number
           slug: string
+          timezone: string
           updated_at: string
         }
         Insert: {
+          analytics_settings?: Json
           created_at?: string
           id?: string
           name: string
+          primary_domain?: string | null
           report_retention_days?: number
           slug: string
+          timezone?: string
           updated_at?: string
         }
         Update: {
+          analytics_settings?: Json
           created_at?: string
           id?: string
           name?: string
+          primary_domain?: string | null
           report_retention_days?: number
           slug?: string
+          timezone?: string
           updated_at?: string
         }
         Relationships: []
@@ -1718,12 +1727,121 @@ export type Database = {
           },
         ]
       }
+      webhook_delivery_attempts: {
+        Row: {
+          attempt: number
+          attempted_at: string
+          audit_log_id: string | null
+          error_message: string | null
+          event_type: string
+          id: string
+          next_retry_at: string | null
+          status_code: number | null
+          success: boolean
+          tenant_id: string
+          webhook_id: string
+        }
+        Insert: {
+          attempt?: number
+          attempted_at?: string
+          audit_log_id?: string | null
+          error_message?: string | null
+          event_type: string
+          id?: string
+          next_retry_at?: string | null
+          status_code?: number | null
+          success?: boolean
+          tenant_id: string
+          webhook_id: string
+        }
+        Update: {
+          attempt?: number
+          attempted_at?: string
+          audit_log_id?: string | null
+          error_message?: string | null
+          event_type?: string
+          id?: string
+          next_retry_at?: string | null
+          status_code?: number | null
+          success?: boolean
+          tenant_id?: string
+          webhook_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_delivery_attempts_audit_log_id_fkey"
+            columns: ["audit_log_id"]
+            isOneToOne: false
+            referencedRelation: "audit_log"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webhook_delivery_attempts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webhook_delivery_attempts_webhook_id_fkey"
+            columns: ["webhook_id"]
+            isOneToOne: false
+            referencedRelation: "webhooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webhooks: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          event_types: string[]
+          id: string
+          secret: string
+          target_url: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          event_types: string[]
+          id?: string
+          secret: string
+          target_url: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          event_types?: string[]
+          id?: string
+          secret?: string
+          target_url?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhooks_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
       current_tenant_id: { Args: never; Returns: string }
+      has_tenant_role: {
+        Args: { _role: string; _tenant_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "manager" | "analyst" | "viewer"
