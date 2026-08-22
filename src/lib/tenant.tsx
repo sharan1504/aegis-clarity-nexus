@@ -1,5 +1,5 @@
 // Tenant + session bootstrap for the multi-tenant Aegis backend.
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { initRealtime, teardownRealtime } from "@/lib/realtime";
 import type { User } from "@supabase/supabase-js";
 
@@ -16,9 +16,13 @@ export interface TenantContextValue {
   user: User | null;
   tenantId: string | null;
   tenantName: string | null;
+  primaryDomain: string | null;
   roles: AppRole[];
   loading: boolean;
+  /** Re-reads tenant identity (name, primary domain, roles) from the database. */
+  refreshTenant: () => Promise<void>;
 }
+
 
 function tenantNameFromEmail(email: string | undefined) {
   const domain = (email ?? "").split("@")[1] ?? "workspace";
@@ -43,17 +47,23 @@ function slugify(input: string) {
 export async function ensureTenantBootstrap(user: User): Promise<{
   tenantId: string;
   tenantName: string;
+  primaryDomain: string | null;
   roles: AppRole[];
 }> {
   const { data: existing } = await supabase
     .from("profiles")
-    .select("id, tenant_id, tenants(name)")
+    .select("id, tenant_id, tenants(name, primary_domain)")
     .eq("id", user.id)
     .maybeSingle();
 
+  const existingTenant = (existing as {
+    tenants?: { name?: string | null; primary_domain?: string | null } | null;
+  } | null)?.tenants ?? null;
+
   let tenantId = existing?.tenant_id ?? null;
-  let tenantName =
-    (existing as { tenants?: { name?: string } | null } | null)?.tenants?.name ?? null;
+  let tenantName = existingTenant?.name ?? null;
+  let primaryDomain = existingTenant?.primary_domain ?? null;
+
 
   if (!existing) {
     await supabase.from("profiles").insert({
@@ -92,8 +102,10 @@ export async function ensureTenantBootstrap(user: User): Promise<{
   return {
     tenantId: tenantId!,
     tenantName: tenantName ?? "Workspace",
+    primaryDomain,
     roles: (roleRows ?? []).map((r) => r.role as AppRole),
   };
+
 }
 
 /** Seeds a brand-new tenant with the reference change-management dataset. */
@@ -164,35 +176,46 @@ async function seedTenant(tenantId: string, userId: string) {
   });
 }
 
+const EMPTY_TENANT_STATE = {
+  user: null,
+  tenantId: null,
+  tenantName: null,
+  primaryDomain: null,
+  roles: [] as AppRole[],
+  loading: true,
+};
+
 /** Session + tenant state for the app shell. */
 export function useTenant(): TenantContextValue {
-  const [state, setState] = useState<TenantContextValue>({
-    user: null,
-    tenantId: null,
-    tenantName: null,
-    roles: [],
-    loading: true,
-  });
+  const [state, setState] = useState<Omit<TenantContextValue, "refreshTenant">>(EMPTY_TENANT_STATE);
+  const activeRef = useRef(true);
+
+  // Single resolver shared by auth events and explicit refreshes, so the
+  // organization name has exactly one source of truth (the database).
+  const resolve = useCallback(async (user: User | null) => {
+    if (!user) {
+      if (activeRef.current) setState({ ...EMPTY_TENANT_STATE, loading: false });
+      return;
+    }
+    try {
+      const { tenantId, tenantName, primaryDomain, roles } = await ensureTenantBootstrap(user);
+      if (activeRef.current) {
+        setState({ user, tenantId, tenantName, primaryDomain, roles, loading: false });
+      }
+    } catch {
+      if (activeRef.current) {
+        setState({ ...EMPTY_TENANT_STATE, user, loading: false });
+      }
+    }
+  }, []);
+
+  const refreshTenant = useCallback(async () => {
+    const { data } = await supabase.auth.getUser();
+    await resolve(data.user ?? null);
+  }, [resolve]);
 
   useEffect(() => {
-    let active = true;
-
-    const resolve = async (user: User | null) => {
-      if (!user) {
-        if (active) {
-          setState({ user: null, tenantId: null, tenantName: null, roles: [], loading: false });
-        }
-        return;
-      }
-      try {
-        const { tenantId, tenantName, roles } = await ensureTenantBootstrap(user);
-        if (active) setState({ user, tenantId, tenantName, roles, loading: false });
-      } catch {
-        if (active) {
-          setState({ user, tenantId: null, tenantName: null, roles: [], loading: false });
-        }
-      }
-    };
+    activeRef.current = true;
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
@@ -202,21 +225,19 @@ export function useTenant(): TenantContextValue {
     void supabase.auth.getUser().then(({ data }) => resolve(data.user ?? null));
 
     return () => {
-      active = false;
+      activeRef.current = false;
       sub.subscription.unsubscribe();
     };
-  }, []);
+  }, [resolve]);
 
-  return state;
+  return { ...state, refreshTenant };
 }
 
 const TenantContext = createContext<TenantContextValue>({
-  user: null,
-  tenantId: null,
-  tenantName: null,
-  roles: [],
-  loading: true,
+  ...EMPTY_TENANT_STATE,
+  refreshTenant: async () => {},
 });
+
 
 /** Provides session + tenant state and keeps Realtime bound to the active tenant. */
 export function TenantProvider({ children }: { children: ReactNode }) {
