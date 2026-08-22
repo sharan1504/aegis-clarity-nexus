@@ -1,89 +1,139 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { Activity, Bot, Clock3, Coins, RefreshCw, Settings2, Users, Zap } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Activity, BarChart3, Bot, Clock3, Coins, Download, FileBarChart, FileJson, FileSpreadsheet, FileText, RefreshCw, Search, Settings2, ShieldCheck, Users, Zap } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { PageHeader, StatusPill } from "@/components/layout/AppLayout";
+import { PageHeader } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { EmptyIntegrationsState } from "@/components/EmptyIntegrationsState";
+import { useTenantContext } from "@/lib/tenant";
+import { useRole } from "@/lib/rbac";
 import { getAnalytics, updateAnalyticsSettings } from "@/lib/analytics.functions";
+import { getReportWorkspaceData } from "@/lib/report-workspace.functions";
+import { syncReportProvider } from "@/lib/provider-sync.functions";
+import { DEFAULT_REPORT_PARAMS, generateReport, listReports, refreshReportLink, type ReportFormat, type StoredReport } from "@/lib/reports-service";
+import { getReportRetentionDays, purgeExpiredReports, setReportRetentionDays } from "@/lib/reports-retention.functions";
+import { ANALYTICS_REPORT_TEMPLATES, hasAnalyticsReportData, rowsForAnalyticsReport, type AnalyticsWorkspaceData } from "@/lib/analytics-reporting";
 import { pageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/_app/analytics")({
-  head: () => pageHead({ path: "/analytics", title: "Analytics — Aegis AI", description: "Real tenant activity, platform usage, agent utilization, AI token usage, user lifecycle and governance analytics." }),
+  head: () => pageHead({ path: "/analytics", title: "Analytics — Aegis AI", description: "A unified analytics workspace for real tenant telemetry, operational reports, filtering, segments and governance settings." }),
   component: AnalyticsPage,
 });
 
 type Analytics = Awaited<ReturnType<typeof getAnalytics>>;
+type EventRow = Analytics["recentEvents"][number];
 
 function AnalyticsPage() {
+  const { tenantId, tenantName } = useTenantContext();
+  const { role } = useRole();
   const load = useServerFn(getAnalytics);
+  const loadReports = useServerFn(getReportWorkspaceData);
+  const sync = useServerFn(syncReportProvider);
   const save = useServerFn(updateAnalyticsSettings);
+  const readRetention = useServerFn(getReportRetentionDays);
+  const writeRetention = useServerFn(setReportRetentionDays);
+  const purge = useServerFn(purgeExpiredReports);
   const [data, setData] = useState<Analytics | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [workspace, setWorkspace] = useState<AnalyticsWorkspaceData | null>(null);
+  const [history, setHistory] = useState<StoredReport[]>([]);
+  const [days, setDays] = useState("30");
+  const [provider, setProvider] = useState("all");
+  const [severity, setSeverity] = useState("all");
+  const [agent, setAgent] = useState("all");
+  const [eventSearch, setEventSearch] = useState("");
+  const [format, setFormat] = useState<ReportFormat>("pdf");
+  const [retention, setRetention] = useState("90");
   const [serviceSeconds, setServiceSeconds] = useState("30");
   const [servicePercent, setServicePercent] = useState("80");
   const [disconnectWindow, setDisconnectWindow] = useState("30");
-  const [retention, setRetention] = useState("90");
   const [masking, setMasking] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+  const canExport = role === "Admin" || role === "Manager";
 
   const refresh = async () => {
     setLoading(true);
     try {
-      const result = await load();
-      setData(result);
-      setServiceSeconds(String(result.governance.serviceLevel.targetSeconds));
-      setServicePercent(String(result.governance.serviceLevel.targetPercent));
-      setDisconnectWindow(String(result.governance.disconnectMetricWindowMinutes));
-      setRetention(String(result.governance.retentionDays));
-      setMasking(Boolean(result.governance.dataMasking));
+      const [analytics, reportWorkspace, reportHistory, reportRetention] = await Promise.all([
+        load({ data: { days: Number(days) } }), loadReports(), tenantId ? listReports(tenantId) : Promise.resolve([]), readRetention({}),
+      ]);
+      setData(analytics); setWorkspace(reportWorkspace); setHistory(reportHistory); setRetention(String(reportRetention.retentionDays));
+      setServiceSeconds(String(analytics.governance.serviceLevel.targetSeconds)); setServicePercent(String(analytics.governance.serviceLevel.targetPercent));
+      setDisconnectWindow(String(analytics.governance.disconnectMetricWindowMinutes)); setMasking(Boolean(analytics.governance.dataMasking));
+      if (role === "Admin") await purge({});
     } catch (error) { toast.error("Analytics could not be loaded", { description: error instanceof Error ? error.message : "Try again." }); }
     finally { setLoading(false); }
   };
-  useEffect(() => { void refresh(); }, []);
+  useEffect(() => { void refresh(); }, [tenantId, days]);
+
+  const filteredEvents = useMemo(() => {
+    if (!data) return [] as EventRow[];
+    const query = eventSearch.trim().toLowerCase();
+    return data.recentEvents.filter((event) => {
+      const payload = event.payload && typeof event.payload === "object" ? event.payload as Record<string, unknown> : {};
+      const eventProvider = String(payload.provider ?? payload.integration ?? event.entity_type ?? "").toLowerCase();
+      const eventSeverity = String(payload.severity ?? "").toLowerCase();
+      const eventAgent = String(payload.agent ?? "").toLowerCase();
+      const text = `${event.action} ${event.actor_email ?? ""} ${event.entity_type} ${event.entity_id ?? ""}`.toLowerCase();
+      return (provider === "all" || eventProvider.includes(provider)) && (severity === "all" || eventSeverity === severity) && (agent === "all" || eventAgent === agent.toLowerCase()) && (!query || text.includes(query));
+    });
+  }, [data, provider, severity, agent, eventSearch]);
+  const maxTrend = Math.max(1, ...(data?.trends.map((item) => item.events + item.changes + item.aiRequests) ?? [1]));
 
   const saveSettings = async () => {
-    setSaving(true);
+    setBusy("settings");
     try {
       await save({ data: { serviceLevel: { targetSeconds: Number(serviceSeconds), targetPercent: Number(servicePercent) }, dataMasking: masking, disconnectMetricWindowMinutes: Number(disconnectWindow), retentionDays: Number(retention) } });
-      toast.success("Analytics settings saved");
-      await refresh();
+      await writeRetention({ data: { days: Number(retention) } }); toast.success("Analytics settings saved"); await refresh();
     } catch (error) { toast.error("Could not save analytics settings", { description: error instanceof Error ? error.message : "Try again." }); }
-    finally { setSaving(false); }
+    finally { setBusy(null); }
+  };
+  const syncProvider = async (providerName: "github" | "jira" | "slack") => {
+    setBusy(`sync:${providerName}`);
+    try { await sync({ data: { provider: providerName } }); toast.success(`${providerName} sync completed`); await refresh(); }
+    catch (error) { toast.error(`${providerName} sync failed`, { description: error instanceof Error ? error.message : "Try again." }); }
+    finally { setBusy(null); }
+  };
+  const exportReport = async (template: typeof ANALYTICS_REPORT_TEMPLATES[number]) => {
+    if (!workspace || !tenantId) return;
+    const rows = rowsForAnalyticsReport(template, workspace); if (!rows.length) return;
+    setBusy(`${template.id}:${format}`);
+    try {
+      const generated = await generateReport({ tenantId, tenantName: tenantName ?? "Workspace", dataset: template.id, name: template.title, format, actorRole: role, params: DEFAULT_REPORT_PARAMS, retentionDays: Number(retention), rows });
+      window.open(generated.signedUrl, "_blank", "noopener,noreferrer"); toast.success(`${template.title} ready`, { description: "Generated from real connected and synchronized evidence." }); await refresh();
+    } catch (error) { toast.error("Report generation failed", { description: error instanceof Error ? error.message : "Try again." }); }
+    finally { setBusy(null); }
+  };
+  const download = async (report: StoredReport) => {
+    if (!tenantId || report.purgedAt) return;
+    try { const url = await refreshReportLink(tenantId, report, role); window.open(url, "_blank", "noopener,noreferrer"); }
+    catch (error) { toast.error("Download failed", { description: error instanceof Error ? error.message : "Try again." }); }
   };
 
   return <div>
-    <PageHeader title="Analytics" description="Real workspace telemetry only. Metrics are tenant-scoped and refresh from the connected data layer." actions={<Button variant="outline" size="sm" onClick={() => void refresh()} disabled={loading}><RefreshCw className={`mr-1.5 h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh</Button>} />
-    {loading && !data ? <div className="py-16 text-center text-sm text-muted-foreground">Loading real analytics…</div> : data ? <>
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-5">
-        <Metric icon={Activity} label="Platform events" value={data.platform.totalEvents.toLocaleString()} />
-        <Metric icon={Users} label="Active users" value={`${data.platform.activeUsers} / ${data.platform.totalUsers}`} />
-        <Metric icon={Zap} label="Pending changes" value={String(data.platform.pendingChanges)} />
-        <Metric icon={Coins} label="AI tokens" value={data.ai.totalTokens.toLocaleString()} />
-        <Metric icon={Clock3} label="AI latency" value={`${data.ai.averageLatencyMs} ms`} />
-      </div>
-
-      <div className="mt-6 grid gap-4 xl:grid-cols-3">
-        <Card className="xl:col-span-2"><CardHeader><CardTitle className="text-base">Agent utilization</CardTitle><CardDescription>Separate usage for every known agent, based on real change and AI telemetry.</CardDescription></CardHeader><CardContent className="space-y-2">{data.agents.length ? data.agents.map((agent) => <div key={agent.name} className="flex items-center gap-3 rounded-lg border p-3"><div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10"><Bot className="h-4 w-4 text-primary" /></div><div className="min-w-0 flex-1"><div className="font-medium">{agent.name}</div><div className="text-xs text-muted-foreground">{agent.category}</div></div><div className="text-right text-xs"><div className="font-medium">{agent.actions} AI requests</div><div className="text-muted-foreground">{agent.changes} change records · {agent.tokens.toLocaleString()} tokens</div></div></div>) : <Empty text="No agent telemetry has been recorded yet." />}</CardContent></Card>
-        <Card><CardHeader><CardTitle className="text-base">User lifecycle</CardTitle><CardDescription>Last 30 days</CardDescription></CardHeader><CardContent className="space-y-4"><Stat label="Added / invited" value={data.userActivity.additions} /><Stat label="Updated" value={data.userActivity.updates} /><Stat label="Removed" value={data.userActivity.removals} /><Separator /><Stat label="Unique active actors" value={data.userActivity.uniqueActors} /></CardContent></Card>
-      </div>
-
-      <div className="mt-6 grid gap-4 xl:grid-cols-2">
-        <Card><CardHeader><CardTitle className="text-base">AI token usage</CardTitle><CardDescription>Actual model usage recorded by Aegis AI calls.</CardDescription></CardHeader><CardContent className="grid grid-cols-3 gap-3"><Usage label="Requests" value={data.ai.requests} /><Usage label="Input" value={data.ai.inputTokens} /><Usage label="Output" value={data.ai.outputTokens} /></CardContent></Card>
-        <Card><CardHeader><CardTitle className="text-base">Recent user/platform activity</CardTitle><CardDescription>Immutable audit events from this workspace.</CardDescription></CardHeader><CardContent className="space-y-2">{data.recentEvents.slice(0, 8).map((event: any, i: number) => <div key={`${event.created_at}-${i}`} className="flex justify-between gap-3 rounded border p-2 text-xs"><div><div className="font-medium">{event.action}</div><div className="text-muted-foreground">{event.actor_email ?? "system"} · {event.entity_type}</div></div><div className="shrink-0 text-muted-foreground">{new Date(event.created_at).toLocaleString()}</div></div>)}</CardContent></Card>
-      </div>
-
-      <Card className="mt-6"><CardHeader><div className="flex items-center gap-2"><Settings2 className="h-4 w-4" /><CardTitle className="text-base">Analytics settings</CardTitle></div><CardDescription>Governance controls used when calculating operational metrics.</CardDescription></CardHeader><CardContent className="grid gap-5 md:grid-cols-2 xl:grid-cols-4"><div className="space-y-2"><Label>Service level target (seconds)</Label><Input type="number" min="1" value={serviceSeconds} onChange={(e) => setServiceSeconds(e.target.value)} /></div><div className="space-y-2"><Label>Service level target (%)</Label><Input type="number" min="1" max="100" value={servicePercent} onChange={(e) => setServicePercent(e.target.value)} /></div><div className="space-y-2"><Label>Time used to calculate disconnect metrics (minutes)</Label><Input type="number" min="1" max="240" value={disconnectWindow} onChange={(e) => setDisconnectWindow(e.target.value)} /></div><div className="space-y-2"><Label>Analytics retention (days)</Label><Input type="number" min="7" value={retention} onChange={(e) => setRetention(e.target.value)} /></div><div className="md:col-span-2 xl:col-span-4 flex items-center justify-between rounded-lg border p-3"><div><div className="text-sm font-medium">Data masking</div><div className="text-xs text-muted-foreground">Mask names, emails and identifiers in analytics views where possible.</div></div><Switch checked={masking} onCheckedChange={setMasking} /></div><div className="md:col-span-2 xl:col-span-4 flex justify-end"><Button onClick={() => void saveSettings()} disabled={saving}>{saving ? "Saving…" : "Save analytics settings"}</Button></div></CardContent></Card>
-    </> : null}
+    <PageHeader title="Analytics Workspace" description="A single operational analytics surface for live telemetry, cross-provider evidence, reports, filtering and governance." actions={<div className="flex items-center gap-2"><Select value={days} onValueChange={setDays}><SelectTrigger className="w-28"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="7">7 days</SelectItem><SelectItem value="30">30 days</SelectItem><SelectItem value="60">60 days</SelectItem><SelectItem value="90">90 days</SelectItem></SelectContent></Select><Button variant="outline" size="sm" onClick={() => void refresh()} disabled={loading}><RefreshCw className={`mr-1.5 h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh</Button></div>} />
+    {loading && !data ? <div className="py-16 text-center text-sm text-muted-foreground">Loading real analytics…</div> : !data || !workspace ? <EmptyIntegrationsState title="No live analytics data available" description="Connect and successfully synchronize a provider. Aegis will not fill analytics with demo or placeholder data." /> : <Tabs defaultValue="overview" className="space-y-4">
+      <TabsList className="w-full justify-start overflow-x-auto"><TabsTrigger value="overview">Overview</TabsTrigger><TabsTrigger value="operations">Operations</TabsTrigger><TabsTrigger value="reports">Reports</TabsTrigger><TabsTrigger value="segments">Segments & Filters</TabsTrigger><TabsTrigger value="settings">Analytics Settings</TabsTrigger></TabsList>
+      <TabsContent value="overview" className="space-y-6">
+        <div className="grid grid-cols-2 gap-4 xl:grid-cols-5"><Metric icon={Activity} label={`Platform events · ${data.period.days}d`} value={data.platform.totalEvents.toLocaleString()} /><Metric icon={Users} label="Active users" value={`${data.platform.activeUsers} / ${data.platform.totalUsers}`} /><Metric icon={Zap} label="Pending changes" value={String(data.platform.pendingChanges)} /><Metric icon={Coins} label="AI tokens" value={data.ai.totalTokens.toLocaleString()} /><Metric icon={Clock3} label="AI latency" value={`${data.ai.averageLatencyMs} ms`} /></div>
+        <div className="grid gap-4 xl:grid-cols-3"><Card className="xl:col-span-2"><CardHeader><CardTitle className="text-base">Activity trend</CardTitle><CardDescription>Actual audit events, change records and AI requests over the selected period.</CardDescription></CardHeader><CardContent><div className="flex h-48 items-end gap-1 border-b pb-2">{data.trends.map((item) => { const total = item.events + item.changes + item.aiRequests; return <div key={item.date} className="group flex h-full flex-1 items-end" title={`${item.date}: ${item.events} events · ${item.changes} changes · ${item.aiRequests} AI requests`}><div className="w-full rounded-t bg-primary/70 transition-all group-hover:bg-primary" style={{ height: `${Math.max(2, (total / maxTrend) * 100)}%` }} /></div>; })}</div><div className="mt-2 flex justify-between text-[10px] text-muted-foreground"><span>{data.period.from.slice(0, 10)}</span><span>{data.period.to.slice(0, 10)}</span></div></CardContent></Card><Card><CardHeader><CardTitle className="text-base">Change risk mix</CardTitle><CardDescription>Real change records in the selected period.</CardDescription></CardHeader><CardContent className="space-y-3">{Object.entries(data.severityCounts).length ? Object.entries(data.severityCounts).map(([name, count]) => <div key={name}><div className="mb-1 flex justify-between text-xs"><span className="capitalize">{name}</span><span className="font-medium">{count}</span></div><div className="h-2 rounded-full bg-muted"><div className="h-2 rounded-full bg-primary" style={{ width: `${Math.min(100, (count / Math.max(1, data.platform.changeRecords)) * 100)}%` }} /></div></div>) : <Empty text="No change-risk data in this period." />}</CardContent></Card></div>
+        <div className="grid gap-4 xl:grid-cols-2"><Card><CardHeader><CardTitle className="text-base">Agent performance</CardTitle><CardDescription>Usage and change activity correlated by real agent telemetry.</CardDescription></CardHeader><CardContent className="space-y-2">{data.agents.length ? data.agents.slice(0, 10).map((item) => <div key={item.name} className="flex items-center gap-3 rounded-lg border p-3"><Bot className="h-4 w-4 text-primary" /><div className="min-w-0 flex-1"><div className="truncate text-sm font-medium">{item.name}</div><div className="text-xs text-muted-foreground">{item.category}</div></div><div className="text-right text-xs"><div>{item.actions} AI requests</div><div className="text-muted-foreground">{item.changes} changes · {item.tokens.toLocaleString()} tokens</div></div></div>) : <Empty text="No agent telemetry has been recorded yet." />}</CardContent></Card><Card><CardHeader><CardTitle className="text-base">Connected evidence</CardTitle><CardDescription>Provider availability and synchronized evidence used by Analytics and Reports.</CardDescription></CardHeader><CardContent className="space-y-2">{workspace.providers.connectedProviders.map((item) => { const count = workspace.providers.entities.filter((entity) => entity.provider === item.provider).length; return <div key={item.provider} className="flex items-center justify-between rounded-lg border p-3"><div><div className="text-sm font-medium">{item.display_name ?? item.provider}</div><div className="text-xs text-muted-foreground">{count.toLocaleString()} synchronized records</div></div><Badge variant="outline" className="border-success/40 text-success">Connected</Badge></div>; })}{workspace.genesys.connected && <div className="flex items-center justify-between rounded-lg border p-3"><div><div className="text-sm font-medium">Genesys Cloud</div><div className="text-xs text-muted-foreground">{workspace.genesys.users.toLocaleString()} users · {workspace.genesys.queues.toLocaleString()} queues</div></div><Badge variant="outline" className="border-success/40 text-success">Connected</Badge></div>}{!workspace.genesys.connected && !workspace.providers.connectedProviders.length && <Empty text="No providers connected yet." />}</CardContent></Card></div>
+      </TabsContent>
+      <TabsContent value="operations" className="space-y-4"><Card><CardHeader><CardTitle className="text-base">Operational activity</CardTitle><CardDescription>Search and filter actual audit/change activity. No synthetic events are added.</CardDescription></CardHeader><CardContent><div className="mb-4 grid gap-2 md:grid-cols-4"><div className="relative"><Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input className="pl-9" value={eventSearch} onChange={(event) => setEventSearch(event.target.value)} placeholder="Search events…" /></div><Select value={provider} onValueChange={setProvider}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All providers</SelectItem><SelectItem value="genesys">Genesys</SelectItem><SelectItem value="github">GitHub</SelectItem><SelectItem value="jira">Jira</SelectItem><SelectItem value="slack">Slack</SelectItem></SelectContent></Select><Select value={severity} onValueChange={setSeverity}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All severity</SelectItem><SelectItem value="critical">Critical</SelectItem><SelectItem value="high">High</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="low">Low</SelectItem></SelectContent></Select><Select value={agent} onValueChange={setAgent}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All agents</SelectItem>{data.agents.map((item) => <SelectItem key={item.name} value={item.name}>{item.name}</SelectItem>)}</SelectContent></Select></div><div className="space-y-2">{filteredEvents.length ? filteredEvents.slice(0, 40).map((event, index) => <div key={`${event.created_at}-${event.action}-${index}`} className="flex items-center gap-3 rounded-lg border p-3"><div className="h-2 w-2 shrink-0 rounded-full bg-primary" /><div className="min-w-0 flex-1"><div className="text-sm font-medium">{event.action}</div><div className="text-xs text-muted-foreground">{event.actor_email ?? "system"} · {event.entity_type}{event.entity_id ? ` · ${event.entity_id}` : ""}</div></div><div className="shrink-0 text-right text-xs text-muted-foreground">{new Date(event.created_at).toLocaleString()}</div></div>) : <Empty text="No activity matches the selected filters." />}</div></CardContent></Card></TabsContent>
+      <TabsContent value="reports" className="space-y-4"><div className="flex flex-wrap items-center gap-2"><div className="text-sm text-muted-foreground">Generate audited exports from the same evidence used by this workspace.</div><div className="ml-auto"><Select value={format} onValueChange={(value) => setFormat(value as ReportFormat)}><SelectTrigger className="w-36"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="pdf"><FileText className="mr-1.5 inline h-3.5 w-3.5" /> PDF</SelectItem><SelectItem value="csv"><FileSpreadsheet className="mr-1.5 inline h-3.5 w-3.5" /> CSV</SelectItem><SelectItem value="json"><FileJson className="mr-1.5 inline h-3.5 w-3.5" /> JSON</SelectItem></SelectContent></Select></div></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{ANALYTICS_REPORT_TEMPLATES.map((template) => { const available = hasAnalyticsReportData(template, workspace); return <Card key={template.id}><CardHeader><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary"><FileBarChart className="h-5 w-5" /></div><CardTitle className="mt-3 text-base">{template.title}</CardTitle><CardDescription>{template.description}</CardDescription></CardHeader><CardContent><Button className="w-full" size="sm" disabled={!canExport || !!busy || !available} onClick={() => void exportReport(template)}>{busy === `${template.id}:${format}` ? "Generating…" : available ? `Generate ${format.toUpperCase()}` : "No synchronized data"}</Button>{(["github", "jira", "slack"] as const).map((providerName) => workspace.providers.connectedProviders.some((item) => item.provider === providerName) && <Button key={providerName} variant="ghost" size="sm" className="mt-1" disabled={busy === `sync:${providerName}`} onClick={() => void syncProvider(providerName)}>{busy === `sync:${providerName}` ? "Syncing…" : `Sync ${providerName}`}</Button>)}{!canExport && <p className="mt-2 text-[11px] text-muted-foreground">Admin or Manager role required to export.</p>}</CardContent></Card>; })}</div><Card><CardHeader><CardTitle className="text-base">Export history</CardTitle><CardDescription>Real stored exports for this workspace.</CardDescription></CardHeader><CardContent><div className="space-y-2">{history.length ? history.map((item) => <div key={item.id} className="flex items-center gap-3 rounded-lg border p-3"><FileBarChart className="h-4 w-4 text-muted-foreground" /><div className="min-w-0 flex-1"><div className="text-sm font-medium">{item.name}</div><div className="text-xs text-muted-foreground">{item.format.toUpperCase()} · {new Date(item.createdAt).toLocaleString()} · {item.sizeBytes.toLocaleString()} bytes</div></div><Button size="sm" variant="outline" disabled={!!item.purgedAt} onClick={() => void download(item)}><Download className="mr-1.5 h-4 w-4" />{item.purgedAt ? "Purged" : "Download"}</Button></div>) : <Empty text="No reports generated yet." />}</div></CardContent></Card></TabsContent>
+      <TabsContent value="segments" className="space-y-4"><Card><CardHeader><CardTitle className="text-base">Analytics segments</CardTitle><CardDescription>Slice evidence by time, provider, severity, agent and event search. Filters apply only to real tenant telemetry.</CardDescription></CardHeader><CardContent className="grid gap-4 md:grid-cols-4"><div><Label>Time period</Label><Select value={days} onValueChange={setDays}><SelectTrigger className="mt-2"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="7">Last 7 days</SelectItem><SelectItem value="30">Last 30 days</SelectItem><SelectItem value="60">Last 60 days</SelectItem><SelectItem value="90">Last 90 days</SelectItem></SelectContent></Select></div><div><Label>Provider</Label><Select value={provider} onValueChange={setProvider}><SelectTrigger className="mt-2"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All providers</SelectItem><SelectItem value="genesys">Genesys</SelectItem><SelectItem value="github">GitHub</SelectItem><SelectItem value="jira">Jira</SelectItem><SelectItem value="slack">Slack</SelectItem></SelectContent></Select></div><div><Label>Severity</Label><Select value={severity} onValueChange={setSeverity}><SelectTrigger className="mt-2"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All severity</SelectItem><SelectItem value="critical">Critical</SelectItem><SelectItem value="high">High</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="low">Low</SelectItem></SelectContent></Select></div><div><Label>Agent</Label><Select value={agent} onValueChange={setAgent}><SelectTrigger className="mt-2"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All agents</SelectItem>{data.agents.map((item) => <SelectItem key={item.name} value={item.name}>{item.name}</SelectItem>)}</SelectContent></Select></div></CardContent></Card><div className="grid gap-4 md:grid-cols-3"><Metric icon={Activity} label="Matching events" value={filteredEvents.length.toLocaleString()} /><Metric icon={ShieldCheck} label="Change records" value={data.platform.changeRecords.toLocaleString()} /><Metric icon={BarChart3} label="Selected period" value={`${data.period.days} days`} /></div></TabsContent>
+      <TabsContent value="settings" className="space-y-4"><Card><CardHeader><div className="flex items-center gap-2"><Settings2 className="h-4 w-4" /><CardTitle className="text-base">Analytics settings</CardTitle></div><CardDescription>Retention and governance controls now live under Analytics so reporting and analytics share one configuration surface.</CardDescription></CardHeader><CardContent className="grid gap-5 md:grid-cols-2 xl:grid-cols-4"><div className="space-y-2"><Label>Service level target (seconds)</Label><Input type="number" min="1" value={serviceSeconds} onChange={(event) => setServiceSeconds(event.target.value)} /></div><div className="space-y-2"><Label>Service level target (%)</Label><Input type="number" min="1" max="100" value={servicePercent} onChange={(event) => setServicePercent(event.target.value)} /></div><div className="space-y-2"><Label>Disconnect metric window (minutes)</Label><Input type="number" min="1" max="240" value={disconnectWindow} onChange={(event) => setDisconnectWindow(event.target.value)} /></div><div className="space-y-2"><Label>Analytics/report retention (days)</Label><Input type="number" min="7" max="3650" value={retention} onChange={(event) => setRetention(event.target.value)} /></div><div className="md:col-span-2 xl:col-span-4 flex items-center justify-between rounded-lg border p-3"><div><div className="text-sm font-medium">Data masking</div><div className="text-xs text-muted-foreground">Mask names, emails and identifiers in analytics views where supported.</div></div><Switch checked={masking} onCheckedChange={setMasking} /></div><div className="md:col-span-2 xl:col-span-4 flex justify-end"><Button onClick={() => void saveSettings()} disabled={busy === "settings"}>{busy === "settings" ? "Saving…" : "Save analytics settings"}</Button></div></CardContent></Card></TabsContent>
+    </Tabs>}
   </div>;
 }
 
 function Metric({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string }) { return <Card><CardContent className="p-4"><Icon className="h-4 w-4 text-muted-foreground" /><div className="mt-2 text-xl font-semibold">{value}</div><div className="text-xs text-muted-foreground">{label}</div></CardContent></Card>; }
-function Stat({ label, value }: { label: string; value: number }) { return <div className="flex justify-between text-sm"><span className="text-muted-foreground">{label}</span><span className="font-semibold">{value.toLocaleString()}</span></div>; }
-function Usage({ label, value }: { label: string; value: number }) { return <div className="rounded-lg border p-3"><div className="text-xs text-muted-foreground">{label}</div><div className="mt-1 text-lg font-semibold">{value.toLocaleString()}</div></div>; }
 function Empty({ text }: { text: string }) { return <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">{text}</div>; }
