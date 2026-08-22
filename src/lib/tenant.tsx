@@ -102,8 +102,10 @@ export async function ensureTenantBootstrap(user: User): Promise<{
   return {
     tenantId: tenantId!,
     tenantName: tenantName ?? "Workspace",
+    primaryDomain,
     roles: (roleRows ?? []).map((r) => r.role as AppRole),
   };
+
 }
 
 /** Seeds a brand-new tenant with the reference change-management dataset. */
