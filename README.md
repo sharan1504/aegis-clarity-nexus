@@ -5,3 +5,5 @@ Act as a Principal Software Architect, Senior Full-Stack Engineer, AI Engineer, 
 Build a modern enterprise AI platform called **Aegis AI**.
 
 CI validation checkpoint for the live-data platform implementation.
+
+<!-- CI diagnostic checkpoint -->
