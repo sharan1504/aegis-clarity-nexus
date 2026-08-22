@@ -1,3 +1,24 @@
+-- Webhook RLS needs a tenant-scoped role helper. Define it before the
+-- policies so a fresh database can apply this migration without relying on
+-- another migration or an undeployed helper function.
+create or replace function public.has_tenant_role(_tenant_id uuid, _role text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.user_roles ur
+    where ur.user_id = auth.uid()
+      and ur.tenant_id = _tenant_id
+      and ur.role::text = _role
+  );
+$$;
+
+grant execute on function public.has_tenant_role(uuid, text) to authenticated;
+
 create table if not exists public.webhooks (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null references public.tenants(id) on delete cascade,
@@ -27,6 +48,15 @@ create table if not exists public.webhook_delivery_attempts (
 
 alter table public.webhooks enable row level security;
 alter table public.webhook_delivery_attempts enable row level security;
+
+grant select, insert, update, delete on public.webhooks to authenticated;
+grant select on public.webhook_delivery_attempts to authenticated;
+
+drop policy if exists webhooks_admin_select on public.webhooks;
+drop policy if exists webhooks_admin_insert on public.webhooks;
+drop policy if exists webhooks_admin_update on public.webhooks;
+drop policy if exists webhooks_admin_delete on public.webhooks;
+drop policy if exists webhook_attempts_admin_select on public.webhook_delivery_attempts;
 
 create policy webhooks_admin_select on public.webhooks
   for select to authenticated
