@@ -95,8 +95,6 @@ function SettingsPage() {
       setDomain(saved.primaryDomain);
       setTimezone(saved.timezone || "UTC");
       setTimezones(saved.timezones?.length ? saved.timezones : DEFAULT_TIMEZONES);
-      // Refresh the shared tenant context so the sidebar and all other
-      // platform-wide organization displays immediately use the saved values.
       await refreshTenant();
       toast.success("Workspace settings saved");
     } catch (e) {
