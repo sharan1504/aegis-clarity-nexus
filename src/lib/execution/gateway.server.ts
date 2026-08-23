@@ -130,7 +130,7 @@ function applyRecordCap<T>(value: T, maxRecords: number | null): { value: T; cap
 }
 
 async function requireWorkspaceApprovalForWrite(supabase: UserClient, tenantId: string, operation: GovernedOperation): Promise<GovernedResult<never> | null> {
-  if (operation.executionClass !== "write") return null;
+  if (operation.executionClass === "read_only") return null;
   const { data, error } = await supabase.from("tenants").select("analytics_settings").eq("id", tenantId).single();
   if (error) return denial("unavailable", ["Workspace security settings could not be evaluated; the write was denied."], ["Resolve workspace settings access and retry."]);
   const settings = data?.analytics_settings && typeof data.analytics_settings === "object" ? data.analytics_settings as Record<string, unknown> : {};

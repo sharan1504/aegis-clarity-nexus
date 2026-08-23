@@ -2146,24 +2146,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      current_tenant_id: { Args: never; Returns: string }
-      has_tenant_role: {
-        Args: { _role: string; _tenant_id: string }
-        Returns: boolean
-      }
-      upsert_provider_connection: {
-        Args: {
-          p_credential_expires_at: string
-          p_display_name: string
-          p_encrypted_credentials: string
-          p_external_id: string
-          p_last_error: string
-          p_provider: string
-          p_status: string
-          p_tenant_id: string
-        }
-        Returns: string
-      }
+      [_ in never]: never
     }
     Enums: {
       app_role: "admin" | "manager" | "analyst" | "viewer"

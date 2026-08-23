@@ -15,9 +15,9 @@ export interface EnterpriseChatMessage {
 type ChatResult = {
   answer?: string;
   analysis?: string;
-  recommendations?: unknown[];
+  recommendations?: any[];
   sources?: string[];
-  correlatedSignals?: unknown[];
+  correlatedSignals?: any[];
   confidence?: number;
   actionRequired?: boolean;
 };

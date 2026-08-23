@@ -48,17 +48,29 @@ export const connectProvider = createServerFn({ method: "POST" })
       if (!tenantId) return { ok: false as const, error: "Admin/manager access is required to connect an integration." };
       const result = await validateProviderConnection({ ...data, tenantId });
       const encrypted = result.ok ? encryptCredentials({ accessToken: result.accessToken, refreshToken: result.refreshToken, clientId: data.clientId, clientSecret: data.clientSecret, apiToken: data.apiToken, accessKeyId: data.accessKeyId, secretAccessKey: data.secretAccessKey, sessionToken: data.sessionToken, tenant: data.tenant, baseUrl: data.baseUrl, region: data.region }) : null;
-      const { error } = await context.supabase.rpc("upsert_provider_connection", {
-        p_tenant_id: tenantId,
-        p_provider: data.provider,
-        p_external_id: result.externalId ?? null,
-        p_display_name: result.displayName ?? null,
-        p_status: result.status,
-        p_encrypted_credentials: encrypted,
-        p_credential_expires_at: result.expiresAt ?? null,
-        p_last_error: result.error ?? null,
-      });
+      // Role was verified above against the caller's own RLS-scoped rows; the
+      // privileged client is only reached after that check.
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { error } = await supabaseAdmin
+        .from("provider_connections")
+        .upsert(
+          {
+            tenant_id: tenantId,
+            provider: data.provider,
+            external_id: result.externalId ?? null,
+            display_name: result.displayName ?? null,
+            status: result.status,
+            encrypted_credentials: encrypted,
+            credential_expires_at: result.expiresAt ?? null,
+            last_error: result.error ?? null,
+            created_by: context.userId,
+            connected_at: result.status === "connected" ? new Date().toISOString() : null,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "tenant_id,provider" },
+        );
       if (error) throw new Error(error.message);
+
       return { ok: result.ok, status: result.status, provider: data.provider, displayName: result.displayName, externalId: result.externalId, error: result.error };
     } catch (error) {
       return { ok: false as const, error: error instanceof Error ? error.message : "Connection failed." };

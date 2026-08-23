@@ -45,7 +45,7 @@ export const deployAgent = createServerFn({ method: "POST" })
       return { ok: false as const, error: `Connect a real provider that supports: ${names.join(", ")}. No binding was created.` };
     }
 
-    const rows: Array<Record<string, unknown>> = [];
+    const rows: Array<{ tenant_id: string; agent_key: string; integration_id: string; capability_id: string; enabled: boolean; is_mock: boolean; created_by: string }> = [];
     for (const requirement of requirements ?? []) {
       const integration = (connected ?? []).find((candidate) =>
         (providerCapabilities ?? []).some((pc) => pc.provider === candidate.provider && pc.capability_id === requirement.capability_id));
