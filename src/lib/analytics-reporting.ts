@@ -14,20 +14,20 @@ export const ANALYTICS_REPORT_TEMPLATES: AnalyticsReportTemplate[] = [
 function providerRows(data: AnalyticsWorkspaceData): ReportRow[] {
   const rows: ReportRow[] = [];
   for (const connection of data.providers.connectedProviders) {
-    const entities = data.providers.entities.filter((entity) => entity.provider === connection.provider);
+    const entities = data.providers.entities.filter((entity: any) => entity.provider === connection.provider);
     if (!entities.length) continue;
-    const latest = entities.reduce((value, entity) => entity.observed_at > value ? entity.observed_at : value, entities[0].observed_at);
+    const latest = entities.reduce((value: any, entity: any) => entity.observed_at > value ? entity.observed_at : value, entities[0].observed_at);
     rows.push({ metric: `${connection.display_name ?? connection.provider} synchronized records`, value: String(entities.length), detail: `Last observed ${new Date(latest).toLocaleString()}`, category: "Provider" });
     if (connection.provider === "github") {
-      const repos = entities.filter((entity) => entity.entity_type === "repository");
+      const repos = entities.filter((entity: any) => entity.entity_type === "repository");
       rows.push({ metric: "GitHub repositories", value: String(repos.length), detail: "Repositories returned by the connected GitHub account", category: "DevOps" });
-      rows.push({ metric: "GitHub open issues", value: String(repos.reduce((sum, entity) => sum + Number((entity.payload as Record<string, unknown> | null)?.openIssues ?? 0), 0)), detail: "Open issue counts from synchronized repositories", category: "DevOps" });
+      rows.push({ metric: "GitHub open issues", value: String(repos.reduce((sum: number, entity: any) => sum + Number((entity.payload as Record<string, unknown> | null)?.openIssues ?? 0), 0)), detail: "Open issue counts from synchronized repositories", category: "DevOps" });
     }
     if (connection.provider === "jira") {
-      rows.push({ metric: "Jira projects", value: String(entities.filter((entity) => entity.entity_type === "project").length), detail: "Projects returned by Jira", category: "ITSM" });
-      rows.push({ metric: "Jira issues synchronized", value: String(entities.filter((entity) => entity.entity_type === "issue").length), detail: "Issues returned by the synchronized Jira window", category: "ITSM" });
+      rows.push({ metric: "Jira projects", value: String(entities.filter((entity: any) => entity.entity_type === "project").length), detail: "Projects returned by Jira", category: "ITSM" });
+      rows.push({ metric: "Jira issues synchronized", value: String(entities.filter((entity: any) => entity.entity_type === "issue").length), detail: "Issues returned by the synchronized Jira window", category: "ITSM" });
     }
-    if (connection.provider === "slack") rows.push({ metric: "Slack channels", value: String(entities.filter((entity) => entity.entity_type === "channel").length), detail: "Non-archived channels returned by Slack", category: "Collaboration" });
+    if (connection.provider === "slack") rows.push({ metric: "Slack channels", value: String(entities.filter((entity: any) => entity.entity_type === "channel").length), detail: "Non-archived channels returned by Slack", category: "Collaboration" });
   }
   return rows;
 }

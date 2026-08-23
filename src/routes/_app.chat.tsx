@@ -102,7 +102,7 @@ function ChatPage() {
     },
     onSuccess: async (result) => {
       if (result.ok) {
-        setMessages((current) => [...current, { role: "assistant", content: result.answer ?? "Analysis complete.", result }]);
+        setMessages((current) => [...current, { role: "assistant", content: (result as { answer?: string }).answer ?? "Analysis complete.", result: result as never }]);
         await refreshHistory();
       }
     },

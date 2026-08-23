@@ -183,9 +183,10 @@ export const createExternalTicketServer = createServerFn({ method: "POST" })
     }
 
     const credentials = decryptCredentials(connection.encrypted_credentials);
+    const ticketRecord = { id: record.change_id, title: record.title, aiReasoning: record.ai_reasoning ?? "", severity: record.severity };
     const ticket = data.system === "Jira"
-      ? await createJiraTicket(credentials, record)
-      : await createServiceNowTicket(credentials, record);
+      ? await createJiraTicket(credentials, ticketRecord)
+      : await createServiceNowTicket(credentials, ticketRecord);
 
     const existing = await context.supabase
       .from("change_records")
@@ -201,7 +202,7 @@ export const createExternalTicketServer = createServerFn({ method: "POST" })
     externalTickets.push(ticket);
     timeline.unshift({
       ts: now,
-      actor: context.user.email ?? context.userId,
+      actor: (context.claims as { email?: string } | undefined)?.email ?? context.userId,
       kind: "system",
       text: `${data.system} ticket ${ticket.id} created and linked.`,
     });
