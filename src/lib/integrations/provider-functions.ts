@@ -87,13 +87,12 @@ export const getProviderCatalog = createServerFn({ method: "GET" })
     // catalog contract so the Integrations page reflects the actual connection
     // source without duplicating credentials or weakening either RLS boundary.
     const genericConnections = (providerConnections ?? []) as CatalogConnection[];
-    const genericGenesysIds = new Set(genericConnections.filter((x) => x.provider === "genesys").map((x) => x.external_id).filter(Boolean));
-    const mappedGenesys = (genesysIntegrations ?? [])
-      .map(mapGenesysIntegration)
-      .filter((x) => !genericGenesysIds.has(x.external_id));
-
-    const connections = [...genericConnections.filter((x) => x.provider !== "genesys"), ...genericConnections.filter((x) => x.provider === "genesys"), ...mappedGenesys]
-      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+    const mappedGenesys = (genesysIntegrations ?? []).map(mapGenesysIntegration);
+    const hasDedicatedGenesys = mappedGenesys.length > 0;
+    const connections = [
+      ...genericConnections.filter((x) => !hasDedicatedGenesys || x.provider !== "genesys"),
+      ...mappedGenesys,
+    ].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
 
     return {
       providers: PROVIDER_REGISTRY.map((p) => ({
