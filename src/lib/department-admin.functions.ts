@@ -14,14 +14,16 @@ async function requireAdmin(context: any) {
 export const getDepartmentAdminView = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
   const { tenantId } = await requireAdmin(context);
   const db = dbOf(context.supabase);
-  const [{ data: departments, error: departmentError }, { data: members, error: memberError }, { data: roles, error: roleError }, { data: agents, error: agentError }, { data: access, error: accessError }] = await Promise.all([
+  const [{ data: departments, error: departmentError }, { data: members, error: memberError }, { data: roles, error: roleError }, { data: agents, error: agentError }, { data: access, error: accessError }, { data: connections, error: connectionError }, { data: connectionAccess, error: connectionAccessError }] = await Promise.all([
     db.from("departments").select("id,department_key,display_name,description,active").eq("active", true).order("display_name"),
     db.from("profiles").select("id,email,full_name").eq("tenant_id", tenantId).order("full_name"),
     db.from("user_roles").select("user_id,role").eq("tenant_id", tenantId),
     db.from("agent_definitions").select("agent_key,display_name,category,description").order("display_name"),
     db.from("department_agent_access").select("department_id,agent_key,enabled").eq("tenant_id", tenantId),
+    db.from("provider_connections").select("id,provider,display_name,environment,status,external_id,last_sync_at").eq("tenant_id", tenantId).order("updated_at", { ascending: false }),
+    db.from("department_provider_connection_access").select("department_id,connection_id,enabled").eq("tenant_id", tenantId),
   ]);
-  if (departmentError || memberError || roleError || agentError || accessError) throw new Error([departmentError, memberError, roleError, agentError, accessError].find(Boolean)?.message ?? "Department settings could not be loaded.");
+  if (departmentError || memberError || roleError || agentError || accessError || connectionError || connectionAccessError) throw new Error([departmentError, memberError, roleError, agentError, accessError, connectionError, connectionAccessError].find(Boolean)?.message ?? "Department settings could not be loaded.");
 
   const { data: memberships, error: membershipError } = await db.from("user_department_memberships").select("user_id,department_id").eq("tenant_id", tenantId);
   if (membershipError) throw new Error(membershipError.message);
@@ -31,6 +33,8 @@ export const getDepartmentAdminView = createServerFn({ method: "GET" }).middlewa
     members: (members ?? []).map((member: any) => ({ ...member, role: roleMap.get(member.id) ?? "viewer", departmentIds: (memberships ?? []).filter((row: any) => row.user_id === member.id).map((row: any) => row.department_id) })),
     agents: agents ?? [],
     access: access ?? [],
+    connections: connections ?? [],
+    connectionAccess: connectionAccess ?? [],
   };
 });
 
@@ -59,6 +63,22 @@ export const setDepartmentAgentAccess = createServerFn({ method: "POST" }).middl
     if (error) throw new Error(error.message);
   } else {
     const { error } = await db.from("department_agent_access").update({ enabled: false }).eq("tenant_id", tenantId).eq("department_id", data.departmentId).eq("agent_key", data.agentKey);
+    if (error) throw new Error(error.message);
+  }
+  return { ok: true as const };
+});
+
+export const setDepartmentProviderConnectionAccess = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { departmentId: string; connectionId: string; enabled: boolean }) => ({ departmentId: String(input.departmentId ?? "").trim(), connectionId: String(input.connectionId ?? "").trim(), enabled: Boolean(input.enabled) })).handler(async ({ data, context }) => {
+  const { tenantId } = await requireAdmin(context);
+  if (!data.departmentId || !data.connectionId) throw new Error("Department and integration instance are required.");
+  const db = dbOf(context.supabase);
+  const { data: connection } = await db.from("provider_connections").select("id").eq("id", data.connectionId).eq("tenant_id", tenantId).maybeSingle();
+  if (!connection) throw new Error("Integration instance does not belong to this workspace.");
+  if (data.enabled) {
+    const { error } = await db.from("department_provider_connection_access").upsert({ tenant_id: tenantId, department_id: data.departmentId, connection_id: data.connectionId, enabled: true }, { onConflict: "tenant_id,department_id,connection_id" });
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await db.from("department_provider_connection_access").update({ enabled: false }).eq("tenant_id", tenantId).eq("department_id", data.departmentId).eq("connection_id", data.connectionId);
     if (error) throw new Error(error.message);
   }
   return { ok: true as const };
