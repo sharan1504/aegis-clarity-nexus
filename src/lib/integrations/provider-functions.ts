@@ -52,6 +52,17 @@ export const connectProvider = createServerFn({ method: "POST" })
   .inputValidator((input: ProviderConnectionInput & { connectionId?: string; displayName?: string; environment?: string }) => input)
   .handler(async ({ data, context }) => {
     try {
+      // Genesys Cloud has a dedicated, server-managed OAuth flow in
+      // integrations-genesys.functions.ts. Never send a Genesys connection
+      // through this generic credential validator: it does not implement the
+      // Genesys provider contract and would otherwise return undefined.
+      if ((data.provider as string) === "genesys") {
+        return {
+          ok: false as const,
+          error: "Genesys Cloud must be connected through its OAuth authorization flow.",
+        };
+      }
+
       const { data: roles } = await context.supabase.from("user_roles").select("tenant_id,role").eq("user_id", context.userId);
       const tenantId = roles?.find((r) => r.role === "admin" || r.role === "manager")?.tenant_id;
       if (!tenantId) return { ok: false as const, error: "Admin/manager access is required to connect an integration." };
