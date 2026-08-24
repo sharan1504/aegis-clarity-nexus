@@ -55,24 +55,24 @@ CREATE POLICY "departments readable" ON public.departments
 DROP POLICY IF EXISTS "users can view own department memberships" ON public.user_department_memberships;
 CREATE POLICY "users can view own department memberships" ON public.user_department_memberships
   FOR SELECT TO authenticated
-  USING (user_id = auth.uid() AND tenant_id = public.current_tenant_id());
+  USING (user_id = auth.uid() AND tenant_id = app_private.current_tenant_id());
 
 DROP POLICY IF EXISTS "tenant admins manage department memberships" ON public.user_department_memberships;
 CREATE POLICY "tenant admins manage department memberships" ON public.user_department_memberships
   FOR ALL TO authenticated
-  USING (tenant_id = public.current_tenant_id() AND public.has_role(auth.uid(), 'admin'))
-  WITH CHECK (tenant_id = public.current_tenant_id() AND public.has_role(auth.uid(), 'admin'));
+  USING (tenant_id = app_private.current_tenant_id() AND app_private.has_tenant_role(tenant_id, 'admin'))
+  WITH CHECK (tenant_id = app_private.current_tenant_id() AND app_private.has_tenant_role(tenant_id, 'admin'));
 
 DROP POLICY IF EXISTS "tenant members view department agent access" ON public.department_agent_access;
 CREATE POLICY "tenant members view department agent access" ON public.department_agent_access
   FOR SELECT TO authenticated
-  USING (tenant_id = public.current_tenant_id());
+  USING (tenant_id = app_private.current_tenant_id());
 
 DROP POLICY IF EXISTS "tenant admins manage department agent access" ON public.department_agent_access;
 CREATE POLICY "tenant admins manage department agent access" ON public.department_agent_access
   FOR ALL TO authenticated
-  USING (tenant_id = public.current_tenant_id() AND public.has_role(auth.uid(), 'admin'))
-  WITH CHECK (tenant_id = public.current_tenant_id() AND public.has_role(auth.uid(), 'admin'));
+  USING (tenant_id = app_private.current_tenant_id() AND app_private.has_tenant_role(tenant_id, 'admin'))
+  WITH CHECK (tenant_id = app_private.current_tenant_id() AND app_private.has_tenant_role(tenant_id, 'admin'));
 
 -- Seed a practical enterprise department catalogue. Tenants can add more departments later.
 INSERT INTO public.departments (department_key, display_name, description) VALUES
