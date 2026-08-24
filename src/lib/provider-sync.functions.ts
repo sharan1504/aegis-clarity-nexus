@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveTenant } from "@/lib/genesys/store.server";
+import { resolveDepartmentContext, getDepartmentProviders } from "@/lib/department-access.server";
 
 type Provider = "github" | "slack" | "jira";
 interface Credentials { accessToken?: string; baseUrl?: string; }
@@ -23,7 +24,17 @@ export const syncReportProvider = createServerFn({ method: "POST" }).middleware(
     const finished = new Date().toISOString(); const staled = await context.supabase.from("provider_sync_entities").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("provider", data.provider).eq("stale", true); await context.supabase.from("provider_sync_runs").update({ status: "success", finished_at: finished, records_seen: rows.length, records_upserted: rows.length, records_staled: staled.count ?? 0 }).eq("id", run.id).eq("tenant_id", tenantId); return { ok: true as const, provider: data.provider, records: rows.length, finishedAt: finished };
   } catch (error) { const message = error instanceof Error ? error.message : String(error); await context.supabase.from("provider_sync_runs").update({ status: "failed", finished_at: new Date().toISOString(), error_message: message.slice(0, 2000) }).eq("id", run.id).eq("tenant_id", tenantId); throw new Error(message); }
 });
-export async function loadProviderReportData(supabase: any, userId: string) { const { tenantId } = await resolveTenant(supabase, userId); const { data: connections } = await supabase.from("provider_connections").select("provider,status,display_name,last_sync_at").eq("tenant_id", tenantId); const connected = (connections ?? []).filter((c: any) => c.status === "connected"); const supported = connected.map((c: any) => c.provider).filter((p: string) => ["aws", "azure", "jira", "servicenow", "github", "slack"].includes(p)); const entities = supported.length ? (await supabase.from("provider_sync_entities").select("provider,entity_type,entity_key,payload,observed_at").eq("tenant_id", tenantId).eq("stale", false).in("provider", supported)).data ?? [] : []; const runs = supported.length ? (await supabase.from("provider_sync_runs").select("provider,status,started_at,finished_at,records_seen,error_message").eq("tenant_id", tenantId).in("provider", supported).order("started_at", { ascending: false }).limit(100)).data ?? [] : []; return { connectedProviders: connected, entities, runs }; }
+export async function loadProviderReportData(supabase: any, userId: string, departmentKey?: string | null) {
+  const { tenantId } = await resolveTenant(supabase, userId);
+  const department = await resolveDepartmentContext(supabase, userId, departmentKey);
+  const allowedProviders = await getDepartmentProviders(supabase, department);
+  const { data: connections } = await supabase.from("provider_connections").select("provider,status,display_name,last_sync_at").eq("tenant_id", tenantId);
+  const connected = (connections ?? []).filter((c: any) => c.status === "connected");
+  const supported = connected.map((c: any) => c.provider).filter((p: string) => ["aws", "azure", "jira", "servicenow", "github", "slack"].includes(p) && (allowedProviders === null || allowedProviders.includes(p)));
+  const entities = supported.length ? (await supabase.from("provider_sync_entities").select("provider,entity_type,entity_key,payload,observed_at").eq("tenant_id", tenantId).eq("stale", false).in("provider", supported)).data ?? [] : [];
+  const runs = supported.length ? (await supabase.from("provider_sync_runs").select("provider,status,started_at,finished_at,records_seen,error_message").eq("tenant_id", tenantId).in("provider", supported).order("started_at", { ascending: false }).limit(100)).data ?? [] : [];
+  return { connectedProviders: connected.filter((c: any) => allowedProviders === null || allowedProviders.includes(c.provider)), entities, runs, department: { key: department.departmentKey, name: department.departmentName, unrestricted: department.unrestricted } };
+}
 
 export interface CorrelatedSignal { title: string; detail: string; providers: string[]; timestamp: string; evidence: Array<{ provider: string; entityType: string; entityKey: string; observedAt: string }>; }
 export function deriveCorrelatedSignals(entities: any[]): CorrelatedSignal[] {
