@@ -15,26 +15,93 @@ function encryptCredentials(value: unknown): string {
   return [iv.toString("base64url"), tag.toString("base64url"), ciphertext.toString("base64url")].join(".");
 }
 
+type CatalogConnection = {
+  id: string;
+  provider: string;
+  status: "connected" | "failed" | "disconnected";
+  display_name: string | null;
+  environment: string;
+  external_id: string | null;
+  credential_expires_at: string | null;
+  last_sync_at: string | null;
+  last_error: string | null;
+  connected_at: string | null;
+  updated_at: string;
+};
+
+function mapGenesysIntegration(row: {
+  id: string;
+  provider: string;
+  status: string;
+  external_org_id: string | null;
+  external_org_name: string | null;
+  region: string | null;
+  last_sync_at: string | null;
+  last_sync_error: string | null;
+  health_detail: string | null;
+  connected_at: string | null;
+  updated_at: string;
+}): CatalogConnection {
+  const status: CatalogConnection["status"] =
+    row.status === "connected" ? "connected" : row.status === "disconnected" ? "disconnected" : "failed";
+
+  return {
+    id: row.id,
+    provider: "genesys",
+    status,
+    display_name: row.external_org_name || "Genesys Cloud",
+    environment: "Production",
+    external_id: row.external_org_id,
+    credential_expires_at: null,
+    last_sync_at: row.last_sync_at,
+    last_error: row.last_sync_error || row.health_detail,
+    connected_at: row.connected_at,
+    updated_at: row.updated_at,
+  };
+}
+
 export const getProviderCatalog = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { data: roles } = await context.supabase.from("user_roles").select("tenant_id,role").eq("user_id", context.userId);
     const tenantId = roles?.find((r) => r.tenant_id)?.tenant_id;
-    const { data: connections } = tenantId
-      ? await context.supabase
-          .from("provider_connections")
-          .select("id,provider,status,display_name,environment,external_id,credential_expires_at,last_sync_at,last_error,connected_at,updated_at")
-          .eq("tenant_id", tenantId)
-          .order("updated_at", { ascending: false })
-      : { data: [] };
+
+    const [{ data: providerConnections }, { data: genesysIntegrations }] = tenantId
+      ? await Promise.all([
+          context.supabase
+            .from("provider_connections")
+            .select("id,provider,status,display_name,environment,external_id,credential_expires_at,last_sync_at,last_error,connected_at,updated_at")
+            .eq("tenant_id", tenantId)
+            .order("updated_at", { ascending: false }),
+          context.supabase
+            .from("integrations")
+            .select("id,provider,status,external_org_id,external_org_name,region,last_sync_at,last_sync_error,health_detail,connected_at,updated_at")
+            .eq("tenant_id", tenantId)
+            .eq("provider", "genesys")
+            .order("updated_at", { ascending: false }),
+        ])
+      : [{ data: [] }, { data: [] }];
+
+    // Genesys uses the dedicated OAuth-backed `integrations` store, while the
+    // generic connectors use `provider_connections`. Present both through one
+    // catalog contract so the Integrations page reflects the actual connection
+    // source without duplicating credentials or weakening either RLS boundary.
+    const genericConnections = (providerConnections ?? []) as CatalogConnection[];
+    const genericGenesysIds = new Set(genericConnections.filter((x) => x.provider === "genesys").map((x) => x.external_id).filter(Boolean));
+    const mappedGenesys = (genesysIntegrations ?? [])
+      .map(mapGenesysIntegration)
+      .filter((x) => !genericGenesysIds.has(x.external_id));
+
+    const connections = [...genericConnections.filter((x) => x.provider !== "genesys"), ...genericConnections.filter((x) => x.provider === "genesys"), ...mappedGenesys]
+      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
 
     return {
       providers: PROVIDER_REGISTRY.map((p) => ({
         ...p,
-        configured: connections?.some((x) => x.provider === p.id && x.status === "connected") ?? false,
-        connections: (connections ?? []).filter((x) => x.provider === p.id),
+        configured: connections.some((x) => x.provider === p.id && x.status === "connected"),
+        connections: connections.filter((x) => x.provider === p.id),
       })),
-      connections: connections ?? [],
+      connections,
     };
   });
 
