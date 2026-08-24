@@ -1,32 +1,47 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveTenant } from "@/lib/genesys/store.server";
+import { resolveDepartmentContext } from "@/lib/department-access.server";
 import type { EnterpriseChatMessage } from "@/lib/enterprise-chat.functions";
 
-export type ChatSession = { id: string; title: string; createdAt: string; updatedAt: string };
+export type ChatSession = { id: string; title: string; createdAt: string; updatedAt: string; departmentKey: string | null; departmentName: string | null };
 export type StoredChatMessage = EnterpriseChatMessage & { id: string; createdAt: string; result?: Record<string, unknown> | null };
 
-export const createChatSession = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
-  const { tenantId } = await resolveTenant(context.supabase, context.userId); const db = context.supabase as any;
-  const { data, error } = await db.from("chat_sessions").insert({ tenant_id: tenantId, user_id: context.userId, title: "New chat" }).select("id,title,created_at,updated_at").single();
-  if (error || !data) throw new Error(error?.message ?? "Unable to create chat session.");
-  return { session: { id: data.id, title: data.title, createdAt: data.created_at, updatedAt: data.updated_at } satisfies ChatSession };
+export const createChatSession = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input?: { departmentKey?: string | null }) => ({ departmentKey: input?.departmentKey ? String(input.departmentKey).trim().toLowerCase() : null }))
+  .handler(async ({ data, context }) => {
+    const { tenantId } = await resolveTenant(context.supabase, context.userId);
+    const department = await resolveDepartmentContext(context.supabase, context.userId, data.departmentKey);
+    const db = context.supabase as any;
+    const { data: row, error } = await db.from("chat_sessions").insert({ tenant_id: tenantId, user_id: context.userId, title: "New chat", department_key: department.departmentKey }).select("id,title,created_at,updated_at,department_key").single();
+    if (error || !row) throw new Error(error?.message ?? "Unable to create chat session.");
+    return { session: { id: row.id, title: row.title, createdAt: row.created_at, updatedAt: row.updated_at, departmentKey: row.department_key ?? null, departmentName: department.departmentName } satisfies ChatSession };
+  });
+
+export const getMyDepartments = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
+  const department = await resolveDepartmentContext(context.supabase, context.userId);
+  return { departments: department.departments, selected: department.departmentKey, unrestricted: department.unrestricted };
 });
 
 export const listChatSessions = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
   const { tenantId } = await resolveTenant(context.supabase, context.userId); const db = context.supabase as any;
-  const { data, error } = await db.from("chat_sessions").select("id,title,created_at,updated_at").eq("tenant_id", tenantId).eq("user_id", context.userId).order("updated_at", { ascending: false });
+  const { data, error } = await db.from("chat_sessions").select("id,title,created_at,updated_at,department_key").eq("tenant_id", tenantId).eq("user_id", context.userId).order("updated_at", { ascending: false });
   if (error) throw new Error(error.message);
-  return { sessions: (data ?? []).map((row: any) => ({ id: row.id, title: row.title, createdAt: row.created_at, updatedAt: row.updated_at } satisfies ChatSession)) };
+  const departmentKeys = [...new Set((data ?? []).map((row: any) => row.department_key).filter(Boolean))];
+  const { data: departments } = departmentKeys.length ? await db.from("departments").select("department_key,display_name").in("department_key", departmentKeys) : { data: [] };
+  const names = new Map((departments ?? []).map((row: any) => [row.department_key, row.display_name]));
+  return { sessions: (data ?? []).map((row: any) => ({ id: row.id, title: row.title, createdAt: row.created_at, updatedAt: row.updated_at, departmentKey: row.department_key ?? null, departmentName: row.department_key ? names.get(row.department_key) ?? row.department_key : null } satisfies ChatSession)) };
 });
 
 export const getChatSession = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).inputValidator((input: { sessionId: string }) => ({ sessionId: String(input.sessionId ?? "").trim() })).handler(async ({ data, context }) => {
   const { tenantId } = await resolveTenant(context.supabase, context.userId); const db = context.supabase as any;
-  const { data: session, error: sessionError } = await db.from("chat_sessions").select("id,title,created_at,updated_at").eq("id", data.sessionId).eq("tenant_id", tenantId).eq("user_id", context.userId).maybeSingle();
+  const { data: session, error: sessionError } = await db.from("chat_sessions").select("id,title,created_at,updated_at,department_key").eq("id", data.sessionId).eq("tenant_id", tenantId).eq("user_id", context.userId).maybeSingle();
   if (sessionError) throw new Error(sessionError.message); if (!session) throw new Error("Chat session not found.");
+  const department = await resolveDepartmentContext(context.supabase, context.userId, session.department_key);
   const { data: messages, error: messageError } = await db.from("chat_messages").select("id,role,content,result,created_at").eq("session_id", session.id).eq("tenant_id", tenantId).eq("user_id", context.userId).order("created_at", { ascending: true });
   if (messageError) throw new Error(messageError.message);
-  return { session: { id: session.id, title: session.title, createdAt: session.created_at, updatedAt: session.updated_at } satisfies ChatSession, messages: (messages ?? []).map((row: any) => ({ id: row.id, role: row.role as EnterpriseChatMessage["role"], content: row.content, result: (row.result ?? undefined) as Record<string, unknown> | undefined, createdAt: row.created_at } satisfies StoredChatMessage)) };
+  return { session: { id: session.id, title: session.title, createdAt: session.created_at, updatedAt: session.updated_at, departmentKey: department.departmentKey, departmentName: department.departmentName } satisfies ChatSession, messages: (messages ?? []).map((row: any) => ({ id: row.id, role: row.role as EnterpriseChatMessage["role"], content: row.content, result: (row.result ?? undefined) as Record<string, unknown> | undefined, createdAt: row.created_at } satisfies StoredChatMessage)) };
 });
 
 export const deleteChatSession = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { sessionId: string }) => ({ sessionId: String(input.sessionId ?? "").trim() })).handler(async ({ data, context }) => {
