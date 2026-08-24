@@ -29,15 +29,10 @@ CREATE TABLE IF NOT EXISTS public.department_agent_access (
   UNIQUE (tenant_id, department_id, agent_key)
 );
 
-ALTER TABLE public.chat_sessions
-  ADD COLUMN IF NOT EXISTS department_key text;
-
 CREATE INDEX IF NOT EXISTS user_department_memberships_user_idx
   ON public.user_department_memberships(tenant_id, user_id);
 CREATE INDEX IF NOT EXISTS department_agent_access_lookup_idx
   ON public.department_agent_access(tenant_id, department_id, agent_key);
-CREATE INDEX IF NOT EXISTS chat_sessions_department_idx
-  ON public.chat_sessions(tenant_id, user_id, department_key, updated_at DESC);
 
 GRANT SELECT ON public.departments TO authenticated;
 GRANT SELECT ON public.user_department_memberships TO authenticated;
@@ -74,7 +69,7 @@ CREATE POLICY "tenant admins manage department agent access" ON public.departmen
   USING (tenant_id = app_private.current_tenant_id() AND app_private.has_tenant_role(tenant_id, 'admin'))
   WITH CHECK (tenant_id = app_private.current_tenant_id() AND app_private.has_tenant_role(tenant_id, 'admin'));
 
--- Seed a practical enterprise department catalogue. Tenants can add more departments later.
+-- Seed the product's department catalogue. This is configuration, not business/demo data.
 INSERT INTO public.departments (department_key, display_name, description) VALUES
   ('sales', 'Sales', 'Customer acquisition, opportunities, accounts and commercial activity.'),
   ('finance', 'Finance', 'Billing, cost, licensing, spend and financial operations.'),
@@ -87,12 +82,10 @@ INSERT INTO public.departments (department_key, display_name, description) VALUE
   ('other', 'Other', 'Additional department-specific workflows not covered above.')
 ON CONFLICT (department_key) DO NOTHING;
 
--- Default department-to-agent catalogue. This controls which agents a department
--- is allowed to invoke; tenant admins can tighten or expand it per workspace.
+-- Default department-to-agent configuration. Only existing agent definitions are granted access.
 INSERT INTO public.department_agent_access (tenant_id, department_id, agent_key, enabled)
 SELECT t.id, d.id, v.agent_key, true
 FROM public.tenants t
-JOIN public.departments d ON d.department_key = v.department_key
 CROSS JOIN (VALUES
   ('sales','agent-workflow'), ('sales','agent-knowledge'),
   ('finance','agent-license'), ('finance','agent-cost'), ('finance','agent-knowledge'),
@@ -104,12 +97,23 @@ CROSS JOIN (VALUES
   ('legal','agent-knowledge'), ('legal','agent-security'),
   ('other','agent-knowledge')
 ) AS v(department_key, agent_key)
+JOIN public.departments d ON d.department_key = v.department_key
 JOIN public.agent_definitions a ON a.agent_key = v.agent_key
 ON CONFLICT (tenant_id, department_id, agent_key) DO NOTHING;
+
+-- Some environments do not yet have chat history tables. Do not make this migration fail
+-- just because the optional chat-session table has not been deployed yet.
+DO $$
+BEGIN
+  IF to_regclass('public.chat_sessions') IS NOT NULL THEN
+    ALTER TABLE public.chat_sessions
+      ADD COLUMN IF NOT EXISTS department_key text;
+    CREATE INDEX IF NOT EXISTS chat_sessions_department_idx
+      ON public.chat_sessions(tenant_id, user_id, department_key, updated_at DESC);
+  END IF;
+END $$;
 
 COMMENT ON TABLE public.user_department_memberships IS
   'Security boundary: a user can only use department-scoped agents and evidence for departments they belong to.';
 COMMENT ON TABLE public.department_agent_access IS
   'Maps departments to the agents they are permitted to use. This is enforced server-side before data is supplied to AI.';
-COMMENT ON COLUMN public.chat_sessions.department_key IS
-  'Department context captured for the chat session; server validates it against the authenticated user membership.';
