@@ -1842,6 +1842,7 @@ export type Database = {
       }
       provider_sync_entities: {
         Row: {
+          connection_id: string | null
           created_at: string
           entity_key: string
           entity_type: string
@@ -1855,6 +1856,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          connection_id?: string | null
           created_at?: string
           entity_key: string
           entity_type: string
@@ -1868,6 +1870,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          connection_id?: string | null
           created_at?: string
           entity_key?: string
           entity_type?: string
@@ -1882,6 +1885,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "provider_sync_entities_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "provider_connections"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "provider_sync_entities_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -1892,6 +1902,7 @@ export type Database = {
       }
       provider_sync_runs: {
         Row: {
+          connection_id: string | null
           error_message: string | null
           finished_at: string | null
           id: string
@@ -1904,6 +1915,7 @@ export type Database = {
           tenant_id: string
         }
         Insert: {
+          connection_id?: string | null
           error_message?: string | null
           finished_at?: string | null
           id?: string
@@ -1916,6 +1928,7 @@ export type Database = {
           tenant_id: string
         }
         Update: {
+          connection_id?: string | null
           error_message?: string | null
           finished_at?: string | null
           id?: string
@@ -1928,6 +1941,13 @@ export type Database = {
           tenant_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "provider_sync_runs_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "provider_connections"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "provider_sync_runs_tenant_id_fkey"
             columns: ["tenant_id"]
