@@ -1,23 +1,50 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { resolveTenant, getIntegrationSummary, getAccessToken } from "@/lib/genesys/store.server";
+import { resolveTenant, getAccessToken } from "@/lib/genesys/store.server";
 import { resolveDepartmentContext, getDepartmentAgentKeys } from "@/lib/department-access.server";
 import * as genesys from "@/lib/genesys/connector.server";
 
 export interface LiveRecommendation { key: string; title: string; severity: "critical" | "high" | "medium" | "low"; category: "License" | "Operations"; impact: string; evidence: string; action: string; canExecute: boolean; }
-export interface LiveWorkspaceData { connected: boolean; provider: "Genesys Cloud" | null; orgName: string | null; region: string | null; lastSyncAt: string | null; healthStatus: string | null; users: number; activeUsers: number; licensedUsers: number; licenseAssignments: number; licenseTypes: number; queues: number; emptyQueues: number; multipleLicenseUsers: number; inactiveLicensedUsers: number; recommendations: LiveRecommendation[]; fetchedAt: string; readOnly: boolean; department?: { key: string | null; name: string | null; unrestricted: boolean }; }
+export interface LiveWorkspaceData { connected: boolean; provider: "Genesys Cloud" | null; orgName: string | null; region: string | null; lastSyncAt: string | null; healthStatus: string | null; users: number; activeUsers: number; licensedUsers: number; licenseAssignments: number; licenseTypes: number; queues: number; emptyQueues: number; multipleLicenseUsers: number; inactiveLicensedUsers: number; recommendations: LiveRecommendation[]; fetchedAt: string; readOnly: boolean; integrationId?: string | null; department?: { key: string | null; name: string | null; unrestricted: boolean }; }
 function daysSince(value: string | null) { if (!value) return Number.POSITIVE_INFINITY; return Math.floor((Date.now() - new Date(value).getTime()) / 86_400_000); }
 
-export async function loadLiveWorkspaceData(supabase: Parameters<typeof resolveTenant>[0], userId: string, departmentKey?: string | null): Promise<LiveWorkspaceData> {
+type IntegrationRow = { id: string; provider: string; status: string; health_status: string; health_detail: string | null; region: string | null; external_org_name: string | null; last_sync_at: string | null; last_sync_status: string | null; last_sync_error: string | null; connected_at: string | null };
+
+export async function loadLiveWorkspaceData(supabase: Parameters<typeof resolveTenant>[0], userId: string, departmentKey?: string | null, integrationId?: string | null): Promise<LiveWorkspaceData> {
   const { tenantId } = await resolveTenant(supabase, userId);
   const department = await resolveDepartmentContext(supabase, userId, departmentKey);
   const allowedAgents = await getDepartmentAgentKeys(supabase, department);
-  // Genesys live evidence is exposed only when the department is explicitly
-  // allowed to use a Genesys-bound agent. This prevents the live API path from
-  // bypassing the same department boundary applied to synced provider data.
   const genesysAllowed = allowedAgents === null || allowedAgents.some((key) => ["agent-ccx", "agent-incident", "agent-knowledge", "agent-license"].includes(key));
-  const integration = await getIntegrationSummary(supabase, tenantId);
-  if (!genesysAllowed || !integration?.id || integration.status !== "connected") return { connected: false, provider: null, orgName: null, region: null, lastSyncAt: integration?.lastSyncAt ?? null, healthStatus: integration?.healthStatus ?? null, users: 0, activeUsers: 0, licensedUsers: 0, licenseAssignments: 0, licenseTypes: 0, queues: 0, emptyQueues: 0, multipleLicenseUsers: 0, inactiveLicensedUsers: 0, recommendations: [], fetchedAt: new Date().toISOString(), readOnly: true, department: { key: department.departmentKey, name: department.departmentName, unrestricted: department.unrestricted } };
+
+  let integrationQuery = supabase.from("integrations").select("id,provider,status,health_status,health_detail,region,external_org_name,last_sync_at,last_sync_status,last_sync_error,connected_at").eq("tenant_id", tenantId).eq("provider", "genesys");
+  if (integrationId?.trim()) integrationQuery = integrationQuery.eq("id", integrationId.trim());
+  else integrationQuery = integrationQuery.order("updated_at", { ascending: false }).limit(1);
+  const { data: integration } = await integrationQuery.maybeSingle() as { data: IntegrationRow | null };
+
+  const empty = (row: IntegrationRow | null): LiveWorkspaceData => ({
+    connected: false,
+    provider: null,
+    orgName: null,
+    region: null,
+    lastSyncAt: row?.last_sync_at ?? null,
+    healthStatus: row?.health_status ?? null,
+    users: 0,
+    activeUsers: 0,
+    licensedUsers: 0,
+    licenseAssignments: 0,
+    licenseTypes: 0,
+    queues: 0,
+    emptyQueues: 0,
+    multipleLicenseUsers: 0,
+    inactiveLicensedUsers: 0,
+    recommendations: [],
+    fetchedAt: new Date().toISOString(),
+    readOnly: true,
+    integrationId: row?.id ?? null,
+    department: { key: department.departmentKey, name: department.departmentName, unrestricted: department.unrestricted },
+  });
+
+  if (!genesysAllowed || !integration?.id || integration.status !== "connected") return empty(integration);
 
   const token = await getAccessToken(integration.id, tenantId, integration.region);
   const [users, assignments, licenses, queues] = await Promise.all([
@@ -37,10 +64,10 @@ export async function loadLiveWorkspaceData(supabase: Parameters<typeof resolveT
   if (inactiveLicensedUsers.length > 0) recommendations.push({ key: "genesys-inactive-licensed-users", title: `Review ${inactiveLicensedUsers.length} licensed users with 90+ days of inactivity`, severity: inactiveLicensedUsers.length >= 10 ? "high" : "medium", category: "License", impact: `${inactiveLicensedUsers.length} licensed accounts need review`, evidence: "Current Genesys user activity and license assignments show assigned licenses with no observed login/activity for at least 90 days.", action: "Validate employment, leave status and business need before reclaiming any license.", canExecute: false });
   if (multipleLicenseUsers.length > 0) recommendations.push({ key: "genesys-multiple-licenses", title: `Review ${multipleLicenseUsers.length} users with multiple Genesys licenses`, severity: "medium", category: "License", impact: `${multipleLicenseUsers.length} users have overlapping entitlements`, evidence: "The live license assignment endpoint reports more than one license for these users.", action: "Review whether each entitlement is required; do not remove access automatically.", canExecute: false });
   if (emptyQueues.length > 0) recommendations.push({ key: "genesys-empty-queues", title: `Review ${emptyQueues.length} Genesys queues with no members`, severity: "low", category: "Operations", impact: `${emptyQueues.length} queues currently have zero members`, evidence: "Live Genesys routing queue data reports memberCount = 0.", action: "Confirm whether each queue is intentionally inactive before changing routing configuration.", canExecute: false });
-  return { connected: true, provider: "Genesys Cloud", orgName: integration.externalOrgName, region: integration.region, lastSyncAt: integration.lastSyncAt, healthStatus: integration.healthStatus, users: users.length, activeUsers, licensedUsers, licenseAssignments: assignments.reduce((sum, row) => sum + row.licenseIds.length, 0), licenseTypes: licenses.length, queues: queues.length, emptyQueues: emptyQueues.length, multipleLicenseUsers: multipleLicenseUsers.length, inactiveLicensedUsers: inactiveLicensedUsers.length, recommendations, fetchedAt: new Date().toISOString(), readOnly: true, department: { key: department.departmentKey, name: department.departmentName, unrestricted: department.unrestricted } };
+  return { connected: true, provider: "Genesys Cloud", orgName: integration.external_org_name, region: integration.region, lastSyncAt: integration.last_sync_at, healthStatus: integration.health_status, users: users.length, activeUsers, licensedUsers, licenseAssignments: assignments.reduce((sum, row) => sum + row.licenseIds.length, 0), licenseTypes: licenses.length, queues: queues.length, emptyQueues: emptyQueues.length, multipleLicenseUsers: multipleLicenseUsers.length, inactiveLicensedUsers: inactiveLicensedUsers.length, recommendations, fetchedAt: new Date().toISOString(), readOnly: true, integrationId: integration.id, department: { key: department.departmentKey, name: department.departmentName, unrestricted: department.unrestricted } };
 }
 
-export const getLiveWorkspaceData = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => loadLiveWorkspaceData(context.supabase, context.userId));
+export const getLiveWorkspaceData = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).inputValidator((input: { integrationId?: string; departmentKey?: string }) => ({ integrationId: input.integrationId?.trim() || null, departmentKey: input.departmentKey?.trim() || null })).handler(async ({ data, context }) => loadLiveWorkspaceData(context.supabase, context.userId, data.departmentKey, data.integrationId));
 
 export const createLiveRecommendationApproval = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { recommendation: LiveRecommendation; snapshot: LiveWorkspaceData }) => input).handler(async ({ data, context }) => {
   const { tenantId } = await resolveTenant(context.supabase, context.userId);
