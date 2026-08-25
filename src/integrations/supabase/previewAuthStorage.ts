@@ -35,6 +35,7 @@ export function brokeredPreviewStorage() {
     new Promise((resolve) => {
       const requestId = newId();
       let done = false;
+      let timer: ReturnType<typeof setTimeout>;
       const onMessage = (e: MessageEvent) => {
         if (editorOrigins.indexOf(e.origin) < 0) return;
         const d = e.data;
@@ -51,7 +52,7 @@ export function brokeredPreviewStorage() {
       const msg: Record<string, unknown> = { type, requestId, projectId, key };
       if (value !== undefined) msg['value'] = value;
       for (const origin of editorOrigins) window.parent.postMessage(msg, origin);
-      const timer = setTimeout(() => finish(null), TIMEOUT);
+      timer = setTimeout(() => finish(null), TIMEOUT);
     });
 
   let firstGet = true;
