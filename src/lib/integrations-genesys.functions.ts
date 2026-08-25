@@ -37,11 +37,15 @@ export const startGenesysOAuth = createServerFn({ method: "POST" })
       }
       const { error: credentialError } = await supabaseAdmin.from("integration_credentials").upsert({ integration_id: integrationId, tenant_id: tenantId, client_id: credentials.clientId, client_secret: credentials.clientSecret, updated_at: new Date().toISOString() }, { onConflict: "integration_id" });
       if (credentialError) throw new errors.IntegrationError("provider_error", credentialError.message);
+
+      // New Genesys OAuth clients use Code Authorization / PKCE. Keep the verifier
+      // server-side and send only its S256 challenge through the authorization URL.
+      const { verifier, challenge } = instanceOAuth.createPkcePair();
       const state = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
-      const { error: stateError } = await supabaseAdmin.from("integration_oauth_states").insert({ state, tenant_id: tenantId, provider: "genesys", integration_id: integrationId, region, redirect_uri: data.redirectUri, created_by: context.userId, expires_at: new Date(Date.now() + 10 * 60_000).toISOString() });
+      const { error: stateError } = await supabaseAdmin.from("integration_oauth_states").insert({ state, tenant_id: tenantId, provider: "genesys", integration_id: integrationId, region, redirect_uri: data.redirectUri, code_verifier: verifier, created_by: context.userId, expires_at: new Date(Date.now() + 10 * 60_000).toISOString() });
       if (stateError) throw new errors.IntegrationError("provider_error", stateError.message);
-      await store.writeIntegrationAudit(context.supabase, { tenantId, action: "integration.oauth_started", entityId: integrationId, detail: `Genesys authorization started (${region}) for ${data.integrationId ? "an existing integration instance" : "a new integration instance"}.`, payload: { provider: "genesys", region, scopes: errors.GENESYS_SCOPES, reconfigure: Boolean(data.integrationId) } });
-      return { ok: true as const, authorizeUrl: instanceOAuth.buildAuthorizeUrl({ clientId: credentials.clientId, redirectUri: data.redirectUri, state, region }), integrationId };
+      await store.writeIntegrationAudit(context.supabase, { tenantId, action: "integration.oauth_started", entityId: integrationId, detail: `Genesys authorization started (${region}) for ${data.integrationId ? "an existing integration instance" : "a new integration instance"}.`, payload: { provider: "genesys", region, scopes: errors.GENESYS_SCOPES, reconfigure: Boolean(data.integrationId), pkce: true } });
+      return { ok: true as const, authorizeUrl: instanceOAuth.buildAuthorizeUrl({ clientId: credentials.clientId, redirectUri: data.redirectUri, state, region, codeChallenge: challenge }), integrationId };
     } catch (error) { return { ok: false as const, errorCode: errors.toErrorCode(error), errorMessage: errors.toErrorMessage(error) }; }
   });
 
@@ -54,7 +58,7 @@ export const completeGenesysOAuth = createServerFn({ method: "POST" })
       const { tenantId } = await store.requireManage(context.supabase, context.userId);
       if (!data.state) throw new errors.IntegrationError("oauth_state_invalid");
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      const { data: oauthState } = await supabaseAdmin.from("integration_oauth_states").select("state,tenant_id,integration_id,region,redirect_uri,expires_at,consumed_at").eq("state", data.state).maybeSingle();
+      const { data: oauthState } = await supabaseAdmin.from("integration_oauth_states").select("state,tenant_id,integration_id,region,redirect_uri,code_verifier,expires_at,consumed_at").eq("state", data.state).maybeSingle();
       if (!oauthState || oauthState.tenant_id !== tenantId || !oauthState.integration_id || oauthState.consumed_at || new Date(oauthState.expires_at).getTime() < Date.now()) throw new errors.IntegrationError("oauth_state_invalid");
       const integrationId = oauthState.integration_id;
       const failExistingIntegration = async (error: unknown) => {
@@ -69,7 +73,7 @@ export const completeGenesysOAuth = createServerFn({ method: "POST" })
       if (!credentials?.client_id || !credentials.client_secret) return await failExistingIntegration(new errors.IntegrationError("not_configured", "The OAuth client configuration for this integration is missing."));
       const region = errors.normalizeGenesysRegion(oauthState.region);
       try {
-        const tokens = await instanceOAuth.exchangeAuthorizationCode({ code: data.code, redirectUri: oauthState.redirect_uri, region, credentials: { clientId: credentials.client_id, clientSecret: credentials.client_secret } });
+        const tokens = await instanceOAuth.exchangeAuthorizationCode({ code: data.code, redirectUri: oauthState.redirect_uri, region, codeVerifier: oauthState.code_verifier ?? undefined, credentials: { clientId: credentials.client_id, clientSecret: credentials.client_secret } });
         const { org, me } = await instanceOAuth.healthCheck(tokens.accessToken, region);
         const { data: duplicate } = await supabaseAdmin.from("integrations").select("id,display_name").eq("tenant_id", tenantId).eq("provider", "genesys").eq("external_org_id", org.id).neq("id", integrationId).maybeSingle();
         if (duplicate) throw new errors.IntegrationError("provider_error", `Genesys organization ${org.name} is already connected as ${duplicate.display_name || duplicate.id}.`);
@@ -77,7 +81,7 @@ export const completeGenesysOAuth = createServerFn({ method: "POST" })
         if (tokenError) throw new errors.IntegrationError("provider_error", tokenError.message);
         const { error: markError } = await supabaseAdmin.from("integrations").update({ status: "connected", health_status: "healthy", health_detail: null, last_sync_error: null, region, external_org_id: org.id, external_org_name: org.name, scopes: tokens.scopes, connected_at: new Date().toISOString(), connected_by: context.userId }).eq("id", integrationId).eq("tenant_id", tenantId);
         if (markError) throw new errors.IntegrationError("provider_error", markError.message);
-        await store.writeIntegrationAudit(context.supabase, { tenantId, action: "integration.oauth_completed", entityId: integrationId, detail: `Genesys authorization completed for organization ${org.name}.`, payload: { provider: "genesys", orgId: org.id, orgName: org.name, authorizedBy: me.email } });
+        await store.writeIntegrationAudit(context.supabase, { tenantId, action: "integration.oauth_completed", entityId: integrationId, detail: `Genesys authorization completed for organization ${org.name}.`, payload: { provider: "genesys", orgId: org.id, orgName: org.name, authorizedBy: me.email, pkce: true } });
         return { ok: true as const, orgName: org.name, region };
       } catch (error) { return await failExistingIntegration(error); }
     } catch (error) { return { ok: false as const, errorCode: errors.toErrorCode(error), errorMessage: errors.toErrorMessage(error) }; }
