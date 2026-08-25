@@ -1318,6 +1318,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           expires_at: string
+          integration_id: string | null
           provider: string
           redirect_uri: string
           region: string | null
@@ -1329,6 +1330,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           expires_at: string
+          integration_id?: string | null
           provider: string
           redirect_uri: string
           region?: string | null
@@ -1340,6 +1342,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           expires_at?: string
+          integration_id?: string | null
           provider?: string
           redirect_uri?: string
           region?: string | null
@@ -1347,6 +1350,13 @@ export type Database = {
           tenant_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "integration_oauth_states_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "integration_oauth_states_tenant_id_fkey"
             columns: ["tenant_id"]
