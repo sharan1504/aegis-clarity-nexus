@@ -607,6 +607,82 @@ export type Database = {
           },
         ]
       }
+      department_agent_access: {
+        Row: {
+          agent_key: string
+          created_at: string
+          department_id: string
+          enabled: boolean
+          id: string
+          tenant_id: string
+        }
+        Insert: {
+          agent_key: string
+          created_at?: string
+          department_id: string
+          enabled?: boolean
+          id?: string
+          tenant_id: string
+        }
+        Update: {
+          agent_key?: string
+          created_at?: string
+          department_id?: string
+          enabled?: boolean
+          id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "department_agent_access_agent_key_fkey"
+            columns: ["agent_key"]
+            isOneToOne: false
+            referencedRelation: "agent_definitions"
+            referencedColumns: ["agent_key"]
+          },
+          {
+            foreignKeyName: "department_agent_access_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "department_agent_access_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      departments: {
+        Row: {
+          active: boolean
+          created_at: string
+          department_key: string
+          description: string | null
+          display_name: string
+          id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          department_key: string
+          description?: string | null
+          display_name: string
+          id?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          department_key?: string
+          description?: string | null
+          display_name?: string
+          id?: string
+        }
+        Relationships: []
+      }
       genesys_licenses: {
         Row: {
           assigned_count: number
@@ -1702,6 +1778,7 @@ export type Database = {
           credential_expires_at: string | null
           display_name: string | null
           encrypted_credentials: string | null
+          environment: string
           external_id: string | null
           id: string
           last_error: string | null
@@ -1717,6 +1794,7 @@ export type Database = {
           credential_expires_at?: string | null
           display_name?: string | null
           encrypted_credentials?: string | null
+          environment?: string
           external_id?: string | null
           id?: string
           last_error?: string | null
@@ -1732,6 +1810,7 @@ export type Database = {
           credential_expires_at?: string | null
           display_name?: string | null
           encrypted_credentials?: string | null
+          environment?: string
           external_id?: string | null
           id?: string
           last_error?: string | null
@@ -1936,6 +2015,45 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      user_department_memberships: {
+        Row: {
+          created_at: string
+          department_id: string
+          id: string
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          department_id: string
+          id?: string
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          department_id?: string
+          id?: string
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_department_memberships_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_department_memberships_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
