@@ -15,7 +15,7 @@ import { pageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/_app/agents")({ head: () => pageHead({ path: "/agents", title: "AI Agents — Aegis AI", description: "Verified workspace agents and their real integration bindings." }), component: AgentsPage });
 type Agent = { agent_key: string; display_name: string; description: string | null; category: string | null };
-type Binding = { agent_key: string; enabled: boolean; is_mock: boolean; integration_id: string; capability_id: string };
+type Binding = { id: string; agent_key: string; enabled: boolean; is_mock: boolean; integration_id: string; capability_id: string };
 
 function AgentsPage() {
   const { tenantId } = useTenantContext();
@@ -30,7 +30,7 @@ function AgentsPage() {
     setLoading(true);
     const [a, b] = await Promise.all([
       supabase.from("agent_definitions").select("agent_key,display_name,description,category").order("display_name"),
-      supabase.from("agent_integration_bindings").select("agent_key,enabled,is_mock,integration_id,capability_id").eq("tenant_id", tenantId),
+      supabase.from("agent_integration_bindings").select("id,agent_key,enabled,is_mock,integration_id,capability_id").eq("tenant_id", tenantId),
     ]);
     setAgents((a.data ?? []) as Agent[]);
     setBindings((b.data ?? []) as Binding[]);
@@ -45,7 +45,7 @@ function AgentsPage() {
     setToggling(agentKey);
     try {
       for (const row of rows) {
-        const result = await updateBinding({ data: { bindingId: `${row.integration_id}:${row.capability_id}`, enabled } });
+        const result = await updateBinding({ data: { bindingId: row.id, enabled } });
         if (!result.ok) throw new Error(result.errorMessage);
       }
       toast.success(enabled ? "Agent enabled" : "Agent disabled");
