@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { GENESYS_SCOPES, IntegrationError, normalizeGenesysRegion } from "./errors";
 import type { GenesysTokens } from "./connector.server";
 
