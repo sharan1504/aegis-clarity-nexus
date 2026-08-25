@@ -1,0 +1,77 @@
+import { GENESYS_SCOPES, IntegrationError, normalizeGenesysRegion } from "./errors";
+import type { GenesysClientCredentials, GenesysTokens, GenesysOrg, GenesysMe } from "./connector.server";
+
+function loginHost(regionId?: string | null) {
+  return `https://login.${normalizeGenesysRegion(regionId)}`;
+}
+
+function apiHost(regionId?: string | null) {
+  return `https://api.${normalizeGenesysRegion(regionId)}`;
+}
+
+export function buildAuthorizeUrl(input: { clientId: string; redirectUri: string; state: string; region: string }): string {
+  if (!input.clientId.trim()) throw new IntegrationError("not_configured");
+  const url = new URL(`${loginHost(input.region)}/oauth/authorize`);
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("client_id", input.clientId.trim());
+  url.searchParams.set("redirect_uri", input.redirectUri);
+  url.searchParams.set("state", input.state);
+  url.searchParams.set("scope", GENESYS_SCOPES.join(" "));
+  return url.toString();
+}
+
+async function tokenRequest(body: Record<string, string>, region: string, credentials: GenesysClientCredentials): Promise<GenesysTokens> {
+  if (!credentials.clientId || !credentials.clientSecret) throw new IntegrationError("not_configured");
+  const basic = Buffer.from(`${credentials.clientId}:${credentials.clientSecret}`).toString("base64");
+  const response = await fetch(`${loginHost(region)}/oauth/token`, {
+    method: "POST",
+    headers: { Authorization: `Basic ${basic}`, "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams(body).toString(),
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    if (response.status === 401 || /invalid_client/i.test(text)) throw new IntegrationError("invalid_client", text.slice(0, 300), response.status);
+    if (response.status === 429) throw new IntegrationError("rate_limited", undefined, 429);
+    if (/invalid_grant/i.test(text)) throw new IntegrationError("connection_revoked", text.slice(0, 300), response.status);
+    if (/invalid_scope|insufficient/i.test(text)) throw new IntegrationError("insufficient_scopes", text.slice(0, 300), response.status);
+    throw new IntegrationError("oauth_failed", text.slice(0, 300), response.status);
+  }
+  const json = JSON.parse(text) as { access_token: string; refresh_token?: string; token_type?: string; expires_in?: number; scope?: string };
+  return {
+    accessToken: json.access_token,
+    refreshToken: json.refresh_token ?? null,
+    tokenType: json.token_type ?? "Bearer",
+    expiresAt: new Date(Date.now() + (json.expires_in ?? 3600) * 1000).toISOString(),
+    scopes: json.scope ? json.scope.split(/[\s,]+/).filter(Boolean) : [...GENESYS_SCOPES],
+  };
+}
+
+export function exchangeAuthorizationCode(input: { code: string; redirectUri: string; region: string; credentials: GenesysClientCredentials }) {
+  return tokenRequest({ grant_type: "authorization_code", code: input.code, redirect_uri: input.redirectUri }, input.region, input.credentials);
+}
+
+export function refreshAccessToken(input: { refreshToken: string; region: string; credentials: GenesysClientCredentials }) {
+  return tokenRequest({ grant_type: "refresh_token", refresh_token: input.refreshToken }, input.region, input.credentials);
+}
+
+async function apiGet<T>(path: string, accessToken: string, region: string): Promise<T> {
+  const response = await fetch(`${apiHost(region)}${path}`, { headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" } });
+  if (response.ok) return (await response.json()) as T;
+  const text = await response.text();
+  if (response.status === 401) throw new IntegrationError("token_expired", undefined, 401);
+  if (response.status === 403) throw new IntegrationError("insufficient_scopes", text.slice(0, 300), 403);
+  if (response.status === 429) throw new IntegrationError("rate_limited", undefined, 429);
+  throw new IntegrationError("provider_error", `${response.status} ${text.slice(0, 300)}`, response.status);
+}
+
+export async function healthCheck(accessToken: string, region: string): Promise<{ org: GenesysOrg; me: GenesysMe }> {
+  const [org, me] = await Promise.all([
+    apiGet<{ id?: string; name?: string; thirdPartyOrgName?: string }>("/api/v2/organizations/me", accessToken, region),
+    apiGet<{ id: string; name?: string; email?: string }>("/api/v2/users/me", accessToken, region),
+  ]);
+  if (!org.id) throw new IntegrationError("org_not_found");
+  return {
+    org: { id: org.id, name: org.name ?? org.thirdPartyOrgName ?? "Genesys organization", thirdPartyOrgName: org.thirdPartyOrgName ?? null },
+    me: { id: me.id, name: me.name ?? "Unknown", email: me.email ?? null },
+  };
+}
