@@ -35,7 +35,7 @@ export async function resolveDepartmentContext(
   if (!tenantId) throw new Error("Your account is not attached to a workspace yet.");
 
   const { data: roleRows } = await db.from("user_roles").select("role").eq("user_id", userId).eq("tenant_id", tenantId);
-  const roles = (roleRows ?? []).map((row: { role: string }) => String(row.role));
+  const roles: string[] = (roleRows ?? []).map((row: { role: string }) => String(row.role));
   if (!roles.length) throw new Error("Your account has no role in this workspace.");
 
   const { data: memberships, error: membershipError } = await db
@@ -45,7 +45,7 @@ export async function resolveDepartmentContext(
     .eq("user_id", userId);
   if (membershipError) throw new Error(membershipError.message);
 
-  const departments = (memberships ?? [])
+  const departments: DepartmentRow[] = (memberships ?? [])
     .map((row: { departments?: DepartmentRow | DepartmentRow[] | null }) => Array.isArray(row.departments) ? row.departments[0] : row.departments)
     .filter((row: DepartmentRow | undefined): row is DepartmentRow => Boolean(row));
 

@@ -48,13 +48,20 @@ export function brokeredPreviewStorage() {
         window.removeEventListener('message', onMessage);
         resolve(r);
       };
+      const onMessage = (e: MessageEvent) => {
+        if (editorOrigins.indexOf(e.origin) < 0) return;
+        const d = e.data;
+        if (d && d.type === RESULT && d.requestId === requestId) finish(d);
+      };
       window.addEventListener('message', onMessage);
       const msg: Record<string, unknown> = { type, requestId, projectId, key };
       if (value !== undefined) msg['value'] = value;
+      // targetOrigin per trusted editor origin, so a session token never reaches an arbitrary embedder.
       for (const origin of editorOrigins) window.parent.postMessage(msg, origin);
       timer = setTimeout(() => finish(null), TIMEOUT);
     });
 
+  // The editor may not be listening yet at the first getItem, so retry once.
   let firstGet = true;
   const RETRY_DELAY = 250;
 
@@ -66,6 +73,8 @@ export function brokeredPreviewStorage() {
         res = await request('lovable-preview-auth:get', key);
       }
       firstGet = false;
+      // '' is the logout tombstone: clear the local copy too so it can't resurrect if
+      // the broker later goes silent. A null reply means never-synced -> keep local.
       if (res && res.ok && typeof res.value === 'string') {
         if (res.value === '') { localStorage.removeItem(key); return null; }
         return res.value;

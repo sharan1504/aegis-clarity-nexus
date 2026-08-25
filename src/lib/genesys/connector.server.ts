@@ -13,6 +13,18 @@ function region(regionId?: string | null) { return normalizeGenesysRegion(region
 function loginHost(regionId?: string | null) { return `https://login.${region(regionId)}`; }
 function apiHost(regionId?: string | null) { return `https://api.${region(regionId)}`; }
 
+export interface GenesysClientCredentials { clientId: string; clientSecret: string; }
+
+/**
+ * Per-instance client credentials win; the server-level GENESYS_CLIENT_ID /
+ * GENESYS_CLIENT_SECRET remain only as a backward-compatible fallback for the
+ * original single connection.
+ */
+export function resolveClientCredentials(credentials?: GenesysClientCredentials | null): GenesysClientCredentials {
+  if (credentials?.clientId && credentials?.clientSecret) return { clientId: credentials.clientId, clientSecret: credentials.clientSecret };
+  return getClientCredentials();
+}
+
 export function getClientCredentials(): { clientId: string; clientSecret: string } {
   const clientId = process.env["GENESYS_CLIENT_ID"];
   const clientSecret = process.env["GENESYS_CLIENT_SECRET"];
@@ -21,16 +33,16 @@ export function getClientCredentials(): { clientId: string; clientSecret: string
 }
 export function isConfigured(): boolean { return Boolean(process.env["GENESYS_CLIENT_ID"] && process.env["GENESYS_CLIENT_SECRET"]); }
 
-export function buildAuthorizeUrl(opts: { redirectUri: string; state: string; regionId?: string | null }): string {
-  const { clientId } = getClientCredentials();
+export function buildAuthorizeUrl(opts: { redirectUri: string; state: string; regionId?: string | null; credentials?: GenesysClientCredentials | null }): string {
+  const { clientId } = resolveClientCredentials(opts.credentials);
   const url = new URL(`${loginHost(opts.regionId)}/oauth/authorize`);
   url.searchParams.set("response_type", "code"); url.searchParams.set("client_id", clientId);
   url.searchParams.set("redirect_uri", opts.redirectUri); url.searchParams.set("state", opts.state);
   url.searchParams.set("scope", GENESYS_SCOPES.join(" ")); return url.toString();
 }
 
-async function tokenRequest(body: Record<string, string>, regionId?: string | null): Promise<GenesysTokens> {
-  const { clientId, clientSecret } = getClientCredentials();
+async function tokenRequest(body: Record<string, string>, regionId?: string | null, credentials?: GenesysClientCredentials | null): Promise<GenesysTokens> {
+  const { clientId, clientSecret } = resolveClientCredentials(credentials);
   const basic = typeof btoa === "function" ? btoa(`${clientId}:${clientSecret}`) : Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
   const res = await fetch(`${loginHost(regionId)}/oauth/token`, { method: "POST", headers: { Authorization: `Basic ${basic}`, "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(body).toString() });
   const text = await res.text();
@@ -45,8 +57,8 @@ async function tokenRequest(body: Record<string, string>, regionId?: string | nu
   const json = JSON.parse(text) as { access_token: string; refresh_token?: string; token_type?: string; expires_in?: number; scope?: string };
   return { accessToken: json.access_token, refreshToken: json.refresh_token ?? null, tokenType: json.token_type ?? "Bearer", expiresAt: new Date(Date.now() + (json.expires_in ?? 3600) * 1000).toISOString(), scopes: json.scope ? json.scope.split(/[\s,]+/).filter(Boolean) : [...GENESYS_SCOPES] };
 }
-export function exchangeAuthorizationCode(opts: { code: string; redirectUri: string; regionId?: string | null }): Promise<GenesysTokens> { return tokenRequest({ grant_type: "authorization_code", code: opts.code, redirect_uri: opts.redirectUri }, opts.regionId); }
-export function refreshAccessToken(opts: { refreshToken: string; regionId?: string | null }): Promise<GenesysTokens> { return tokenRequest({ grant_type: "refresh_token", refresh_token: opts.refreshToken }, opts.regionId); }
+export function exchangeAuthorizationCode(opts: { code: string; redirectUri: string; regionId?: string | null; credentials?: GenesysClientCredentials | null }): Promise<GenesysTokens> { return tokenRequest({ grant_type: "authorization_code", code: opts.code, redirect_uri: opts.redirectUri }, opts.regionId, opts.credentials); }
+export function refreshAccessToken(opts: { refreshToken: string; regionId?: string | null; credentials?: GenesysClientCredentials | null }): Promise<GenesysTokens> { return tokenRequest({ grant_type: "refresh_token", refresh_token: opts.refreshToken }, opts.regionId, opts.credentials); }
 
 async function apiGet<T>(path: string, accessToken: string, regionId?: string | null): Promise<T> {
   const res = await fetch(`${apiHost(regionId)}${path}`, { headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" } });
