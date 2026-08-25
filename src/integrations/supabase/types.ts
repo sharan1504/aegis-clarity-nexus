@@ -656,6 +656,58 @@ export type Database = {
           },
         ]
       }
+      department_provider_connection_access: {
+        Row: {
+          connection_id: string
+          created_at: string
+          department_id: string
+          enabled: boolean
+          id: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          connection_id: string
+          created_at?: string
+          department_id: string
+          enabled?: boolean
+          id?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          connection_id?: string
+          created_at?: string
+          department_id?: string
+          enabled?: boolean
+          id?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "department_provider_connection_access_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "provider_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "department_provider_connection_access_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "department_provider_connection_access_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       departments: {
         Row: {
           active: boolean
