@@ -4,6 +4,13 @@ import { resolveTenant } from "@/lib/genesys/store.server";
 
 const dbOf = (supabase: unknown) => supabase as any;
 
+export type DepartmentAdminDepartment = { id: string; department_key: string; display_name: string; description: string | null; active: boolean };
+export type DepartmentAdminMember = { id: string; email: string | null; full_name: string | null; role: string; departmentIds: string[] };
+export type DepartmentAdminAgent = { agent_key: string; display_name: string; category: string | null; description: string | null };
+export type DepartmentAdminAgentAccess = { department_id: string; agent_key: string; enabled: boolean };
+export type DepartmentAdminConnection = { id: string; provider: string; display_name: string | null; environment: string | null; status: string; external_id: string | null; last_sync_at: string | null };
+export type DepartmentAdminConnectionAccess = { department_id: string; connection_id: string; enabled: boolean };
+
 async function requireAdmin(context: any) {
   const { tenantId } = await resolveTenant(context.supabase, context.userId);
   const { data: role } = await context.supabase.from("user_roles").select("role").eq("user_id", context.userId).eq("tenant_id", tenantId).eq("role", "admin").maybeSingle();
@@ -29,12 +36,12 @@ export const getDepartmentAdminView = createServerFn({ method: "GET" }).middlewa
   if (membershipError) throw new Error(membershipError.message);
   const roleMap = new Map((roles ?? []).map((row: any) => [row.user_id, row.role]));
   return {
-    departments: departments ?? [],
-    members: (members ?? []).map((member: any) => ({ ...member, role: roleMap.get(member.id) ?? "viewer", departmentIds: (memberships ?? []).filter((row: any) => row.user_id === member.id).map((row: any) => row.department_id) })),
-    agents: agents ?? [],
-    access: access ?? [],
-    connections: connections ?? [],
-    connectionAccess: connectionAccess ?? [],
+    departments: (departments ?? []) as DepartmentAdminDepartment[],
+    members: (members ?? []).map((member: any) => ({ ...member, role: String(roleMap.get(member.id) ?? "viewer"), departmentIds: (memberships ?? []).filter((row: any) => row.user_id === member.id).map((row: any) => String(row.department_id)) })) as DepartmentAdminMember[],
+    agents: (agents ?? []) as DepartmentAdminAgent[],
+    access: (access ?? []) as DepartmentAdminAgentAccess[],
+    connections: (connections ?? []) as DepartmentAdminConnection[],
+    connectionAccess: (connectionAccess ?? []) as DepartmentAdminConnectionAccess[],
   };
 });
 

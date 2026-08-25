@@ -20,6 +20,7 @@ import { Route as AppUsersRouteImport } from './routes/_app.users'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppReportsRouteImport } from './routes/_app.reports'
 import { Route as AppMarketplaceRouteImport } from './routes/_app.marketplace'
+import { Route as AppInvestigationsRouteImport } from './routes/_app.investigations'
 import { Route as AppIntegrationsRouteImport } from './routes/_app.integrations'
 import { Route as AppGovernanceRouteImport } from './routes/_app.governance'
 import { Route as AppChatRouteImport } from './routes/_app.chat'
@@ -31,6 +32,7 @@ import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]
 import { Route as AppApprovalsIndexRouteImport } from './routes/_app.approvals.index'
 import { Route as IntegrationsGenesysCallbackRouteImport } from './routes/integrations.genesys.callback'
 import { Route as AppApprovalsIdRouteImport } from './routes/_app.approvals.$id'
+import { Route as AppAgentAgentKeyRouteImport } from './routes/_app.agent.$agentKey'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 
@@ -86,6 +88,11 @@ const AppReportsRoute = AppReportsRouteImport.update({
 const AppMarketplaceRoute = AppMarketplaceRouteImport.update({
   id: '/marketplace',
   path: '/marketplace',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppInvestigationsRoute = AppInvestigationsRouteImport.update({
+  id: '/investigations',
+  path: '/investigations',
   getParentRoute: () => AppRoute,
 } as any)
 const AppIntegrationsRoute = AppIntegrationsRouteImport.update({
@@ -146,6 +153,11 @@ const AppApprovalsIdRoute = AppApprovalsIdRouteImport.update({
   path: '/approvals/$id',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAgentAgentKeyRoute = AppAgentAgentKeyRouteImport.update({
+  id: '/agent/$agentKey',
+  path: '/agent/$agentKey',
+  getParentRoute: () => AppRoute,
+} as any)
 const Char91DotmcpChar93InvokeToolToolRoute =
   Char91DotmcpChar93InvokeToolToolRouteImport.update({
     id: '/.mcp/invoke-tool/$tool',
@@ -171,6 +183,7 @@ export interface FileRoutesByFullPath {
   '/chat': typeof AppChatRoute
   '/governance': typeof AppGovernanceRoute
   '/integrations': typeof AppIntegrationsRoute
+  '/investigations': typeof AppInvestigationsRoute
   '/marketplace': typeof AppMarketplaceRoute
   '/reports': typeof AppReportsRoute
   '/settings': typeof AppSettingsRoute
@@ -179,6 +192,7 @@ export interface FileRoutesByFullPath {
   '/resources/what-is-aiops': typeof ResourcesWhatIsAiopsRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/agent/$agentKey': typeof AppAgentAgentKeyRoute
   '/approvals/$id': typeof AppApprovalsIdRoute
   '/integrations/genesys/callback': typeof IntegrationsGenesysCallbackRoute
   '/approvals/': typeof AppApprovalsIndexRoute
@@ -195,6 +209,7 @@ export interface FileRoutesByTo {
   '/chat': typeof AppChatRoute
   '/governance': typeof AppGovernanceRoute
   '/integrations': typeof AppIntegrationsRoute
+  '/investigations': typeof AppInvestigationsRoute
   '/marketplace': typeof AppMarketplaceRoute
   '/reports': typeof AppReportsRoute
   '/settings': typeof AppSettingsRoute
@@ -204,6 +219,7 @@ export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/agent/$agentKey': typeof AppAgentAgentKeyRoute
   '/approvals/$id': typeof AppApprovalsIdRoute
   '/integrations/genesys/callback': typeof IntegrationsGenesysCallbackRoute
   '/approvals': typeof AppApprovalsIndexRoute
@@ -222,6 +238,7 @@ export interface FileRoutesById {
   '/_app/chat': typeof AppChatRoute
   '/_app/governance': typeof AppGovernanceRoute
   '/_app/integrations': typeof AppIntegrationsRoute
+  '/_app/investigations': typeof AppInvestigationsRoute
   '/_app/marketplace': typeof AppMarketplaceRoute
   '/_app/reports': typeof AppReportsRoute
   '/_app/settings': typeof AppSettingsRoute
@@ -231,6 +248,7 @@ export interface FileRoutesById {
   '/_app/': typeof AppIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/_app/agent/$agentKey': typeof AppAgentAgentKeyRoute
   '/_app/approvals/$id': typeof AppApprovalsIdRoute
   '/integrations/genesys/callback': typeof IntegrationsGenesysCallbackRoute
   '/_app/approvals/': typeof AppApprovalsIndexRoute
@@ -250,6 +268,7 @@ export interface FileRouteTypes {
     | '/chat'
     | '/governance'
     | '/integrations'
+    | '/investigations'
     | '/marketplace'
     | '/reports'
     | '/settings'
@@ -258,6 +277,7 @@ export interface FileRouteTypes {
     | '/resources/what-is-aiops'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
+    | '/agent/$agentKey'
     | '/approvals/$id'
     | '/integrations/genesys/callback'
     | '/approvals/'
@@ -274,6 +294,7 @@ export interface FileRouteTypes {
     | '/chat'
     | '/governance'
     | '/integrations'
+    | '/investigations'
     | '/marketplace'
     | '/reports'
     | '/settings'
@@ -283,6 +304,7 @@ export interface FileRouteTypes {
     | '/'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
+    | '/agent/$agentKey'
     | '/approvals/$id'
     | '/integrations/genesys/callback'
     | '/approvals'
@@ -300,6 +322,7 @@ export interface FileRouteTypes {
     | '/_app/chat'
     | '/_app/governance'
     | '/_app/integrations'
+    | '/_app/investigations'
     | '/_app/marketplace'
     | '/_app/reports'
     | '/_app/settings'
@@ -309,6 +332,7 @@ export interface FileRouteTypes {
     | '/_app/'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
+    | '/_app/agent/$agentKey'
     | '/_app/approvals/$id'
     | '/integrations/genesys/callback'
     | '/_app/approvals/'
@@ -406,6 +430,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppMarketplaceRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/investigations': {
+      id: '/_app/investigations'
+      path: '/investigations'
+      fullPath: '/investigations'
+      preLoaderRoute: typeof AppInvestigationsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/integrations': {
       id: '/_app/integrations'
       path: '/integrations'
@@ -483,6 +514,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppApprovalsIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/agent/$agentKey': {
+      id: '/_app/agent/$agentKey'
+      path: '/agent/$agentKey'
+      fullPath: '/agent/$agentKey'
+      preLoaderRoute: typeof AppAgentAgentKeyRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/.mcp/invoke-tool/$tool': {
       id: '/.mcp/invoke-tool/$tool'
       path: '/.mcp/invoke-tool/$tool'
@@ -507,11 +545,13 @@ interface AppRouteChildren {
   AppChatRoute: typeof AppChatRoute
   AppGovernanceRoute: typeof AppGovernanceRoute
   AppIntegrationsRoute: typeof AppIntegrationsRoute
+  AppInvestigationsRoute: typeof AppInvestigationsRoute
   AppMarketplaceRoute: typeof AppMarketplaceRoute
   AppReportsRoute: typeof AppReportsRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppUsersRoute: typeof AppUsersRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppAgentAgentKeyRoute: typeof AppAgentAgentKeyRoute
   AppApprovalsIdRoute: typeof AppApprovalsIdRoute
   AppApprovalsIndexRoute: typeof AppApprovalsIndexRoute
 }
@@ -523,11 +563,13 @@ const AppRouteChildren: AppRouteChildren = {
   AppChatRoute: AppChatRoute,
   AppGovernanceRoute: AppGovernanceRoute,
   AppIntegrationsRoute: AppIntegrationsRoute,
+  AppInvestigationsRoute: AppInvestigationsRoute,
   AppMarketplaceRoute: AppMarketplaceRoute,
   AppReportsRoute: AppReportsRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppUsersRoute: AppUsersRoute,
   AppIndexRoute: AppIndexRoute,
+  AppAgentAgentKeyRoute: AppAgentAgentKeyRoute,
   AppApprovalsIdRoute: AppApprovalsIdRoute,
   AppApprovalsIndexRoute: AppApprovalsIndexRoute,
 }

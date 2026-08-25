@@ -607,6 +607,134 @@ export type Database = {
           },
         ]
       }
+      department_agent_access: {
+        Row: {
+          agent_key: string
+          created_at: string
+          department_id: string
+          enabled: boolean
+          id: string
+          tenant_id: string
+        }
+        Insert: {
+          agent_key: string
+          created_at?: string
+          department_id: string
+          enabled?: boolean
+          id?: string
+          tenant_id: string
+        }
+        Update: {
+          agent_key?: string
+          created_at?: string
+          department_id?: string
+          enabled?: boolean
+          id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "department_agent_access_agent_key_fkey"
+            columns: ["agent_key"]
+            isOneToOne: false
+            referencedRelation: "agent_definitions"
+            referencedColumns: ["agent_key"]
+          },
+          {
+            foreignKeyName: "department_agent_access_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "department_agent_access_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      department_provider_connection_access: {
+        Row: {
+          connection_id: string
+          created_at: string
+          department_id: string
+          enabled: boolean
+          id: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          connection_id: string
+          created_at?: string
+          department_id: string
+          enabled?: boolean
+          id?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          connection_id?: string
+          created_at?: string
+          department_id?: string
+          enabled?: boolean
+          id?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "department_provider_connection_access_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "provider_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "department_provider_connection_access_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "department_provider_connection_access_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      departments: {
+        Row: {
+          active: boolean
+          created_at: string
+          department_key: string
+          description: string | null
+          display_name: string
+          id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          department_key: string
+          description?: string | null
+          display_name: string
+          id?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          department_key?: string
+          description?: string | null
+          display_name?: string
+          id?: string
+        }
+        Relationships: []
+      }
       genesys_licenses: {
         Row: {
           assigned_count: number
@@ -1242,6 +1370,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           expires_at: string
+          integration_id: string | null
           provider: string
           redirect_uri: string
           region: string | null
@@ -1253,6 +1382,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           expires_at: string
+          integration_id?: string | null
           provider: string
           redirect_uri: string
           region?: string | null
@@ -1264,6 +1394,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           expires_at?: string
+          integration_id?: string | null
           provider?: string
           redirect_uri?: string
           region?: string | null
@@ -1271,6 +1402,13 @@ export type Database = {
           tenant_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "integration_oauth_states_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "integration_oauth_states_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -1702,6 +1840,7 @@ export type Database = {
           credential_expires_at: string | null
           display_name: string | null
           encrypted_credentials: string | null
+          environment: string
           external_id: string | null
           id: string
           last_error: string | null
@@ -1717,6 +1856,7 @@ export type Database = {
           credential_expires_at?: string | null
           display_name?: string | null
           encrypted_credentials?: string | null
+          environment?: string
           external_id?: string | null
           id?: string
           last_error?: string | null
@@ -1732,6 +1872,7 @@ export type Database = {
           credential_expires_at?: string | null
           display_name?: string | null
           encrypted_credentials?: string | null
+          environment?: string
           external_id?: string | null
           id?: string
           last_error?: string | null
@@ -1753,6 +1894,7 @@ export type Database = {
       }
       provider_sync_entities: {
         Row: {
+          connection_id: string | null
           created_at: string
           entity_key: string
           entity_type: string
@@ -1766,6 +1908,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          connection_id?: string | null
           created_at?: string
           entity_key: string
           entity_type: string
@@ -1779,6 +1922,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          connection_id?: string | null
           created_at?: string
           entity_key?: string
           entity_type?: string
@@ -1793,6 +1937,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "provider_sync_entities_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "provider_connections"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "provider_sync_entities_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -1803,6 +1954,7 @@ export type Database = {
       }
       provider_sync_runs: {
         Row: {
+          connection_id: string | null
           error_message: string | null
           finished_at: string | null
           id: string
@@ -1815,6 +1967,7 @@ export type Database = {
           tenant_id: string
         }
         Insert: {
+          connection_id?: string | null
           error_message?: string | null
           finished_at?: string | null
           id?: string
@@ -1827,6 +1980,7 @@ export type Database = {
           tenant_id: string
         }
         Update: {
+          connection_id?: string | null
           error_message?: string | null
           finished_at?: string | null
           id?: string
@@ -1839,6 +1993,13 @@ export type Database = {
           tenant_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "provider_sync_runs_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "provider_connections"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "provider_sync_runs_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -1936,6 +2097,45 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      user_department_memberships: {
+        Row: {
+          created_at: string
+          department_id: string
+          id: string
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          department_id: string
+          id?: string
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          department_id?: string
+          id?: string
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_department_memberships_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_department_memberships_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
