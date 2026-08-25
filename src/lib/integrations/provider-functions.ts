@@ -50,8 +50,6 @@ export const connectProvider = createServerFn({ method: "POST" }).middleware([re
     const tenantId = roles?.find((r) => r.role === "admin" || r.role === "manager")?.tenant_id;
     if (!tenantId) return { ok: false as const, error: "Admin/manager access is required to connect an integration." };
 
-    // Older UI state calls this field integrationId. Treat it only as an alias
-    // for the canonical connectionId; both paths are tenant-scoped below.
     const connectionId = data.connectionId?.trim() || data.integrationId?.trim() || null;
     if (connectionId) {
       const { data: existing, error: lookupError } = await context.supabase.from("provider_connections").select("id,provider").eq("id", connectionId).eq("tenant_id", tenantId).maybeSingle();
@@ -60,14 +58,17 @@ export const connectProvider = createServerFn({ method: "POST" }).middleware([re
     }
 
     const result = await validateProviderConnection({ ...data, tenantId });
-    const encrypted = result.ok ? encryptCredentials({ accessToken: result.accessToken, refreshToken: result.refreshToken, clientId: data.clientId, clientSecret: data.clientSecret, apiToken: data.apiToken, accessKeyId: data.accessKeyId, secretAccessKey: data.secretAccessKey, sessionToken: data.sessionToken, tenant: data.tenant, baseUrl: data.baseUrl, region: data.region }) : null;
     const displayName = data.displayName?.trim() || result.displayName || null;
     const environment = data.environment?.trim() || "Production";
+
+    // A failed new connection must not leave a permanent ghost instance. An
+    // existing reconfiguration may record the failure on the same instance.
+    if (!result.ok && !connectionId) return { ok: false as const, status: result.status, provider: data.provider, displayName, externalId: result.externalId, error: result.error };
+
+    const encrypted = result.ok ? encryptCredentials({ accessToken: result.accessToken, refreshToken: result.refreshToken, clientId: data.clientId, clientSecret: data.clientSecret, apiToken: data.apiToken, accessKeyId: data.accessKeyId, secretAccessKey: data.secretAccessKey, sessionToken: data.sessionToken, tenant: data.tenant, baseUrl: data.baseUrl, region: data.region }) : null;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     if (connectionId) {
-      // Never upsert a caller-selected ID. A reconfigure can only update the
-      // previously authorized tenant-owned instance.
       const updatePayload: Record<string, unknown> = {
         provider: data.provider,
         external_id: result.externalId ?? null,
@@ -78,7 +79,6 @@ export const connectProvider = createServerFn({ method: "POST" }).middleware([re
         last_error: result.error ?? null,
         updated_at: new Date().toISOString(),
       };
-      // Failed validation must not erase the working encrypted credential set.
       if (encrypted) updatePayload.encrypted_credentials = encrypted;
       if (result.status === "connected") updatePayload.connected_at = new Date().toISOString();
 
@@ -88,7 +88,6 @@ export const connectProvider = createServerFn({ method: "POST" }).middleware([re
       return { ok: result.ok, status: result.status, provider: data.provider, displayName, externalId: result.externalId, connectionId: updated.id, error: result.error };
     }
 
-    // Add Integration intentionally omits id so Postgres generates a fresh instance.
     const { data: created, error } = await supabaseAdmin.from("provider_connections").insert({
       tenant_id: tenantId,
       provider: data.provider,
