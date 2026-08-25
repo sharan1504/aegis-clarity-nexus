@@ -12,6 +12,21 @@ alter table public.tenants
 
 create index if not exists tenants_created_by_idx on public.tenants(created_by);
 
+-- Safely recover a legacy empty workspace only when exactly one profile points
+-- at it and there are no roles. That is the unambiguous first-user state and
+-- does not allow one user to claim another user's workspace.
+update public.tenants t
+set created_by = p.id
+from public.profiles p
+where t.created_by is null
+  and p.tenant_id = t.id
+  and not exists (select 1 from public.user_roles ur where ur.tenant_id = t.id)
+  and 1 = (
+    select count(*)
+    from public.profiles p2
+    where p2.tenant_id = t.id
+  );
+
 -- A client must never be able to rewrite workspace ownership metadata.
 create or replace function app_private.prevent_tenant_creator_change()
 returns trigger
