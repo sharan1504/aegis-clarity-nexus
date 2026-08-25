@@ -1,12 +1,32 @@
 import { resolveTenant } from "@/lib/genesys/store.server";
-import { loadLiveWorkspaceData, type LiveWorkspaceData } from "@/lib/live-workspace.functions";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
 
-export type UserClientLike = Parameters<typeof resolveTenant>[0];
+export type UserClientLike = SupabaseClient<Database>;
 
 export interface CommandCenterChange { id: string; changeId: string; title: string; stage: string; severity: string; ownerTeam: string; createdAt: string; updatedAt: string; }
 export interface CommandCenterSignal { id: string; action: string; entityType: string; entityId: string | null; detail: string | null; actor: string | null; createdAt: string; }
 export interface CommandCenterData {
-  live: LiveWorkspaceData;
+  live: {
+    connected: boolean;
+    provider: string | null;
+    orgName: string | null;
+    region: string | null;
+    lastSyncAt: string | null;
+    healthStatus: string | null;
+    users: number;
+    activeUsers: number;
+    licensedUsers: number;
+    licenseAssignments: number;
+    licenseTypes: number;
+    queues: number;
+    emptyQueues: number;
+    multipleLicenseUsers: number;
+    inactiveLicensedUsers: number;
+    recommendations: never[];
+    fetchedAt: string;
+    readOnly: boolean;
+  };
   attention: { pendingChanges: number; proposedChanges: number; blockingGuardrailEvaluations: number; integrationsNeedingAttention: number; unreadNotifications: number };
   changed: CommandCenterChange[];
   risk: { bySeverity: Record<string, number>; criticalOrHighOpen: number; guardrailsEnabled: number; guardrailsMonitoringOnly: number };
@@ -17,37 +37,75 @@ export interface CommandCenterData {
 
 const OPEN_STAGES = ["Proposed", "Team Approvals", "Risk Review", "Scheduled"];
 
+/**
+ * Command Center intentionally reads persisted tenant evidence only. Live provider
+ * API calls are expensive and are now triggered from the relevant integration
+ * or analytics pages instead of blocking the first dashboard render.
+ */
 export async function loadCommandCenterData(supabase: UserClientLike, userId: string): Promise<CommandCenterData> {
   const { tenantId } = await resolveTenant(supabase, userId);
-  const db = supabase as any;
   const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
-  const [live, changes, guardrails, guardrailEvaluations, integrations, agents, bindings, syncRuns, notifications, auditRows] = await Promise.all([
-    loadLiveWorkspaceData(supabase, userId),
-    db.from("change_records").select("id,change_id,title,stage,severity,owner_team,created_at,updated_at").eq("tenant_id", tenantId).order("updated_at", { ascending: false }).limit(200),
-    db.from("guardrails").select("id,enabled,enforcement_mode").or(`tenant_id.eq.${tenantId},tenant_id.is.null`),
-    db.from("guardrail_evaluations").select("id,decision,created_at").eq("tenant_id", tenantId).gte("created_at", since).limit(1000),
-    db.from("integrations").select("id,provider,status,health_status,last_sync_at,last_sync_status,is_mock").eq("tenant_id", tenantId),
-    db.from("agent_definitions").select("agent_key"),
-    db.from("agent_integration_bindings").select("agent_key,enabled,is_mock").eq("tenant_id", tenantId),
-    db.from("integration_sync_runs").select("started_at,finished_at,status").eq("tenant_id", tenantId).order("started_at", { ascending: false }).limit(1),
-    db.from("notifications").select("id,unread").eq("tenant_id", tenantId).eq("unread", true).limit(200),
-    db.from("audit_log").select("id,action,entity_type,entity_id,detail,actor_email,created_at").eq("tenant_id", tenantId).order("created_at", { ascending: false }).limit(25),
+  const [changes, guardrails, guardrailEvaluations, integrations, bindings, syncRuns, notifications, auditRows, genesysUsers, genesysLicenses, genesysUserLicenses, genesysQueues] = await Promise.all([
+    supabase.from("change_records").select("id,change_id,title,stage,severity,owner_team,created_at,updated_at").eq("tenant_id", tenantId).order("updated_at", { ascending: false }).limit(200),
+    supabase.from("guardrails").select("id,enabled,enforcement_mode").or(`tenant_id.eq.${tenantId},tenant_id.is.null`),
+    supabase.from("guardrail_evaluations").select("id,decision,created_at").eq("tenant_id", tenantId).gte("created_at", since).limit(1000),
+    supabase.from("integrations").select("id,provider,status,health_status,last_sync_at,last_sync_status,is_mock,external_org_name,region,updated_at").eq("tenant_id", tenantId).order("updated_at", { ascending: false }),
+    supabase.from("agent_integration_bindings").select("agent_key,enabled,is_mock").eq("tenant_id", tenantId),
+    supabase.from("integration_sync_runs").select("started_at,finished_at,status").eq("tenant_id", tenantId).order("started_at", { ascending: false }).limit(1),
+    supabase.from("notifications").select("id,unread").eq("tenant_id", tenantId).eq("unread", true).limit(200),
+    supabase.from("audit_log").select("id,action,entity_type,entity_id,detail,actor_email,created_at").eq("tenant_id", tenantId).order("created_at", { ascending: false }).limit(25),
+    supabase.from("genesys_users").select("id,state", { count: "exact" }).eq("tenant_id", tenantId),
+    supabase.from("genesys_licenses").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
+    supabase.from("genesys_user_licenses").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
+    supabase.from("genesys_queues").select("id,member_count", { count: "exact" }).eq("tenant_id", tenantId),
   ]);
-  const changeRows: any[] = changes.data ?? [];
+
+  const changeRows = changes.data ?? [];
   const bySeverity: Record<string, number> = {};
-  for (const row of changeRows) { const key = String(row.severity ?? "unspecified").toLowerCase(); bySeverity[key] = (bySeverity[key] ?? 0) + 1; }
+  for (const row of changeRows) {
+    const key = String(row.severity ?? "unspecified").toLowerCase();
+    bySeverity[key] = (bySeverity[key] ?? 0) + 1;
+  }
   const openRows = changeRows.filter((row) => OPEN_STAGES.includes(String(row.stage)));
-  const guardrailRows: any[] = guardrails.data ?? [];
-  const bindingRows: any[] = bindings.data ?? [];
+  const integrationRows = integrations.data ?? [];
+  const selectedIntegration = integrationRows.find((row) => row.status === "connected") ?? integrationRows[0] ?? null;
+  const bindingRows = bindings.data ?? [];
+  const configuredAgents = new Set(bindingRows.map((row) => String(row.agent_key))).size;
   const realBindingAgents = new Set(bindingRows.filter((row) => row.enabled && !row.is_mock).map((row) => String(row.agent_key)));
-  const integrationRows: any[] = integrations.data ?? [];
-  const syncRun: any = (syncRuns.data ?? [])[0] ?? null;
+  const syncRun = (syncRuns.data ?? [])[0] ?? null;
+  const userRows = genesysUsers.data ?? [];
+  const queueRows = genesysQueues.data ?? [];
+  const genesysSelected = selectedIntegration?.provider === "genesys";
+  const users = genesysSelected ? (genesysUsers.count ?? userRows.length) : 0;
+  const activeUsers = genesysSelected ? userRows.filter((row) => String(row.state ?? "").toLowerCase() === "active").length : 0;
+  const queues = genesysSelected ? (genesysQueues.count ?? queueRows.length) : 0;
+  const emptyQueues = genesysSelected ? queueRows.filter((row) => Number(row.member_count ?? 0) === 0).length : 0;
+
   return {
-    live,
+    live: {
+      connected: Boolean(selectedIntegration?.status === "connected"),
+      provider: selectedIntegration ? String(selectedIntegration.provider) : null,
+      orgName: selectedIntegration?.external_org_name ? String(selectedIntegration.external_org_name) : null,
+      region: selectedIntegration?.region ? String(selectedIntegration.region) : null,
+      lastSyncAt: selectedIntegration?.last_sync_at ? String(selectedIntegration.last_sync_at) : null,
+      healthStatus: selectedIntegration?.health_status ? String(selectedIntegration.health_status) : null,
+      users,
+      activeUsers,
+      licensedUsers: genesysSelected ? 0 : 0,
+      licenseAssignments: genesysSelected ? (genesysUserLicenses.count ?? 0) : 0,
+      licenseTypes: genesysSelected ? (genesysLicenses.count ?? 0) : 0,
+      queues,
+      emptyQueues,
+      multipleLicenseUsers: 0,
+      inactiveLicensedUsers: 0,
+      recommendations: [],
+      fetchedAt: new Date().toISOString(),
+      readOnly: true,
+    },
     attention: {
       pendingChanges: changeRows.filter((row) => String(row.stage) === "Team Approvals" || String(row.stage) === "Risk Review").length,
       proposedChanges: changeRows.filter((row) => String(row.stage) === "Proposed").length,
-      blockingGuardrailEvaluations: (guardrailEvaluations.data ?? []).filter((row: any) => String(row.decision) !== "allow").length,
+      blockingGuardrailEvaluations: (guardrailEvaluations.data ?? []).filter((row) => String(row.decision) !== "allow").length,
       integrationsNeedingAttention: integrationRows.filter((row) => String(row.status) !== "connected" || String(row.health_status) === "unhealthy").length,
       unreadNotifications: (notifications.data ?? []).length,
     },
@@ -55,17 +113,17 @@ export async function loadCommandCenterData(supabase: UserClientLike, userId: st
     risk: {
       bySeverity,
       criticalOrHighOpen: openRows.filter((row) => ["critical", "high"].includes(String(row.severity ?? "").toLowerCase())).length,
-      guardrailsEnabled: guardrailRows.filter((row) => row.enabled && String(row.enforcement_mode) === "enforce").length,
-      guardrailsMonitoringOnly: guardrailRows.filter((row) => row.enabled && String(row.enforcement_mode) === "monitor").length,
+      guardrailsEnabled: (guardrails.data ?? []).filter((row) => row.enabled && String(row.enforcement_mode) === "enforce").length,
+      guardrailsMonitoringOnly: (guardrails.data ?? []).filter((row) => row.enabled && String(row.enforcement_mode) === "monitor").length,
     },
     posture: {
       integrations: integrationRows.map((row) => ({ id: String(row.id), provider: String(row.provider), status: String(row.status), healthStatus: String(row.health_status ?? "unknown"), lastSyncAt: row.last_sync_at ? String(row.last_sync_at) : null, lastSyncStatus: row.last_sync_status ? String(row.last_sync_status) : null, isMock: Boolean(row.is_mock) })),
       agentsWithRealBindings: realBindingAgents.size,
-      agentsConfigured: (agents.data ?? []).length,
+      agentsConfigured: configuredAgents,
       lastSyncRunAt: syncRun ? String(syncRun.finished_at ?? syncRun.started_at) : null,
       lastSyncRunStatus: syncRun ? String(syncRun.status) : null,
     },
-    signals: (auditRows.data ?? []).map((row: any) => ({ id: String(row.id), action: String(row.action), entityType: String(row.entity_type), entityId: row.entity_id ? String(row.entity_id) : null, detail: row.detail ? String(row.detail) : null, actor: row.actor_email ? String(row.actor_email) : null, createdAt: String(row.created_at) })),
+    signals: (auditRows.data ?? []).map((row) => ({ id: String(row.id), action: String(row.action), entityType: String(row.entity_type), entityId: row.entity_id ? String(row.entity_id) : null, detail: row.detail ? String(row.detail) : null, actor: row.actor_email ? String(row.actor_email) : null, createdAt: String(row.created_at) })),
     generatedAt: new Date().toISOString(),
   };
 }
