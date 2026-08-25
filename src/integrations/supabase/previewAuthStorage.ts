@@ -36,11 +36,6 @@ export function brokeredPreviewStorage() {
       const requestId = newId();
       let done = false;
       let timer: ReturnType<typeof setTimeout>;
-      const onMessage = (e: MessageEvent) => {
-        if (editorOrigins.indexOf(e.origin) < 0) return;
-        const d = e.data;
-        if (d && d.type === RESULT && d.requestId === requestId) finish(d);
-      };
       const finish = (r: { ok: boolean; value?: string | null } | null) => {
         if (done) return;
         done = true;
