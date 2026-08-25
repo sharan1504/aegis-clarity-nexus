@@ -6,9 +6,7 @@ import { validateProviderConnection, type ProviderConnectionInput, type Provider
 
 function encryptCredentials(value: unknown): string {
   const keyHex = process.env.AEGIS_CREDENTIAL_ENCRYPTION_KEY;
-  if (!keyHex || !/^[0-9a-fA-F]{64}$/.test(keyHex)) {
-    throw new Error("AEGIS_CREDENTIAL_ENCRYPTION_KEY is not configured on the server.");
-  }
+  if (!keyHex || !/^[0-9a-fA-F]{64}$/.test(keyHex)) throw new Error("AEGIS_CREDENTIAL_ENCRYPTION_KEY is not configured on the server.");
   const key = Buffer.from(keyHex, "hex");
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
@@ -17,251 +15,97 @@ function encryptCredentials(value: unknown): string {
   return [iv.toString("base64url"), tag.toString("base64url"), ciphertext.toString("base64url")].join(".");
 }
 
-type CatalogConnection = {
-  id: string;
-  provider: string;
-  status: "connected" | "failed" | "disconnected";
-  display_name: string | null;
-  environment: string;
-  external_id: string | null;
-  credential_expires_at: string | null;
-  last_sync_at: string | null;
-  last_error: string | null;
-  connected_at: string | null;
-  updated_at: string;
-};
+type CatalogConnection = { id: string; provider: string; status: "connected" | "failed" | "disconnected"; display_name: string | null; environment: string; external_id: string | null; credential_expires_at: string | null; last_sync_at: string | null; last_error: string | null; connected_at: string | null; updated_at: string };
 
-function mapGenesysIntegration(row: {
-  id: string;
-  provider: string;
-  status: string;
-  external_org_id: string | null;
-  external_org_name: string | null;
-  region: string | null;
-  metadata: Record<string, unknown> | null;
-  last_sync_at: string | null;
-  last_sync_error: string | null;
-  health_detail: string | null;
-  connected_at: string | null;
-  updated_at: string;
-}): CatalogConnection {
-  const status: CatalogConnection["status"] =
-    row.status === "connected" ? "connected" : row.status === "disconnected" ? "disconnected" : "failed";
-  const environment =
-    typeof row.metadata?.environment === "string" && row.metadata.environment.trim()
-      ? row.metadata.environment
-      : "Production";
-
-  return {
-    id: row.id,
-    provider: "genesys",
-    status,
-    display_name: row.external_org_name || "Genesys Cloud",
-    environment,
-    external_id: row.external_org_id,
-    credential_expires_at: null,
-    last_sync_at: row.last_sync_at,
-    last_error: row.last_sync_error || row.health_detail,
-    connected_at: row.connected_at,
-    updated_at: row.updated_at,
-  };
+function mapGenesysIntegration(row: { id: string; provider: string; status: string; external_org_id: string | null; external_org_name: string | null; region: string | null; metadata: Record<string, unknown> | null; last_sync_at: string | null; last_sync_error: string | null; health_detail: string | null; connected_at: string | null; updated_at: string }): CatalogConnection {
+  const status: CatalogConnection["status"] = row.status === "connected" ? "connected" : row.status === "disconnected" ? "disconnected" : "failed";
+  const environment = typeof row.metadata?.environment === "string" && row.metadata.environment.trim() ? row.metadata.environment : "Production";
+  return { id: row.id, provider: "genesys", status, display_name: row.external_org_name || "Genesys Cloud", environment, external_id: row.external_org_id, credential_expires_at: null, last_sync_at: row.last_sync_at, last_error: row.last_sync_error || row.health_detail, connected_at: row.connected_at, updated_at: row.updated_at };
 }
 
-export const getProviderCatalog = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { data: roles } = await context.supabase
-      .from("user_roles")
-      .select("tenant_id,role")
-      .eq("user_id", context.userId);
-    const tenantId = roles?.find((r) => r.tenant_id)?.tenant_id;
+export const getProviderCatalog = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
+  const { data: roles } = await context.supabase.from("user_roles").select("tenant_id,role").eq("user_id", context.userId);
+  const tenantId = roles?.find((r) => r.tenant_id)?.tenant_id;
+  const [{ data: providerConnections }, { data: genesysIntegrations }] = tenantId ? await Promise.all([
+    context.supabase.from("provider_connections").select("id,provider,status,display_name,environment,external_id,credential_expires_at,last_sync_at,last_error,connected_at,updated_at").eq("tenant_id", tenantId).order("updated_at", { ascending: false }),
+    context.supabase.from("integrations").select("id,provider,status,external_org_id,external_org_name,region,metadata,last_sync_at,last_sync_error,health_detail,connected_at,updated_at").eq("tenant_id", tenantId).eq("provider", "genesys").order("updated_at", { ascending: false }),
+  ]) : [{ data: [] }, { data: [] }];
+  const genericConnections = (providerConnections ?? []) as CatalogConnection[];
+  const mappedGenesys = (genesysIntegrations ?? []).map(mapGenesysIntegration);
+  const hasDedicatedGenesys = mappedGenesys.length > 0;
+  const connections = [...genericConnections.filter((x) => !hasDedicatedGenesys || x.provider !== "genesys"), ...mappedGenesys].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+  return { providers: PROVIDER_REGISTRY.map((p) => ({ ...p, configured: connections.some((x) => x.provider === p.id && x.status === "connected"), connections: connections.filter((x) => x.provider === p.id) })), connections };
+});
 
-    const [{ data: providerConnections }, { data: genesysIntegrations }] = tenantId
-      ? await Promise.all([
-          context.supabase
-            .from("provider_connections")
-            .select(
-              "id,provider,status,display_name,environment,external_id,credential_expires_at,last_sync_at,last_error,connected_at,updated_at",
-            )
-            .eq("tenant_id", tenantId)
-            .order("updated_at", { ascending: false }),
-          context.supabase
-            .from("integrations")
-            .select(
-              "id,provider,status,external_org_id,external_org_name,region,metadata,last_sync_at,last_sync_error,health_detail,connected_at,updated_at",
-            )
-            .eq("tenant_id", tenantId)
-            .eq("provider", "genesys")
-            .order("updated_at", { ascending: false }),
-        ])
-      : [{ data: [] }, { data: [] }];
+export const startProviderConnection = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { provider: string }) => ({ provider: String(input.provider ?? "").trim().toLowerCase() as ProviderId })).handler(async ({ data }) => {
+  const provider = PROVIDER_REGISTRY.find((p) => p.id === data.provider);
+  if (!provider) return { ok: false as const, errorCode: "provider_not_supported", errorMessage: "Provider is not registered." };
+  return { ok: true as const, provider, requiresCredentials: true };
+});
 
-    const genericConnections = (providerConnections ?? []) as CatalogConnection[];
-    const mappedGenesys = (genesysIntegrations ?? []).map(mapGenesysIntegration);
-    const hasDedicatedGenesys = mappedGenesys.length > 0;
-    const connections = [
-      ...genericConnections.filter((x) => !hasDedicatedGenesys || x.provider !== "genesys"),
-      ...mappedGenesys,
-    ].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+export const connectProvider = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: ProviderConnectionInput & { connectionId?: string; integrationId?: string; displayName?: string; environment?: string }) => input).handler(async ({ data, context }) => {
+  try {
+    if ((data.provider as string) === "genesys") return { ok: false as const, error: "Genesys Cloud must be connected through its OAuth authorization flow." };
+    const { data: roles } = await context.supabase.from("user_roles").select("tenant_id,role").eq("user_id", context.userId);
+    const tenantId = roles?.find((r) => r.role === "admin" || r.role === "manager")?.tenant_id;
+    if (!tenantId) return { ok: false as const, error: "Admin/manager access is required to connect an integration." };
 
-    return {
-      providers: PROVIDER_REGISTRY.map((p) => ({
-        ...p,
-        configured: connections.some((x) => x.provider === p.id && x.status === "connected"),
-        connections: connections.filter((x) => x.provider === p.id),
-      })),
-      connections,
-    };
-  });
-
-export const startProviderConnection = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input: { provider: string }) => ({
-    provider: String(input.provider ?? "").trim().toLowerCase() as ProviderId,
-  }))
-  .handler(async ({ data }) => {
-    const provider = PROVIDER_REGISTRY.find((p) => p.id === data.provider);
-    if (!provider) {
-      return {
-        ok: false as const,
-        errorCode: "provider_not_supported",
-        errorMessage: "Provider is not registered.",
-      };
+    // Older UI state calls this field integrationId. Treat it only as an alias
+    // for the canonical connectionId; both paths are tenant-scoped below.
+    const connectionId = data.connectionId?.trim() || data.integrationId?.trim() || null;
+    if (connectionId) {
+      const { data: existing, error: lookupError } = await context.supabase.from("provider_connections").select("id,provider").eq("id", connectionId).eq("tenant_id", tenantId).maybeSingle();
+      if (lookupError || !existing) return { ok: false as const, error: "The integration instance could not be found." };
+      if (existing.provider !== data.provider) return { ok: false as const, error: "The integration instance does not match the selected provider." };
     }
-    return { ok: true as const, provider, requiresCredentials: true };
-  });
 
-export const connectProvider = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator(
-    (input: ProviderConnectionInput & { connectionId?: string; displayName?: string; environment?: string }) => input,
-  )
-  .handler(async ({ data, context }) => {
-    try {
-      if ((data.provider as string) === "genesys") {
-        return { ok: false as const, error: "Genesys Cloud must be connected through its OAuth authorization flow." };
-      }
+    const result = await validateProviderConnection({ ...data, tenantId });
+    const encrypted = result.ok ? encryptCredentials({ accessToken: result.accessToken, refreshToken: result.refreshToken, clientId: data.clientId, clientSecret: data.clientSecret, apiToken: data.apiToken, accessKeyId: data.accessKeyId, secretAccessKey: data.secretAccessKey, sessionToken: data.sessionToken, tenant: data.tenant, baseUrl: data.baseUrl, region: data.region }) : null;
+    const displayName = data.displayName?.trim() || result.displayName || null;
+    const environment = data.environment?.trim() || "Production";
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-      const { data: roles } = await context.supabase
-        .from("user_roles")
-        .select("tenant_id,role")
-        .eq("user_id", context.userId);
-      const tenantId = roles?.find((r) => r.role === "admin" || r.role === "manager")?.tenant_id;
-      if (!tenantId) {
-        return { ok: false as const, error: "Admin/manager access is required to connect an integration." };
-      }
-
-      const connectionId = data.connectionId?.trim() || null;
-
-      // A supplied connectionId is an instruction to reconfigure one existing
-      // instance, never an instruction to create an arbitrary row. The lookup
-      // is tenant-scoped and therefore cannot disclose or mutate another tenant's
-      // integration.
-      if (connectionId) {
-        const { data: existing, error: lookupError } = await context.supabase
-          .from("provider_connections")
-          .select("id,provider")
-          .eq("id", connectionId)
-          .eq("tenant_id", tenantId)
-          .maybeSingle();
-
-        if (lookupError || !existing) {
-          return { ok: false as const, error: "The integration instance could not be found." };
-        }
-      }
-
-      const result = await validateProviderConnection({ ...data, tenantId });
-      const encrypted = result.ok
-        ? encryptCredentials({
-            accessToken: result.accessToken,
-            refreshToken: result.refreshToken,
-            clientId: data.clientId,
-            clientSecret: data.clientSecret,
-            apiToken: data.apiToken,
-            accessKeyId: data.accessKeyId,
-            secretAccessKey: data.secretAccessKey,
-            sessionToken: data.sessionToken,
-            tenant: data.tenant,
-            baseUrl: data.baseUrl,
-            region: data.region,
-          })
-        : null;
-      const displayName = data.displayName?.trim() || result.displayName || null;
-      const environment = data.environment?.trim() || "Production";
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
-      if (connectionId) {
-        // Update only the already-authorized instance. Deliberately do not use
-        // upsert here: a missing or foreign ID must never become a new row.
-        const { data: updated, error } = await supabaseAdmin
-          .from("provider_connections")
-          .update({
-            provider: existingProvider(data.provider),
-            external_id: result.externalId ?? null,
-            display_name: displayName,
-            environment,
-            status: result.status,
-            encrypted_credentials: encrypted,
-            credential_expires_at: result.expiresAt ?? null,
-            last_error: result.error ?? null,
-            connected_at: result.status === "connected" ? new Date().toISOString() : null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", connectionId)
-          .eq("tenant_id", tenantId)
-          .select("id")
-          .maybeSingle();
-
-        if (error) throw new Error(error.message);
-        if (!updated) throw new Error("The integration instance could not be updated.");
-
-        return {
-          ok: result.ok,
-          status: result.status,
-          provider: data.provider,
-          displayName,
-          externalId: result.externalId,
-          connectionId: updated.id,
-          error: result.error,
-        };
-      }
-
-      // New integrations deliberately omit id so Postgres generates a fresh
-      // instance. This keeps Add Integration and Reconfigure semantically distinct.
-      const { data: created, error } = await supabaseAdmin
-        .from("provider_connections")
-        .insert({
-          tenant_id: tenantId,
-          provider: data.provider,
-          external_id: result.externalId ?? null,
-          display_name: displayName,
-          environment,
-          status: result.status,
-          encrypted_credentials: encrypted,
-          credential_expires_at: result.expiresAt ?? null,
-          last_error: result.error ?? null,
-          created_by: context.userId,
-          connected_at: result.status === "connected" ? new Date().toISOString() : null,
-          updated_at: new Date().toISOString(),
-        })
-        .select("id")
-        .single();
-
-      if (error) throw new Error(error.message);
-      return {
-        ok: result.ok,
-        status: result.status,
+    if (connectionId) {
+      // Never upsert a caller-selected ID. A reconfigure can only update the
+      // previously authorized tenant-owned instance.
+      const updatePayload: Record<string, unknown> = {
         provider: data.provider,
-        displayName,
-        externalId: result.externalId,
-        connectionId: created.id,
-        error: result.error,
+        external_id: result.externalId ?? null,
+        display_name: displayName,
+        environment,
+        status: result.status,
+        credential_expires_at: result.expiresAt ?? null,
+        last_error: result.error ?? null,
+        updated_at: new Date().toISOString(),
       };
-    } catch (error) {
-      return { ok: false as const, error: error instanceof Error ? error.message : "Connection failed." };
-    }
-  });
+      // Failed validation must not erase the working encrypted credential set.
+      if (encrypted) updatePayload.encrypted_credentials = encrypted;
+      if (result.status === "connected") updatePayload.connected_at = new Date().toISOString();
 
-function existingProvider(provider: ProviderId): ProviderId {
-  return provider;
-}
+      const { data: updated, error } = await supabaseAdmin.from("provider_connections").update(updatePayload).eq("id", connectionId).eq("tenant_id", tenantId).select("id").maybeSingle();
+      if (error) throw new Error(error.message);
+      if (!updated) throw new Error("The integration instance could not be updated.");
+      return { ok: result.ok, status: result.status, provider: data.provider, displayName, externalId: result.externalId, connectionId: updated.id, error: result.error };
+    }
+
+    // Add Integration intentionally omits id so Postgres generates a fresh instance.
+    const { data: created, error } = await supabaseAdmin.from("provider_connections").insert({
+      tenant_id: tenantId,
+      provider: data.provider,
+      external_id: result.externalId ?? null,
+      display_name: displayName,
+      environment,
+      status: result.status,
+      encrypted_credentials: encrypted,
+      credential_expires_at: result.expiresAt ?? null,
+      last_error: result.error ?? null,
+      created_by: context.userId,
+      connected_at: result.status === "connected" ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    }).select("id").single();
+    if (error) throw new Error(error.message);
+    return { ok: result.ok, status: result.status, provider: data.provider, displayName, externalId: result.externalId, connectionId: created.id, error: result.error };
+  } catch (error) {
+    return { ok: false as const, error: error instanceof Error ? error.message : "Connection failed." };
+  }
+});
