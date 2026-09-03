@@ -6,13 +6,14 @@ Aegis AI unifies incident management, cloud cost optimisation, licence utilisati
 
 ## Pages
 
-- [Operations Dashboard](/): KPIs for incidents, security alerts, cost savings, and platform health.
-- [AI Agents](/agents): Specialised agents and the findings they raise.
-- [Ask Aegis](/chat): Conversational interface over connected enterprise systems.
-- [Change Control Center](/approvals): Change records with risk scores, approvals, and change windows.
-- [Integrations](/integrations): Connect Microsoft 365, AWS, Azure, ServiceNow, and more.
-- [Agent Marketplace](/marketplace): Catalog of installable enterprise AI agents.
-- [Executive Reports](/reports): PDF, CSV, and JSON exports with signed download links.
+- [Command Center](/): Operational findings, posture, dashboards, attention and governed action.
+- [Analytics](/analytics): Operational trends, findings, reports, filtering and evidence.
+- [Vulnerabilities](/investigations): Prioritized operational and security findings with evidence and remediation context.
+- [AI Agents](/agents): Deployed agents plus verified definitions available for deployment.
+- [Ask Aegis](/chat): Full-page conversational interface over authorized enterprise systems and knowledge.
+- [Approval Center](/approvals): Change records with risk scores, approvals, and change windows.
+- [Integrations](/integrations): Connect enterprise systems and manage provider instances.
+- [Audit Viewer](/audit): Trace platform activity and governed actions.
 
 ## Optional
 
