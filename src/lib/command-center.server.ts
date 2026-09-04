@@ -1,50 +1,23 @@
 import { resolveTenant } from "@/lib/genesys/store.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import { DEMO_DATA_ENABLED, DEMO_AUDIT_EVENTS, DEMO_CHANGES, DEMO_GENESYS, DEMO_INTEGRATIONS, DEMO_AWS } from "@/lib/demo-data";
 
 export type UserClientLike = SupabaseClient<Database>;
-
 export interface CommandCenterChange { id: string; changeId: string; title: string; stage: string; severity: string; ownerTeam: string; createdAt: string; updatedAt: string; }
 export interface CommandCenterSignal { id: string; action: string; entityType: string; entityId: string | null; detail: string | null; actor: string | null; createdAt: string; }
 export interface CommandCenterData {
-  live: {
-    connected: boolean;
-    provider: string | null;
-    orgName: string | null;
-    region: string | null;
-    lastSyncAt: string | null;
-    healthStatus: string | null;
-    users: number;
-    activeUsers: number;
-    licensedUsers: number;
-    licenseAssignments: number;
-    licenseTypes: number;
-    queues: number;
-    emptyQueues: number;
-    multipleLicenseUsers: number;
-    inactiveLicensedUsers: number;
-    recommendations: never[];
-    fetchedAt: string;
-    readOnly: boolean;
-  };
+  live: { connected: boolean; provider: string | null; orgName: string | null; region: string | null; lastSyncAt: string | null; healthStatus: string | null; users: number; activeUsers: number; licensedUsers: number; licenseAssignments: number; licenseTypes: number; queues: number; emptyQueues: number; multipleLicenseUsers: number; inactiveLicensedUsers: number; recommendations: never[]; fetchedAt: string; readOnly: boolean };
   attention: { pendingChanges: number; proposedChanges: number; blockingGuardrailEvaluations: number; integrationsNeedingAttention: number; unreadNotifications: number };
   changed: CommandCenterChange[];
   risk: { bySeverity: Record<string, number>; criticalOrHighOpen: number; guardrailsEnabled: number; guardrailsMonitoringOnly: number };
   posture: { integrations: Array<{ id: string; provider: string; status: string; healthStatus: string; lastSyncAt: string | null; lastSyncStatus: string | null; isMock: boolean }>; agentsWithRealBindings: number; agentsConfigured: number; lastSyncRunAt: string | null; lastSyncRunStatus: string | null };
-  signals: CommandCenterSignal[];
-  generatedAt: string;
+  signals: CommandCenterSignal[]; generatedAt: string;
 }
-
 const OPEN_STAGES = ["Proposed", "Team Approvals", "Risk Review", "Scheduled"];
 
-/**
- * Command Center intentionally reads persisted tenant evidence only. Live provider
- * API calls are expensive and are now triggered from the relevant integration
- * or analytics pages instead of blocking the first dashboard render.
- */
 export async function loadCommandCenterData(supabase: UserClientLike, userId: string): Promise<CommandCenterData> {
-  const { tenantId } = await resolveTenant(supabase, userId);
-  const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
+  const { tenantId } = await resolveTenant(supabase, userId); const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
   const [changes, guardrails, guardrailEvaluations, integrations, bindings, syncRuns, notifications, auditRows, genesysUsers, genesysLicenses, genesysUserLicenses, genesysQueues] = await Promise.all([
     supabase.from("change_records").select("id,change_id,title,stage,severity,owner_team,created_at,updated_at").eq("tenant_id", tenantId).order("updated_at", { ascending: false }).limit(200),
     supabase.from("guardrails").select("id,enabled,enforcement_mode").or(`tenant_id.eq.${tenantId},tenant_id.is.null`),
@@ -59,71 +32,23 @@ export async function loadCommandCenterData(supabase: UserClientLike, userId: st
     supabase.from("genesys_user_licenses").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
     supabase.from("genesys_queues").select("id,member_count", { count: "exact" }).eq("tenant_id", tenantId),
   ]);
-
-  const changeRows = changes.data ?? [];
+  const usingDemo = DEMO_DATA_ENABLED && (integrations.data ?? []).length === 0;
+  const changeRows = (changes.data ?? []).length ? changes.data ?? [] : usingDemo ? DEMO_CHANGES : [];
+  const integrationRows = (integrations.data ?? []).length ? integrations.data ?? [] : usingDemo ? DEMO_INTEGRATIONS : [];
+  const signalRows = (auditRows.data ?? []).length ? auditRows.data ?? [] : usingDemo ? DEMO_AUDIT_EVENTS : [];
   const bySeverity: Record<string, number> = {};
-  for (const row of changeRows) {
-    const key = String(row.severity ?? "unspecified").toLowerCase();
-    bySeverity[key] = (bySeverity[key] ?? 0) + 1;
-  }
-  const openRows = changeRows.filter((row) => OPEN_STAGES.includes(String(row.stage)));
-  const integrationRows = integrations.data ?? [];
-  const selectedIntegration = integrationRows.find((row) => row.status === "connected") ?? integrationRows[0] ?? null;
-  const bindingRows = bindings.data ?? [];
-  const configuredAgents = new Set(bindingRows.map((row) => String(row.agent_key))).size;
-  const realBindingAgents = new Set(bindingRows.filter((row) => row.enabled && !row.is_mock).map((row) => String(row.agent_key)));
-  const syncRun = (syncRuns.data ?? [])[0] ?? null;
-  const userRows = genesysUsers.data ?? [];
-  const queueRows = genesysQueues.data ?? [];
-  const genesysSelected = selectedIntegration?.provider === "genesys";
-  const users = genesysSelected ? (genesysUsers.count ?? userRows.length) : 0;
-  const activeUsers = genesysSelected ? userRows.filter((row) => String(row.state ?? "").toLowerCase() === "active").length : 0;
-  const queues = genesysSelected ? (genesysQueues.count ?? queueRows.length) : 0;
-  const emptyQueues = genesysSelected ? queueRows.filter((row) => Number(row.member_count ?? 0) === 0).length : 0;
-
+  for (const row of changeRows) { const key = String(row.severity ?? "unspecified").toLowerCase(); bySeverity[key] = (bySeverity[key] ?? 0) + 1; }
+  const openRows = changeRows.filter((row) => OPEN_STAGES.includes(String(row.stage))); const selectedIntegration = integrationRows.find((row) => row.status === "connected") ?? integrationRows[0] ?? null;
+  const bindingRows = bindings.data ?? []; const configuredAgents = new Set(bindingRows.map((row) => String(row.agent_key))).size; const realBindingAgents = new Set(bindingRows.filter((row) => row.enabled && !row.is_mock).map((row) => String(row.agent_key)));
+  const syncRun = (syncRuns.data ?? [])[0] ?? null; const userRows = genesysUsers.data ?? []; const queueRows = genesysQueues.data ?? []; const genesysSelected = selectedIntegration?.provider === "genesys";
+  const users = usingDemo ? DEMO_GENESYS.users : genesysSelected ? (genesysUsers.count ?? userRows.length) : 0; const activeUsers = usingDemo ? DEMO_GENESYS.activeUsers : genesysSelected ? userRows.filter((row) => String(row.state ?? "").toLowerCase() === "active").length : 0;
+  const queues = usingDemo ? DEMO_GENESYS.queues : genesysSelected ? (genesysQueues.count ?? queueRows.length) : 0; const emptyQueues = usingDemo ? DEMO_GENESYS.emptyQueues : genesysSelected ? queueRows.filter((row) => Number(row.member_count ?? 0) === 0).length : 0;
   return {
-    live: {
-      connected: Boolean(selectedIntegration?.status === "connected"),
-      provider: selectedIntegration ? String(selectedIntegration.provider) : null,
-      orgName: selectedIntegration?.external_org_name ? String(selectedIntegration.external_org_name) : null,
-      region: selectedIntegration?.region ? String(selectedIntegration.region) : null,
-      lastSyncAt: selectedIntegration?.last_sync_at ? String(selectedIntegration.last_sync_at) : null,
-      healthStatus: selectedIntegration?.health_status ? String(selectedIntegration.health_status) : null,
-      users,
-      activeUsers,
-      licensedUsers: genesysSelected ? 0 : 0,
-      licenseAssignments: genesysSelected ? (genesysUserLicenses.count ?? 0) : 0,
-      licenseTypes: genesysSelected ? (genesysLicenses.count ?? 0) : 0,
-      queues,
-      emptyQueues,
-      multipleLicenseUsers: 0,
-      inactiveLicensedUsers: 0,
-      recommendations: [],
-      fetchedAt: new Date().toISOString(),
-      readOnly: true,
-    },
-    attention: {
-      pendingChanges: changeRows.filter((row) => String(row.stage) === "Team Approvals" || String(row.stage) === "Risk Review").length,
-      proposedChanges: changeRows.filter((row) => String(row.stage) === "Proposed").length,
-      blockingGuardrailEvaluations: (guardrailEvaluations.data ?? []).filter((row) => String(row.decision) !== "allow").length,
-      integrationsNeedingAttention: integrationRows.filter((row) => String(row.status) !== "connected" || String(row.health_status) === "unhealthy").length,
-      unreadNotifications: (notifications.data ?? []).length,
-    },
+    live: { connected: Boolean(selectedIntegration?.status === "connected"), provider: selectedIntegration ? String(selectedIntegration.provider) : null, orgName: usingDemo ? DEMO_GENESYS.orgName : selectedIntegration?.external_org_name ? String(selectedIntegration.external_org_name) : null, region: usingDemo ? DEMO_GENESYS.region : selectedIntegration?.region ? String(selectedIntegration.region) : null, lastSyncAt: usingDemo ? DEMO_GENESYS.lastSyncAt : selectedIntegration?.last_sync_at ? String(selectedIntegration.last_sync_at) : null, healthStatus: usingDemo ? DEMO_GENESYS.healthStatus : selectedIntegration?.health_status ? String(selectedIntegration.health_status) : null, users, activeUsers, licensedUsers: usingDemo ? DEMO_GENESYS.licensedUsers : genesysSelected ? 0 : 0, licenseAssignments: usingDemo ? DEMO_GENESYS.licenseAssignments : genesysSelected ? (genesysUserLicenses.count ?? 0) : 0, licenseTypes: usingDemo ? DEMO_GENESYS.licenseTypes : genesysSelected ? (genesysLicenses.count ?? 0) : 0, queues, emptyQueues, multipleLicenseUsers: usingDemo ? DEMO_GENESYS.multipleLicenseUsers : 0, inactiveLicensedUsers: usingDemo ? DEMO_GENESYS.inactiveLicensedUsers : 0, recommendations: [], fetchedAt: new Date().toISOString(), readOnly: true },
+    attention: { pendingChanges: changeRows.filter((row) => String(row.stage) === "Team Approvals" || String(row.stage) === "Risk Review").length, proposedChanges: changeRows.filter((row) => String(row.stage) === "Proposed").length, blockingGuardrailEvaluations: usingDemo ? 2 : (guardrailEvaluations.data ?? []).filter((row) => String(row.decision) !== "allow").length, integrationsNeedingAttention: usingDemo ? 0 : integrationRows.filter((row) => String(row.status) !== "connected" || String(row.health_status) === "unhealthy").length, unreadNotifications: usingDemo ? 3 : (notifications.data ?? []).length },
     changed: changeRows.slice(0, 8).map((row) => ({ id: String(row.id), changeId: String(row.change_id), title: String(row.title), stage: String(row.stage), severity: String(row.severity ?? "unspecified"), ownerTeam: String(row.owner_team ?? "Unassigned"), createdAt: String(row.created_at), updatedAt: String(row.updated_at ?? row.created_at) })),
-    risk: {
-      bySeverity,
-      criticalOrHighOpen: openRows.filter((row) => ["critical", "high"].includes(String(row.severity ?? "").toLowerCase())).length,
-      guardrailsEnabled: (guardrails.data ?? []).filter((row) => row.enabled && String(row.enforcement_mode) === "enforce").length,
-      guardrailsMonitoringOnly: (guardrails.data ?? []).filter((row) => row.enabled && String(row.enforcement_mode) === "monitor").length,
-    },
-    posture: {
-      integrations: integrationRows.map((row) => ({ id: String(row.id), provider: String(row.provider), status: String(row.status), healthStatus: String(row.health_status ?? "unknown"), lastSyncAt: row.last_sync_at ? String(row.last_sync_at) : null, lastSyncStatus: row.last_sync_status ? String(row.last_sync_status) : null, isMock: Boolean(row.is_mock) })),
-      agentsWithRealBindings: realBindingAgents.size,
-      agentsConfigured: configuredAgents,
-      lastSyncRunAt: syncRun ? String(syncRun.finished_at ?? syncRun.started_at) : null,
-      lastSyncRunStatus: syncRun ? String(syncRun.status) : null,
-    },
-    signals: (auditRows.data ?? []).map((row) => ({ id: String(row.id), action: String(row.action), entityType: String(row.entity_type), entityId: row.entity_id ? String(row.entity_id) : null, detail: row.detail ? String(row.detail) : null, actor: row.actor_email ? String(row.actor_email) : null, createdAt: String(row.created_at) })),
-    generatedAt: new Date().toISOString(),
+    risk: { bySeverity, criticalOrHighOpen: openRows.filter((row) => ["critical", "high"].includes(String(row.severity ?? "").toLowerCase())).length, guardrailsEnabled: usingDemo ? 8 : (guardrails.data ?? []).filter((row) => row.enabled && String(row.enforcement_mode) === "enforce").length, guardrailsMonitoringOnly: usingDemo ? 3 : (guardrails.data ?? []).filter((row) => row.enabled && String(row.enforcement_mode) === "monitor").length },
+    posture: { integrations: integrationRows.map((row) => ({ id: String(row.id), provider: String(row.provider), status: String(row.status), healthStatus: String(row.health_status ?? "healthy"), lastSyncAt: row.last_sync_at ? String(row.last_sync_at) : null, lastSyncStatus: row.last_sync_status ? String(row.last_sync_status) : null, isMock: Boolean(row.is_mock) })), agentsWithRealBindings: realBindingAgents.size, agentsConfigured: usingDemo ? 5 : configuredAgents, lastSyncRunAt: usingDemo ? DEMO_GENESYS.lastSyncAt : syncRun ? String(syncRun.finished_at ?? syncRun.started_at) : null, lastSyncRunStatus: usingDemo ? "success" : syncRun ? String(syncRun.status) : null },
+    signals: signalRows.map((row) => ({ id: String(row.id), action: String(row.action), entityType: String(row.entity_type), entityId: row.entity_id ? String(row.entity_id) : null, detail: row.detail ? String(row.detail) : null, actor: row.actor_email ? String(row.actor_email) : null, createdAt: String(row.created_at) })), generatedAt: new Date().toISOString(),
   };
 }
