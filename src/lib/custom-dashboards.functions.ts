@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveTenant } from "@/lib/genesys/store.server";
 
-type DashboardConfig = { widgets: string[] };
+export type DashboardConfig = { widgets: string[] };
 
 const db = (supabase: any) => supabase as any;
 

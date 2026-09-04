@@ -18,6 +18,7 @@ export interface InvestigationCorrelation { changeId: string; rowId: string; tit
 
 export interface InvestigationSummary {
   key: string;
+  provider?: string | null;
   title: string;
   severity: LiveRecommendation["severity"];
   category: LiveRecommendation["category"];
