@@ -12,12 +12,16 @@ function demoWorkspace(department: { departmentKey: string | null; departmentNam
 
 export async function loadLiveWorkspaceData(supabase: Parameters<typeof resolveTenant>[0], userId: string, departmentKey?: string | null): Promise<LiveWorkspaceData> {
   const { tenantId } = await resolveTenant(supabase, userId); const department = await resolveDepartmentContext(supabase, userId, departmentKey); const allowedAgents = await getDepartmentAgentKeys(supabase, department);
-  const genesysAllowed = allowedAgents === null || allowedAgents.some((key) => ["agent-ccx", "agent-incident", "agent-knowledge", "agent-license"].includes(key)); const integration = await getIntegrationSummary(supabase, tenantId);
+  const genesysAllowed = allowedAgents === null || allowedAgents.some((key) => ["agent-ccx", "agent-incident", "agent-knowledge", "agent-license"].includes(key));
+  const integration = await getIntegrationSummary(supabase, tenantId);
   if (!genesysAllowed) return { connected: false, provider: null, orgName: null, region: null, lastSyncAt: integration?.lastSyncAt ?? null, healthStatus: integration?.healthStatus ?? null, users: 0, activeUsers: 0, licensedUsers: 0, licenseAssignments: 0, licenseTypes: 0, queues: 0, emptyQueues: 0, multipleLicenseUsers: 0, inactiveLicensedUsers: 0, recommendations: [], fetchedAt: new Date().toISOString(), readOnly: true, department: { key: department.departmentKey, name: department.departmentName, unrestricted: department.unrestricted } };
-  if (!integration?.id || integration.status !== "connected") {
-    if (DEMO_DATA_ENABLED) return demoWorkspace(department);
-    return { connected: false, provider: null, orgName: null, region: null, lastSyncAt: integration?.lastSyncAt ?? null, healthStatus: integration?.healthStatus ?? null, users: 0, activeUsers: 0, licensedUsers: 0, licenseAssignments: 0, licenseTypes: 0, queues: 0, emptyQueues: 0, multipleLicenseUsers: 0, inactiveLicensedUsers: 0, recommendations: [], fetchedAt: new Date().toISOString(), readOnly: true, department: { key: department.departmentKey, name: department.departmentName, unrestricted: department.unrestricted } };
-  }
+
+  // Demo mode intentionally takes precedence while DEMO_DATA_ENABLED is true.
+  // This prevents an incomplete/invalid provider credential from blocking the
+  // review UI. Disable the fixture once real provider evidence is ready.
+  if (DEMO_DATA_ENABLED) return demoWorkspace(department);
+
+  if (!integration?.id || integration.status !== "connected") return { connected: false, provider: null, orgName: null, region: null, lastSyncAt: integration?.lastSyncAt ?? null, healthStatus: integration?.healthStatus ?? null, users: 0, activeUsers: 0, licensedUsers: 0, licenseAssignments: 0, licenseTypes: 0, queues: 0, emptyQueues: 0, multipleLicenseUsers: 0, inactiveLicensedUsers: 0, recommendations: [], fetchedAt: new Date().toISOString(), readOnly: true, department: { key: department.departmentKey, name: department.departmentName, unrestricted: department.unrestricted } };
   const token = await getAccessToken(integration.id, tenantId, integration.region); const [users, assignments, licenses, queues] = await Promise.all([genesys.listUsers(token, integration.region), genesys.listUserLicenseAssignments(token, integration.region), genesys.listLicenses(token, integration.region), genesys.listQueues(token, integration.region)]);
   const assignedByUser = new Map<string, string[]>(); for (const assignment of assignments) assignedByUser.set(assignment.genesysUserId, assignment.licenseIds);
   const licensedUsers = [...assignedByUser.values()].filter((x) => x.length > 0).length; const multipleLicenseUsers = users.filter((u) => (assignedByUser.get(u.id)?.length ?? 0) > 1); const inactiveLicensedUsers = users.filter((u) => (assignedByUser.get(u.id)?.length ?? 0) > 0 && daysSince(u.lastLoginAt) >= 90); const activeUsers = users.filter((u) => u.state === "active").length; const emptyQueues = queues.filter((q) => (q.memberCount ?? 0) === 0); const recommendations: LiveRecommendation[] = [];
