@@ -1366,6 +1366,7 @@ export type Database = {
       }
       integration_oauth_states: {
         Row: {
+          code_verifier: string | null
           consumed_at: string | null
           created_at: string
           created_by: string | null
@@ -1378,6 +1379,7 @@ export type Database = {
           tenant_id: string
         }
         Insert: {
+          code_verifier?: string | null
           consumed_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -1390,6 +1392,7 @@ export type Database = {
           tenant_id: string
         }
         Update: {
+          code_verifier?: string | null
           consumed_at?: string | null
           created_at?: string
           created_by?: string | null

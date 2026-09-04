@@ -33,9 +33,15 @@ export async function loadCommandCenterData(supabase: UserClientLike, userId: st
     supabase.from("genesys_queues").select("id,member_count", { count: "exact" }).eq("tenant_id", tenantId),
   ]);
   const usingDemo = DEMO_DATA_ENABLED;
-  const changeRows = usingDemo ? DEMO_CHANGES : (changes.data ?? []);
-  const integrationRows = usingDemo ? DEMO_INTEGRATIONS : (integrations.data ?? []);
-  const signalRows = usingDemo ? DEMO_AUDIT_EVENTS : (auditRows.data ?? []);
+  const changeRows = usingDemo
+    ? DEMO_CHANGES.map((row) => ({ id: row.id, change_id: row.changeId, title: row.title, stage: row.stage, severity: row.severity, owner_team: row.ownerTeam, created_at: row.createdAt, updated_at: row.updatedAt }))
+    : (changes.data ?? []);
+  const integrationRows = usingDemo
+    ? DEMO_INTEGRATIONS.map((row) => ({ id: row.id, provider: row.provider, status: row.status, health_status: row.healthStatus, last_sync_at: row.lastSyncAt as string | null, last_sync_status: row.lastSyncStatus as string | null, is_mock: row.isMock, external_org_name: null as string | null, region: null as string | null, updated_at: row.lastSyncAt as string }))
+    : (integrations.data ?? []);
+  const signalRows = usingDemo
+    ? DEMO_AUDIT_EVENTS.map((row) => ({ id: row.id, action: row.action, entity_type: row.entityType, entity_id: row.entityId as string | null, detail: row.detail as string | null, actor_email: row.actor as string | null, created_at: row.createdAt }))
+    : (auditRows.data ?? []);
   const bySeverity: Record<string, number> = {};
   for (const row of changeRows) { const key = String(row.severity ?? "unspecified").toLowerCase(); bySeverity[key] = (bySeverity[key] ?? 0) + 1; }
   const openRows = changeRows.filter((row) => OPEN_STAGES.includes(String(row.stage))); const selectedIntegration = integrationRows.find((row) => row.status === "connected") ?? integrationRows[0] ?? null;

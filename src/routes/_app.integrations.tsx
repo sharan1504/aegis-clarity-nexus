@@ -126,7 +126,7 @@ function IntegrationsPage() {
         return;
       }
 
-      const result = await connectProvider({ data: { ...form, provider: target.id } });
+      const result = await connectProvider({ data: { ...form, provider: target.id as never } });
       if (result.ok) { setTarget(null); setForm(EMPTY); await load(); }
       else setMessage(result.error ?? "Provider connection failed.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Provider connection failed."); }
