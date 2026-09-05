@@ -2069,6 +2069,7 @@ export type Database = {
         Row: {
           analytics_settings: Json
           created_at: string
+          created_by: string | null
           id: string
           name: string
           primary_domain: string | null
@@ -2080,6 +2081,7 @@ export type Database = {
         Insert: {
           analytics_settings?: Json
           created_at?: string
+          created_by?: string | null
           id?: string
           name: string
           primary_domain?: string | null
@@ -2091,6 +2093,7 @@ export type Database = {
         Update: {
           analytics_settings?: Json
           created_at?: string
+          created_by?: string | null
           id?: string
           name?: string
           primary_domain?: string | null
