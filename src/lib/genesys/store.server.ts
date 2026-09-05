@@ -6,6 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { GENESYS_SCOPES, IntegrationError, normalizeGenesysRegion, toErrorCode, toErrorMessage } from "./errors";
 import * as genesys from "./connector.server";
+import { resolveTenantContext, TenantResolutionError } from "../tenant-context.server";
 
 export const PROVIDER = "genesys";
 
@@ -21,20 +22,15 @@ async function admin() {
   return supabaseAdmin;
 }
 
-/** Resolves the caller's workspace and roles through their own RLS-scoped session. */
+/** Resolves the caller's workspace and roles through the shared short-TTL cache. */
 export async function resolveTenant(supabase: UserClient, userId: string): Promise<TenantContext> {
-  const { data: profile } = await supabase.from("profiles").select("tenant_id").eq("id", userId).maybeSingle();
-
-  const tenantId = profile?.tenant_id;
-  if (!tenantId) throw new IntegrationError("no_tenant");
-
-  const { data: roleRows } = await supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .eq("tenant_id", tenantId);
-
-  return { tenantId, roles: (roleRows ?? []).map((r) => String(r.role)) };
+  try {
+    const ctx = await resolveTenantContext(supabase, userId);
+    return { tenantId: ctx.tenantId, roles: ctx.roles };
+  } catch (error) {
+    if (error instanceof TenantResolutionError) throw new IntegrationError("no_tenant");
+    throw error;
+  }
 }
 
 /** Integration lifecycle changes require admin or manager, enforced server-side. */

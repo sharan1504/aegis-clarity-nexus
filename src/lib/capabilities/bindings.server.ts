@@ -14,6 +14,7 @@ import {
   type PolicyPrimitive,
 } from "./policy";
 import type { CapabilityDef, DataSourceState } from "./registry";
+import { resolveTenantContext, TenantResolutionError } from "../tenant-context.server";
 
 type UserClient = SupabaseClient<Database>;
 
@@ -64,23 +65,14 @@ export interface TenantContext {
 }
 
 export async function resolveTenant(supabase: UserClient, userId: string): Promise<TenantContext> {
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("tenant_id")
-    .eq("id", userId)
-    .maybeSingle();
-
-  const tenantId = profile?.tenant_id;
-  if (!tenantId) throw new BindingError("no_tenant", BINDING_ERRORS['no_tenant']!);
-
-  const { data: roleRows } = await supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .eq("tenant_id", tenantId);
-
-  const roles = (roleRows ?? []).map((r) => String(r.role));
-  return { tenantId, roles, canManage: roles.includes("admin") || roles.includes("manager") };
+  try {
+    return await resolveTenantContext(supabase, userId);
+  } catch (error) {
+    if (error instanceof TenantResolutionError) {
+      throw new BindingError("no_tenant", BINDING_ERRORS['no_tenant']!);
+    }
+    throw error;
+  }
 }
 
 export async function requireManage(supabase: UserClient, userId: string) {
