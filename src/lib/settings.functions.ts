@@ -4,175 +4,25 @@ import { resolveTenant } from "@/lib/genesys/store.server";
 import { clearTenantContextCache } from "@/lib/tenant-context.server";
 import type { EnvironmentMode } from "@/lib/environment-mode";
 
-const TIMEZONES = [
-  "UTC",
-  "Asia/Kolkata",
-  "Asia/Dubai",
-  "Asia/Singapore",
-  "Asia/Tokyo",
-  "Asia/Seoul",
-  "Asia/Shanghai",
-  "Australia/Sydney",
-  "Pacific/Auckland",
-  "Europe/London",
-  "Europe/Dublin",
-  "Europe/Paris",
-  "Europe/Berlin",
-  "America/New_York",
-  "America/Chicago",
-  "America/Denver",
-  "America/Los_Angeles",
-  "America/Toronto",
-  "America/Vancouver",
-  "America/Sao_Paulo",
-] as const;
+const TIMEZONES = ["UTC","Asia/Kolkata","Asia/Dubai","Asia/Singapore","Asia/Tokyo","Asia/Seoul","Asia/Shanghai","Australia/Sydney","Pacific/Auckland","Europe/London","Europe/Dublin","Europe/Paris","Europe/Berlin","America/New_York","America/Chicago","America/Denver","America/Los_Angeles","America/Toronto","America/Vancouver","America/Sao_Paulo"] as const;
+type SecuritySettings = { dataMasking: boolean; requireApprovalForWrites: boolean; autoGenerateRollbackPlans: boolean; };
+function normalizeTimezone(value: string | null | undefined): string { const candidate = String(value ?? "").trim(); const aliases: Record<string, string> = { "Asia/Calcutta": "Asia/Kolkata", "US/Eastern": "America/New_York", "US/Central": "America/Chicago", "US/Mountain": "America/Denver", "US/Pacific": "America/Los_Angeles" }; const normalized = aliases[candidate] ?? candidate; return TIMEZONES.includes(normalized as (typeof TIMEZONES)[number]) ? normalized : "UTC"; }
+function normalizeSecuritySettings(value: unknown): SecuritySettings { const source = value && typeof value === "object" ? value as Record<string, unknown> : {}; return { dataMasking: source.dataMasking !== false, requireApprovalForWrites: source.requireApprovalForWrites !== false, autoGenerateRollbackPlans: source.autoGenerateRollbackPlans !== false }; }
+function normalizeEnvironmentMode(value: unknown): EnvironmentMode { return value === "demo" ? "demo" : "live"; }
 
-type SecuritySettings = {
-  dataMasking: boolean;
-  requireApprovalForWrites: boolean;
-  autoGenerateRollbackPlans: boolean;
-};
+export const getWorkspaceSettings = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
+  const { tenantId } = await resolveTenant(context.supabase, context.userId); const { data, error } = await (context.supabase as any).from("tenants").select("id,name,slug,primary_domain,timezone,analytics_settings,environment_mode").eq("id", tenantId).single(); if (error || !data) throw new Error(error?.message ?? "Workspace settings could not be loaded."); const row = data as any;
+  return { organizationName: row.name ?? "", primaryDomain: row.primary_domain ?? "", timezone: normalizeTimezone(row.timezone), environmentMode: normalizeEnvironmentMode(row.environment_mode), analyticsSettings: row.analytics_settings ?? {}, securitySettings: normalizeSecuritySettings(row.analytics_settings?.security), timezones: [...TIMEZONES] };
+});
 
-function normalizeTimezone(value: string | null | undefined): string {
-  const candidate = String(value ?? "").trim();
-  const aliases: Record<string, string> = {
-    "Asia/Calcutta": "Asia/Kolkata",
-    "US/Eastern": "America/New_York",
-    "US/Central": "America/Chicago",
-    "US/Mountain": "America/Denver",
-    "US/Pacific": "America/Los_Angeles",
-  };
-  const normalized = aliases[candidate] ?? candidate;
-  return TIMEZONES.includes(normalized as (typeof TIMEZONES)[number]) ? normalized : "UTC";
-}
+export const updateEnvironmentMode = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { environmentMode: EnvironmentMode }) => ({ environmentMode: normalizeEnvironmentMode(input?.environmentMode) })).handler(async ({ data, context }) => {
+  const { tenantId, roles } = await resolveTenant(context.supabase, context.userId); if (!roles.includes("admin")) throw new Error("Only workspace administrators can change the workspace environment mode.");
+  const { error } = await (context.supabase as any).from("tenants").update({ environment_mode: data.environmentMode }).eq("id", tenantId); if (error) throw new Error(`Workspace environment mode could not be changed: ${error.message}`);
+  clearTenantContextCache(); return { ok: true as const, environmentMode: data.environmentMode };
+});
 
-function normalizeSecuritySettings(value: unknown): SecuritySettings {
-  const source = value && typeof value === "object" ? value as Record<string, unknown> : {};
-  return {
-    dataMasking: source.dataMasking !== false,
-    requireApprovalForWrites: source.requireApprovalForWrites !== false,
-    autoGenerateRollbackPlans: source.autoGenerateRollbackPlans !== false,
-  };
-}
-
-function normalizeEnvironmentMode(value: unknown): EnvironmentMode {
-  return value === "demo" ? "demo" : "live";
-}
-
-export const getWorkspaceSettings = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { tenantId } = await resolveTenant(context.supabase, context.userId);
-    const { data, error } = await (context.supabase as any)
-      .from("tenants")
-      .select("id,name,slug,primary_domain,timezone,analytics_settings,environment_mode")
-      .eq("id", tenantId)
-      .single();
-
-    if (error || !data) {
-      throw new Error(error?.message ?? "Workspace settings could not be loaded.");
-    }
-
-    const row = data as typeof data & {
-      primary_domain?: string | null;
-      timezone?: string | null;
-      analytics_settings?: Record<string, unknown> | null;
-      environment_mode?: string | null;
-    };
-
-    return {
-      organizationName: row.name ?? "",
-      primaryDomain: row.primary_domain ?? "",
-      timezone: normalizeTimezone(row.timezone),
-      environmentMode: normalizeEnvironmentMode(row.environment_mode),
-      analyticsSettings: row.analytics_settings ?? {},
-      securitySettings: normalizeSecuritySettings(row.analytics_settings?.security),
-      timezones: [...TIMEZONES],
-    };
-  });
-
-export const updateWorkspaceSettings = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input: {
-    organizationName: string;
-    primaryDomain: string;
-    timezone: string;
-    environmentMode?: EnvironmentMode;
-    analyticsSettings?: Record<string, unknown>;
-    securitySettings?: Partial<SecuritySettings>;
-  }) => ({
-    organizationName: String(input.organizationName ?? "").trim(),
-    primaryDomain: String(input.primaryDomain ?? "").trim().toLowerCase(),
-    timezone: String(input.timezone ?? "UTC").trim(),
-    environmentMode: normalizeEnvironmentMode(input.environmentMode),
-    analyticsSettings: input.analyticsSettings ?? {},
-    securitySettings: input.securitySettings ?? {},
-  }))
-  .handler(async ({ data, context }) => {
-    const { tenantId, roles } = await resolveTenant(context.supabase, context.userId);
-
-    if (!roles.includes("admin")) {
-      throw new Error("Only workspace administrators can update organization settings.");
-    }
-    if (!data.organizationName) {
-      throw new Error("Organization name is required.");
-    }
-    if (data.primaryDomain && !/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i.test(data.primaryDomain)) {
-      throw new Error("Enter a valid primary domain, for example company.com.");
-    }
-
-    const timezone = normalizeTimezone(data.timezone);
-
-    const { data: current, error: currentError } = await context.supabase
-      .from("tenants")
-      .select("analytics_settings")
-      .eq("id", tenantId)
-      .single();
-
-    if (currentError || !current) {
-      throw new Error(currentError?.message ?? "Workspace settings could not be loaded.");
-    }
-
-    const currentSettings = current.analytics_settings && typeof current.analytics_settings === "object"
-      ? current.analytics_settings as Record<string, unknown>
-      : {};
-    const currentSecurity = normalizeSecuritySettings(currentSettings.security);
-    const security = {
-      ...currentSecurity,
-      ...(typeof data.securitySettings.requireApprovalForWrites === "boolean"
-        ? { requireApprovalForWrites: data.securitySettings.requireApprovalForWrites }
-        : {}),
-      ...(typeof data.securitySettings.autoGenerateRollbackPlans === "boolean"
-        ? { autoGenerateRollbackPlans: data.securitySettings.autoGenerateRollbackPlans }
-        : {}),
-    };
-    const analyticsSettings = {
-      ...currentSettings,
-      ...data.analyticsSettings,
-      security,
-    };
-
-    const { error } = await (context.supabase as any)
-      .from("tenants")
-      .update({
-        name: data.organizationName,
-        primary_domain: data.primaryDomain || null,
-        timezone,
-        environment_mode: data.environmentMode,
-        analytics_settings: analyticsSettings,
-      })
-      .eq("id", tenantId);
-
-    if (error) {
-      throw new Error(`Workspace settings could not be saved: ${error.message}`);
-    }
-
-    clearTenantContextCache();
-
-    return {
-      ok: true as const,
-      environmentMode: data.environmentMode,
-      securitySettings: security,
-      timezone,
-    };
-  });
+export const updateWorkspaceSettings = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { organizationName: string; primaryDomain: string; timezone: string; environmentMode?: EnvironmentMode; analyticsSettings?: Record<string, unknown>; securitySettings?: Partial<SecuritySettings>; }) => ({ organizationName: String(input.organizationName ?? "").trim(), primaryDomain: String(input.primaryDomain ?? "").trim().toLowerCase(), timezone: String(input.timezone ?? "UTC").trim(), environmentMode: normalizeEnvironmentMode(input.environmentMode), analyticsSettings: input.analyticsSettings ?? {}, securitySettings: input.securitySettings ?? {} })).handler(async ({ data, context }) => {
+  const { tenantId, roles } = await resolveTenant(context.supabase, context.userId); if (!roles.includes("admin")) throw new Error("Only workspace administrators can update organization settings."); if (!data.organizationName) throw new Error("Organization name is required."); if (data.primaryDomain && !/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i.test(data.primaryDomain)) throw new Error("Enter a valid primary domain, for example company.com."); const timezone = normalizeTimezone(data.timezone);
+  const { data: current, error: currentError } = await context.supabase.from("tenants").select("analytics_settings").eq("id", tenantId).single(); if (currentError || !current) throw new Error(currentError?.message ?? "Workspace settings could not be loaded."); const currentSettings = current.analytics_settings && typeof current.analytics_settings === "object" ? current.analytics_settings as Record<string, unknown> : {}; const currentSecurity = normalizeSecuritySettings(currentSettings.security); const security = { ...currentSecurity, ...(typeof data.securitySettings.requireApprovalForWrites === "boolean" ? { requireApprovalForWrites: data.securitySettings.requireApprovalForWrites } : {}), ...(typeof data.securitySettings.autoGenerateRollbackPlans === "boolean" ? { autoGenerateRollbackPlans: data.securitySettings.autoGenerateRollbackPlans } : {}) }; const analyticsSettings = { ...currentSettings, ...data.analyticsSettings, security };
+  const { error } = await (context.supabase as any).from("tenants").update({ name: data.organizationName, primary_domain: data.primaryDomain || null, timezone, environment_mode: data.environmentMode, analytics_settings: analyticsSettings }).eq("id", tenantId); if (error) throw new Error(`Workspace settings could not be saved: ${error.message}`); clearTenantContextCache(); return { ok: true as const, environmentMode: data.environmentMode, securitySettings: security, timezone };
+});
