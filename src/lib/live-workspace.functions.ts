@@ -4,7 +4,8 @@ import { resolveTenant, getIntegrationSummary, getAccessToken } from "@/lib/gene
 import { resolveDepartmentContext, getDepartmentAgentKeys } from "@/lib/department-access.server";
 import { withEvidenceCache } from "@/lib/evidence-cache.server";
 import * as genesys from "@/lib/genesys/connector.server";
-import { DEMO_DATA_ENABLED, DEMO_GENESYS } from "@/lib/demo-data";
+import { DEMO_GENESYS } from "@/lib/demo-data";
+import { resolveTenantContext } from "@/lib/tenant-context.server";
 
 export interface LiveRecommendation { key: string; title: string; severity: "critical" | "high" | "medium" | "low"; category: "License" | "Operations" | "Security"; impact: string; evidence: string; action: string; canExecute: boolean; }
 export interface LiveWorkspaceData { connected: boolean; provider: "Genesys Cloud" | null; orgName: string | null; region: string | null; lastSyncAt: string | null; healthStatus: string | null; users: number; activeUsers: number; licensedUsers: number; licenseAssignments: number; licenseTypes: number; queues: number; emptyQueues: number; multipleLicenseUsers: number; inactiveLicensedUsers: number; recommendations: LiveRecommendation[]; fetchedAt: string; readOnly: boolean; department?: { key: string | null; name: string | null; unrestricted: boolean }; }
@@ -12,14 +13,14 @@ function daysSince(value: string | null) { if (!value) return Number.POSITIVE_IN
 function demoWorkspace(department: { departmentKey: string | null; departmentName: string | null; unrestricted: boolean }): LiveWorkspaceData { return { connected: true, provider: DEMO_GENESYS.provider, orgName: DEMO_GENESYS.orgName, region: DEMO_GENESYS.region, lastSyncAt: DEMO_GENESYS.lastSyncAt, healthStatus: DEMO_GENESYS.healthStatus, users: DEMO_GENESYS.users, activeUsers: DEMO_GENESYS.activeUsers, licensedUsers: DEMO_GENESYS.licensedUsers, licenseAssignments: DEMO_GENESYS.licenseAssignments, licenseTypes: DEMO_GENESYS.licenseTypes, queues: DEMO_GENESYS.queues, emptyQueues: DEMO_GENESYS.emptyQueues, multipleLicenseUsers: DEMO_GENESYS.multipleLicenseUsers, inactiveLicensedUsers: DEMO_GENESYS.inactiveLicensedUsers, recommendations: DEMO_GENESYS.recommendations, fetchedAt: new Date().toISOString(), readOnly: true, department: { key: department.departmentKey, name: department.departmentName, unrestricted: department.unrestricted } }; }
 
 export async function loadLiveWorkspaceData(supabase: Parameters<typeof resolveTenant>[0], userId: string, departmentKey?: string | null): Promise<LiveWorkspaceData> {
-  const { tenantId } = await resolveTenant(supabase, userId);
+  const { tenantId, environmentMode } = await resolveTenantContext(supabase, userId);
   const department = await resolveDepartmentContext(supabase, userId, departmentKey);
   const scope = `${userId}:${departmentKey ?? "default"}`;
   return withEvidenceCache(tenantId, "genesys-workspace", scope, async () => {
     const [allowedAgents, integration] = await Promise.all([getDepartmentAgentKeys(supabase, department), getIntegrationSummary(supabase, tenantId)]);
     const genesysAllowed = allowedAgents === null || allowedAgents.some((key) => ["agent-ccx", "agent-incident", "agent-knowledge", "agent-license"].includes(key));
     if (!genesysAllowed) return { connected: false, provider: null, orgName: null, region: null, lastSyncAt: integration?.lastSyncAt ?? null, healthStatus: integration?.healthStatus ?? null, users: 0, activeUsers: 0, licensedUsers: 0, licenseAssignments: 0, licenseTypes: 0, queues: 0, emptyQueues: 0, multipleLicenseUsers: 0, inactiveLicensedUsers: 0, recommendations: [], fetchedAt: new Date().toISOString(), readOnly: true, department: { key: department.departmentKey, name: department.departmentName, unrestricted: department.unrestricted } };
-    if (DEMO_DATA_ENABLED) return demoWorkspace(department);
+    if (environmentMode === "demo") return demoWorkspace(department);
     if (!integration?.id || integration.status !== "connected") return { connected: false, provider: null, orgName: null, region: null, lastSyncAt: integration?.lastSyncAt ?? null, healthStatus: integration?.healthStatus ?? null, users: 0, activeUsers: 0, licensedUsers: 0, licenseAssignments: 0, licenseTypes: 0, queues: 0, emptyQueues: 0, multipleLicenseUsers: 0, inactiveLicensedUsers: 0, recommendations: [], fetchedAt: new Date().toISOString(), readOnly: true, department: { key: department.departmentKey, name: department.departmentName, unrestricted: department.unrestricted } };
     const token = await getAccessToken(integration.id, tenantId, integration.region); const [users, assignments, licenses, queues] = await Promise.all([genesys.listUsers(token, integration.region), genesys.listUserLicenseAssignments(token, integration.region), genesys.listLicenses(token, integration.region), genesys.listQueues(token, integration.region)]);
     const assignedByUser = new Map<string, string[]>(); for (const assignment of assignments) assignedByUser.set(assignment.genesysUserId, assignment.licenseIds);
