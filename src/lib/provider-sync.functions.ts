@@ -3,6 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveTenant } from "@/lib/genesys/store.server";
 import { resolveDepartmentContext, getDepartmentProviders } from "@/lib/department-access.server";
+import { clearEvidenceCache, withEvidenceCache } from "@/lib/evidence-cache.server";
 
 type Provider = "github" | "slack" | "jira";
 interface Credentials { accessToken?: string; baseUrl?: string; }
@@ -28,44 +29,46 @@ export const syncReportProvider = createServerFn({ method: "POST" }).middleware(
   try {
     const rows = await fetchProvider(data.provider, decrypt(connection.encrypted_credentials)); const seenByType = new Map<string, typeof rows>(); for (const row of rows) seenByType.set(row.entityType, [...(seenByType.get(row.entityType) ?? []), row]);
     for (const [entityType, candidates] of seenByType) { await context.supabase.from("provider_sync_entities").update({ stale: true, updated_at: new Date().toISOString() }).eq("tenant_id", tenantId).eq("provider", data.provider).eq("connection_id", connection.id).eq("entity_type", entityType); for (const row of candidates) await context.supabase.from("provider_sync_entities").upsert({ tenant_id: tenantId, provider: data.provider, connection_id: connection.id, entity_type: row.entityType, entity_key: row.entityKey, payload: row.payload, observed_at: new Date().toISOString(), sync_run_id: run.id, stale: false }, { onConflict: "tenant_id,provider,connection_id,entity_type,entity_key" }); }
-    const finished = new Date().toISOString(); const staled = await context.supabase.from("provider_sync_entities").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("provider", data.provider).eq("connection_id", connection.id).eq("stale", true); await context.supabase.from("provider_sync_runs").update({ status: "success", finished_at: finished, records_seen: rows.length, records_upserted: rows.length, records_staled: staled.count ?? 0 }).eq("id", run.id).eq("tenant_id", tenantId); return { ok: true as const, provider: data.provider, connectionId: connection.id, records: rows.length, finishedAt: finished };
+    const finished = new Date().toISOString(); const staled = await context.supabase.from("provider_sync_entities").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("provider", data.provider).eq("connection_id", connection.id).eq("stale", true); await context.supabase.from("provider_sync_runs").update({ status: "success", finished_at: finished, records_seen: rows.length, records_upserted: rows.length, records_staled: staled.count ?? 0 }).eq("id", run.id).eq("tenant_id", tenantId); clearEvidenceCache(); return { ok: true as const, provider: data.provider, connectionId: connection.id, records: rows.length, finishedAt: finished };
   } catch (error) { const message = error instanceof Error ? error.message : String(error); await context.supabase.from("provider_sync_runs").update({ status: "failed", finished_at: new Date().toISOString(), error_message: message.slice(0, 2000) }).eq("id", run.id).eq("tenant_id", tenantId); throw new Error(message); }
 });
 export async function loadProviderReportData(supabase: any, userId: string, departmentKey?: string | null) {
   const { tenantId } = await resolveTenant(supabase, userId);
   const department = await resolveDepartmentContext(supabase, userId, departmentKey);
-  const allowedProviders = await getDepartmentProviders(supabase, department);
-  const { data: connections } = await supabase.from("provider_connections").select("id,provider,status,display_name,last_sync_at").eq("tenant_id", tenantId);
-  const connected = (connections ?? []).filter((c: any) => c.status === "connected");
-  const scopedConnected = allowedProviders === null ? connected : connected.filter((c: any) => allowedProviders.includes(c.provider));
+  const scope = `${userId}:${departmentKey ?? "default"}`;
+  return withEvidenceCache(tenantId, "provider-report", scope, async () => {
+    const [{ data: connections }, allowedProviders] = await Promise.all([
+      supabase.from("provider_connections").select("id,provider,status,display_name,last_sync_at").eq("tenant_id", tenantId),
+      getDepartmentProviders(supabase, department),
+    ]);
+    const connected = (connections ?? []).filter((c: any) => c.status === "connected");
+    const scopedConnected = allowedProviders === null ? connected : connected.filter((c: any) => allowedProviders.includes(c.provider));
 
-  let allowedConnectionIds: string[] | null = null;
-  if (!department.unrestricted) {
-    const { data: explicitAccess } = await supabase.from("department_provider_connection_access").select("connection_id").eq("tenant_id", tenantId).eq("department_id", department.departments.find((d) => d.department_key === department.departmentKey)?.id).eq("enabled", true);
-    const explicitIds = (explicitAccess ?? []).map((row: any) => row.connection_id);
-    const ids: string[] = [];
-    for (const provider of new Set(scopedConnected.map((c: any) => c.provider))) {
-      const providerConnections = scopedConnected.filter((c: any) => c.provider === provider);
-      const mapped = providerConnections.filter((c: any) => explicitIds.includes(c.id));
-      if (mapped.length) ids.push(...mapped.map((c: any) => c.id));
-      else if (providerConnections.length === 1) ids.push(providerConnections[0].id);
-      // Multiple instances with no explicit department assignment are denied
-      // rather than silently exposing the wrong environment.
+    let allowedConnectionIds: string[] | null = null;
+    if (!department.unrestricted) {
+      const departmentId = department.departments.find((d) => d.department_key === department.departmentKey)?.id;
+      const { data: explicitAccess } = await supabase.from("department_provider_connection_access").select("connection_id").eq("tenant_id", tenantId).eq("department_id", departmentId).eq("enabled", true);
+      const explicitIds = (explicitAccess ?? []).map((row: any) => row.connection_id);
+      const ids: string[] = [];
+      for (const provider of new Set(scopedConnected.map((c: any) => c.provider))) {
+        const providerConnections = scopedConnected.filter((c: any) => c.provider === provider);
+        const mapped = providerConnections.filter((c: any) => explicitIds.includes(c.id));
+        if (mapped.length) ids.push(...mapped.map((c: any) => c.id));
+        else if (providerConnections.length === 1) ids.push(providerConnections[0].id);
+      }
+      allowedConnectionIds = ids;
     }
-    allowedConnectionIds = ids;
-  }
 
-  const entityQuery = supabase.from("provider_sync_entities").select("provider,connection_id,entity_type,entity_key,payload,observed_at").eq("tenant_id", tenantId).eq("stale", false);
-  const entities = scopedConnected.length
-    ? (await entityQuery.in("provider", [...new Set(scopedConnected.map((c: any) => c.provider))])).data ?? []
-    : [];
-  const filteredEntities = allowedConnectionIds === null
-    ? entities
-    : entities.filter((entity: any) => entity.connection_id && allowedConnectionIds!.includes(entity.connection_id));
-  const runQuery = supabase.from("provider_sync_runs").select("provider,connection_id,status,started_at,finished_at,records_seen,error_message").eq("tenant_id", tenantId).order("started_at", { ascending: false }).limit(100);
-  const runs = scopedConnected.length ? (await runQuery.in("provider", [...new Set(scopedConnected.map((c: any) => c.provider))])).data ?? [] : [];
-  const filteredRuns = allowedConnectionIds === null ? runs : runs.filter((run: any) => run.connection_id && allowedConnectionIds!.includes(run.connection_id));
-  return { connectedProviders: allowedConnectionIds === null ? scopedConnected : scopedConnected.filter((c: any) => allowedConnectionIds!.includes(c.id)), entities: filteredEntities, runs: filteredRuns, department: { key: department.departmentKey, name: department.departmentName, unrestricted: department.unrestricted } };
+    const providerNames = [...new Set(scopedConnected.map((c: any) => c.provider))];
+    const entityQuery = supabase.from("provider_sync_entities").select("provider,connection_id,entity_type,entity_key,payload,observed_at").eq("tenant_id", tenantId).eq("stale", false);
+    const runQuery = supabase.from("provider_sync_runs").select("provider,connection_id,status,started_at,finished_at,records_seen,error_message").eq("tenant_id", tenantId).order("started_at", { ascending: false }).limit(100);
+    const [{ data: entityData }, { data: runData }] = providerNames.length ? await Promise.all([entityQuery.in("provider", providerNames), runQuery.in("provider", providerNames)]) : [{ data: [] }, { data: [] }];
+    const entities = entityData ?? [];
+    const runs = runData ?? [];
+    const filteredEntities = allowedConnectionIds === null ? entities : entities.filter((entity: any) => entity.connection_id && allowedConnectionIds!.includes(entity.connection_id));
+    const filteredRuns = allowedConnectionIds === null ? runs : runs.filter((run: any) => run.connection_id && allowedConnectionIds!.includes(run.connection_id));
+    return { connectedProviders: allowedConnectionIds === null ? scopedConnected : scopedConnected.filter((c: any) => allowedConnectionIds!.includes(c.id)), entities: filteredEntities, runs: filteredRuns, department: { key: department.departmentKey, name: department.departmentName, unrestricted: department.unrestricted } };
+  });
 }
 
 export interface CorrelatedSignal { title: string; detail: string; providers: string[]; timestamp: string; evidence: Array<{ provider: string; entityType: string; entityKey: string; observedAt: string }>; }
