@@ -2,7 +2,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveTenant } from "@/lib/genesys/store.server";
-import { DEMO_DATA_ENABLED, DEMO_ANALYTICS_EVENTS, DEMO_ANALYTICS_CHANGES, DEMO_AI_USAGE, DEMO_PROFILES, DEMO_ROLES } from "@/lib/demo-data";
+import { DEMO_ANALYTICS_EVENTS, DEMO_ANALYTICS_CHANGES, DEMO_AI_USAGE, DEMO_PROFILES, DEMO_ROLES } from "@/lib/demo-data";
+import { resolveTenantContext } from "@/lib/tenant-context.server";
 
 const MAX_DAYS = 90; const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString(); const dateOnly = (value: string) => new Date(`${value}T00:00:00`).getTime(); const isoDay = (value: Date) => value.toISOString().slice(0, 10);
 
@@ -11,7 +12,7 @@ export const getAnalytics = createServerFn({ method: "GET" }).middleware([requir
   if (from || to) { if (!from || !to) throw new Error("Both start and end dates are required for a custom analytics range."); const start = dateOnly(from); const end = dateOnly(to) + 86_400_000 - 1; if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) throw new Error("Analytics start date must be before the end date."); if (end - start > MAX_DAYS * 86_400_000) throw new Error("Analytics custom range cannot exceed 90 days."); return { days: Math.max(1, Math.ceil((end - start + 1) / 86_400_000)), from, to }; }
   return { days: Math.min(MAX_DAYS, Math.max(7, Number(input?.days ?? 30))), from: "", to: "" };
 }).handler(async ({ data, context }) => {
-  const { tenantId } = await resolveTenant(context.supabase, context.userId); const db = context.supabase as any; const since = data.from ? new Date(`${data.from}T00:00:00`).toISOString() : daysAgo(data.days); const until = data.to ? new Date(`${data.to}T23:59:59.999`).toISOString() : new Date().toISOString();
+  const { tenantId, environmentMode } = await resolveTenantContext(context.supabase, context.userId); const usingDemo = environmentMode === "demo"; const db = context.supabase as any; const since = data.from ? new Date(`${data.from}T00:00:00`).toISOString() : daysAgo(data.days); const until = data.to ? new Date(`${data.to}T23:59:59.999`).toISOString() : new Date().toISOString();
   const [audit, auditEvents, users, roles, agents, changes, aiUsage, settings] = await Promise.all([
     db.from("audit_log").select("action,actor_email,entity_type,entity_id,created_at,payload").eq("tenant_id", tenantId).gte("created_at", since).lte("created_at", until).order("created_at", { ascending: false }).limit(10000),
     db.from("audit_events").select("action,actor_email,resource_type,target_id,created_at,metadata").eq("tenant_id", tenantId).gte("created_at", since).lte("created_at", until).order("created_at", { ascending: false }).limit(10000),
@@ -19,7 +20,6 @@ export const getAnalytics = createServerFn({ method: "GET" }).middleware([requir
     db.from("change_records").select("id,agent,stage,severity,risk,created_at,estimated_savings_amount,estimated_savings_currency,estimated_cost_amount,estimated_cost_currency,estimated_downtime_minutes").eq("tenant_id", tenantId).gte("created_at", since).lte("created_at", until),
     db.from("ai_usage_events").select("agent_key,model,input_tokens,output_tokens,total_tokens,latency_ms,created_at").eq("tenant_id", tenantId).gte("created_at", since).lte("created_at", until), db.from("tenants").select("analytics_settings").eq("id", tenantId).single(),
   ]);
-  const usingDemo = DEMO_DATA_ENABLED;
   const auditRows = usingDemo ? DEMO_ANALYTICS_EVENTS.map((x) => ({ action: x.action, actor_email: x.actor, entity_type: x.entityType, entity_id: x.entityId, payload: { detail: x.detail }, created_at: x.createdAt })) : [...(audit.data ?? []), ...(auditEvents.data ?? []).map((x: any) => ({ ...x, entity_type: x.resource_type, entity_id: x.target_id, payload: x.metadata }))].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   const userRows = users.data ?? []; const roleRows = roles.data ?? []; const changeRows = usingDemo ? DEMO_ANALYTICS_CHANGES : (changes.data ?? []); const usageRows = usingDemo ? DEMO_AI_USAGE : (aiUsage.data ?? []);
   const byAction = (pattern: RegExp) => auditRows.filter((x: any) => pattern.test(String(x.action))).length; const totalTokens = usageRows.reduce((sum: number, x: any) => sum + Number(x.total_tokens ?? 0), 0); const inputTokens = usageRows.reduce((sum: number, x: any) => sum + Number(x.input_tokens ?? 0), 0); const outputTokens = usageRows.reduce((sum: number, x: any) => sum + Number(x.output_tokens ?? 0), 0); const avgLatency = usageRows.length ? Math.round(usageRows.reduce((sum: number, x: any) => sum + Number(x.latency_ms ?? 0), 0) / usageRows.length) : 0;
