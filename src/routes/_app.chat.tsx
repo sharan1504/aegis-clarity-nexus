@@ -15,7 +15,14 @@ import { createChangeFromRecommendation } from "@/lib/change-recommendation.func
 import { pageHead } from "@/lib/seo";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_app/chat")({ head: () => pageHead({ path: "/chat", title: "Aegis Enterprise AI", description: "Enterprise analysis, recommendations and evidence from connected systems." }), component: ChatPage });
+export const Route = createFileRoute("/_app/chat")({
+  head: () => pageHead({ path: "/chat", title: "Aegis Enterprise AI", description: "Enterprise analysis, recommendations and evidence from connected systems." }),
+  loader: async () => {
+    const [history, departmentContext] = await Promise.all([listChatSessions(), getMyDepartments()]);
+    return { sessions: history.sessions, departments: departmentContext.departments, selectedDepartment: departmentContext.selected, unrestricted: departmentContext.unrestricted };
+  },
+  component: ChatPage,
+});
 
 type Recommendation = { title?: string; rationale?: string; impact?: string; risk?: string; nextStep?: string };
 type CorrelatedSignal = { title?: string; detail?: string; providers?: string[]; timestamp?: string };
@@ -30,6 +37,7 @@ const suggestions = [
 ];
 
 function ChatPage() {
+  const initial = Route.useLoaderData();
   const chat = useServerFn(executeEnterpriseChat);
   const createSession = useServerFn(createChatSession);
   const loadSessions = useServerFn(listChatSessions);
@@ -37,15 +45,15 @@ function ChatPage() {
   const loadDepartments = useServerFn(getMyDepartments);
   const removeSession = useServerFn(deleteChatSession);
   const createChange = useServerFn(createChangeFromRecommendation);
-  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [sessions, setSessions] = useState<ChatSession[]>(initial.sessions);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [loadingHistory, setLoadingHistory] = useState(true);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [sentRecommendations, setSentRecommendations] = useState<Set<string>>(new Set());
-  const [departments, setDepartments] = useState<Array<{ id: string; department_key: string; display_name: string }>>([]);
-  const [departmentKey, setDepartmentKey] = useState<string | null>(null);
-  const [unrestricted, setUnrestricted] = useState(false);
+  const [departments, setDepartments] = useState<Array<{ id: string; department_key: string; display_name: string }>>(initial.departments.map((item: { id: string; department_key: string; display_name: string }) => ({ id: item.id, department_key: item.department_key, display_name: item.display_name })));
+  const [departmentKey, setDepartmentKey] = useState<string | null>(initial.selectedDepartment);
+  const [unrestricted, setUnrestricted] = useState(initial.unrestricted);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const refreshHistory = async () => {
@@ -70,26 +78,18 @@ function ChatPage() {
     let active = true;
     void (async () => {
       try {
-        const [existing, departmentContext] = await Promise.all([refreshHistory(), loadDepartments()]);
-        if (!active) return;
-        setDepartments(departmentContext.departments.map((item: { id: string; department_key: string; display_name: string }) => ({ id: item.id, department_key: item.department_key, display_name: item.display_name })));
-        setDepartmentKey(departmentContext.selected);
-        setUnrestricted(departmentContext.unrestricted);
-        const result = await createSession({ data: { departmentKey: departmentContext.selected } });
+        const result = await createSession({ data: { departmentKey: initial.selectedDepartment } });
         if (!active) return;
         setSessionId(result.session.id);
         setDepartmentKey(result.session.departmentKey);
         setMessages([]);
         setSessions((current) => [result.session, ...current.filter((item) => item.id !== result.session.id)]);
-        void existing;
       } catch (error) {
-        if (active) toast.error("Chat history could not be loaded", { description: error instanceof Error ? error.message : "Try again." });
-      } finally {
-        if (active) setLoadingHistory(false);
+        if (active) toast.error("Chat session could not be started", { description: error instanceof Error ? error.message : "Try again." });
       }
     })();
     return () => { active = false; };
-  }, []);
+  }, [createSession, initial.selectedDepartment]);
 
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }); }, [messages]);
 
