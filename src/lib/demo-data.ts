@@ -166,6 +166,29 @@ export const DEMO_AGENT_WORKFLOWS: Record<string, { trigger: string; description
       { id: "ccx-4", name: "Verify routing", type: "verification", action: "Validate approved configuration after change." },
     ],
   },
+  "agent-workflow": {
+    trigger: "Workflow request or scheduled orchestration window",
+    description: "Coordinate multi-step operational workflows across connected systems with governed execution.",
+    config: { maxSteps: 12, approvalMode: "required", retryPolicy: "bounded" },
+    steps: [
+      { id: "workflow-1", name: "Resolve workflow intent", type: "intent", action: "Normalize the requested workflow and required capabilities." },
+      { id: "workflow-2", name: "Load system evidence", type: "evidence", provider: "ServiceNow", capability: "user_inventory", action: "Load current state for each step target." },
+      { id: "workflow-3", name: "Plan governed steps", type: "decision", action: "Order steps, dependencies and approval checkpoints." },
+      { id: "workflow-4", name: "Execute approved steps", type: "action", action: "Run each approved step through the execution gateway.", requiresApproval: true },
+      { id: "workflow-5", name: "Verify workflow outcome", type: "verification", action: "Re-read affected state per step.", verification: "Every executed step reports the expected end state." },
+    ],
+  },
+  "agent-knowledge": {
+    trigger: "Operator question in chat",
+    description: "Answer operational questions using only authorized, connected system evidence.",
+    config: { citationsRequired: true, approvalMode: "not_required", maxSources: 6 },
+    steps: [
+      { id: "knowledge-1", name: "Interpret question", type: "intent", action: "Identify the entities and time range being asked about." },
+      { id: "knowledge-2", name: "Retrieve authorized evidence", type: "evidence", provider: "Genesys", capability: "user_inventory", action: "Read only capabilities bound to this agent." },
+      { id: "knowledge-3", name: "Compose grounded answer", type: "decision", action: "Answer with citations, or state that evidence is insufficient." },
+      { id: "knowledge-4", name: "Return response", type: "response", action: "Return the answer with sources and freshness." },
+    ],
+  },
 };
 
 export const DEMO_AGENT_KEYS = Object.keys(DEMO_AGENT_WORKFLOWS);

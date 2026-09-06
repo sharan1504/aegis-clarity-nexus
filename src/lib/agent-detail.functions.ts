@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { loadAgentDetail } from "@/lib/agent-detail.server";
 
-export type { AgentDetail, AgentDetailBinding, AgentDetailChange, AgentDetailActivity } from "@/lib/agent-detail.server";
+export type { AgentDetail, AgentDetailBinding, AgentDetailChange, AgentDetailActivity, AgentWorkflow, AgentWorkflowStep, AgentWorkflowConfig } from "@/lib/agent-detail.server";
 
 export const getAgentDetail = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])

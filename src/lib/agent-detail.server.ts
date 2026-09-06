@@ -1,12 +1,13 @@
 import { resolveTenant } from "@/lib/genesys/store.server";
-import { DEMO_AI_USAGE, DEMO_AGENT_WORKFLOWS, DEMO_DATA_ENABLED, DEMO_CHANGES, DEMO_AUDIT_EVENTS } from "@/lib/demo-data";
+import { DEMO_AI_USAGE, DEMO_AGENT_WORKFLOWS, DEMO_DATA_ENABLED, DEMO_CHANGES, DEMO_AUDIT_EVENTS, DEMO_NOW } from "@/lib/demo-data";
 
 export type UserClientLike = Parameters<typeof resolveTenant>[0];
 export interface AgentDetailBinding { integrationId: string; provider: string | null; capabilityKey: string | null; capabilityName: string | null; enabled: boolean; isMock: boolean; }
 export interface AgentDetailChange { rowId: string; changeId: string; title: string; stage: string; severity: string; createdAt: string; savings: string; }
 export interface AgentDetailActivity { action: string; detail: string | null; actor: string | null; createdAt: string; }
 export interface AgentWorkflowStep { id: string; name: string; type: string; provider?: string; capability?: string; action: string; requiresApproval?: boolean; verification?: string; }
-export interface AgentWorkflow { trigger: string; description: string; config: Record<string, unknown>; steps: AgentWorkflowStep[]; }
+export type AgentWorkflowConfig = Record<string, string | number | boolean | null>;
+export interface AgentWorkflow { trigger: string; description: string; config: AgentWorkflowConfig; steps: AgentWorkflowStep[]; }
 export interface AgentDetail {
   agentKey: string; displayName: string; description: string | null; category: string | null;
   bindings: AgentDetailBinding[]; operational: boolean;
@@ -43,7 +44,7 @@ function demoAgentDetail(agentKey: string): AgentDetail | null {
     activity: activity.map((row) => ({ action: row.action, detail: row.detail, actor: row.actor, createdAt: row.createdAt })),
     savings: { summary: agentKey === "agent-license" ? "USD 6,120" : agentKey === "agent-cost" ? "USD 3,480" : NOT_ESTIMATED, entries: agentKey === "agent-license" ? [{ currency: "USD", amount: 6120 }] : agentKey === "agent-cost" ? [{ currency: "USD", amount: 3480 }] : [] },
     instructions: { pre: "Verify evidence freshness before analysis.", system: `Operate as the ${meta.name}. Use only authorized connected capabilities.`, post: "Return evidence, confidence, risk, action and verification status." },
-    workflow: workflow as AgentWorkflow,
+    workflow: workflow as unknown as AgentWorkflow,
     generatedAt: DEMO_NOW,
   };
 }
