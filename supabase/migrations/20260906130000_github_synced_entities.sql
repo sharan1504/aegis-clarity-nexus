@@ -1,7 +1,7 @@
 create table if not exists public.github_synced_entities (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null references public.tenants(id) on delete cascade,
-  connection_id uuid not null references public.integrations(id) on delete cascade,
+  connection_id uuid not null references public.provider_connections(id) on delete cascade,
   entity_type text not null check (entity_type in ('repository','workflow_run','security_alert')),
   entity_key text not null,
   repository_name text,
@@ -35,7 +35,7 @@ with check (auth.role() = 'service_role');
 
 create table if not exists public.github_sync_status (
   tenant_id uuid not null references public.tenants(id) on delete cascade,
-  connection_id uuid not null references public.integrations(id) on delete cascade,
+  connection_id uuid not null references public.provider_connections(id) on delete cascade,
   last_attempted_at timestamptz,
   last_successful_at timestamptz,
   status text not null default 'never',
