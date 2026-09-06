@@ -1,6 +1,7 @@
 import { Outlet, useNavigate } from "@tanstack/react-router";
 import { LogOut, Moon, ShieldCheck, Sun } from "lucide-react";
 import { NotificationCenter } from "@/components/NotificationCenter";
+import { EnvironmentModeToggle } from "@/components/layout/EnvironmentModeToggle";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,17 +21,18 @@ export function AppLayout() {
 function AppShell() {
   const { theme, toggle } = useTheme();
   const { role } = useRole();
-  const { user, tenantName, loading } = useTenantContext();
+  const { user, tenantName, loading, environmentMode } = useTenantContext();
   const navigate = useNavigate();
   const initials = (user?.email ?? "AW").replace(/@.*$/, "").split(/[.\-_]/).map((part) => part.charAt(0).toUpperCase()).slice(0, 2).join("");
   const signOut = async () => { await supabase.auth.signOut(); navigate({ to: "/auth" }); };
   return <SidebarProvider>
-    <div className="flex min-h-screen w-full bg-background">
+    <div className={`flex min-h-screen w-full bg-background ${environmentMode === "demo" ? "border-t-4 border-primary" : ""}`}>
       <AppSidebar />
       <SidebarInset className="flex flex-col">
         <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-border bg-background/90 px-4 backdrop-blur">
           <SidebarTrigger />
           <div className="ml-auto flex items-center gap-2">
+            <EnvironmentModeToggle />
             <Badge variant="outline" className="hidden gap-1.5 sm:flex"><span className="h-1.5 w-1.5 rounded-full bg-success" />{tenantName ? `${tenantName} workspace` : "All systems operational"}</Badge>
             <div className="hidden items-center gap-1.5 md:flex"><ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" /><Badge variant="outline" className="h-8 px-2 text-xs font-medium" title="Role assigned in your workspace">{role}</Badge></div>
             <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle theme">{theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}</Button>
@@ -38,6 +40,7 @@ function AppShell() {
             <div className="ml-1 flex items-center gap-2 border-l border-border pl-2"><Avatar className="h-7 w-7"><AvatarFallback className="bg-primary/15 text-primary text-xs">{initials || "AW"}</AvatarFallback></Avatar><div className="hidden max-w-[160px] text-xs leading-tight sm:block"><div className="truncate font-medium">{user?.email ?? "Signed out"}</div><div className="text-muted-foreground">{role}</div></div>{user && <Button variant="ghost" size="icon" onClick={signOut} aria-label="Sign out"><LogOut className="h-4 w-4" /></Button>}</div>
           </div>
         </header>
+        {environmentMode === "demo" && <div className="border-b border-primary bg-primary/10 px-4 py-1.5 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">DEMO ENVIRONMENT · All workspace views use mock data · No provider mutations</div>}
         <main className="flex-1 p-6">{loading ? <div className="space-y-4"><Skeleton className="h-9 w-64" /><Skeleton className="h-4 w-96" /><div className="grid gap-4 md:grid-cols-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28" />)}</div><Skeleton className="h-72" /></div> : <Outlet />}</main>
       </SidebarInset>
     </div>
