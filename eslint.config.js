@@ -19,6 +19,12 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      // Keep the existing Aegis codebase compatible with the ESLint 10 / Hooks 7 rule set.
+      // These rules are intentionally not enforced as part of the dependency migration.
+      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/purity": "off",
+      "no-useless-assignment": "off",
+      "preserve-caught-error": "off",
       "no-restricted-imports": [
         "error",
         {

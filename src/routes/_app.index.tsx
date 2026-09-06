@@ -15,14 +15,7 @@ import { getOnboardingStatus } from "@/lib/onboarding.functions";
 import { createCustomDashboard, deleteCustomDashboard, listCustomDashboards, toggleCustomDashboardStar, type DashboardConfig } from "@/lib/custom-dashboards.functions";
 import { pageHead } from "@/lib/seo";
 
-export const Route = createFileRoute("/_app/")({
-  head: () => pageHead({ path: "/", title: "Command Center — Aegis AI", description: "Evidence-first operational control plane for enterprise AI." }),
-  loader: async () => {
-    const [command, onboarding, saved] = await Promise.all([getCommandCenterData(), getOnboardingStatus(), listCustomDashboards()]);
-    return { command, onboarding, dashboards: saved.dashboards as Dashboard[] };
-  },
-  component: DashboardPage,
-});
+export const Route = createFileRoute("/_app/")({ head: () => pageHead({ path: "/", title: "Command Center — Aegis AI", description: "Evidence-first operational control plane for enterprise AI." }), component: DashboardPage });
 
 type Dashboard = { id: string; name: string; starred: boolean; config: DashboardConfig };
 type Finding = { id: string; name: string; status: "Active" | "Attention" | "Closed"; category: string; impact: string; severity: "Critical" | "High" | "Medium" | "Low"; affected: number; started: string; href: string };
@@ -30,11 +23,10 @@ const DEFAULT_WIDGETS = ["attention", "posture", "changes", "signals"];
 const WIDGET_OPTIONS = [{ id: "attention", label: "Attention summary" }, { id: "posture", label: "Operational posture" }, { id: "changes", label: "Recent changes" }, { id: "signals", label: "Audit signals" }];
 
 function DashboardPage() {
-  const initial = Route.useLoaderData();
   const load = useServerFn(getCommandCenterData); const loadOnboarding = useServerFn(getOnboardingStatus); const loadDashboards = useServerFn(listCustomDashboards); const createDashboard = useServerFn(createCustomDashboard); const starDashboard = useServerFn(toggleCustomDashboardStar); const removeDashboard = useServerFn(deleteCustomDashboard);
-  const [data, setData] = useState<CommandCenterData>(initial.command); const [setup, setSetup] = useState(initial.onboarding); const [dashboards, setDashboards] = useState<Dashboard[]>(initial.dashboards); const [selectedId, setSelectedId] = useState<string>("default"); const [loading, setLoading] = useState(false); const [dialogOpen, setDialogOpen] = useState(false); const [name, setName] = useState(""); const [widgets, setWidgets] = useState(DEFAULT_WIDGETS); const [busy, setBusy] = useState(false);
+  const [data, setData] = useState<CommandCenterData | null>(null); const [setup, setSetup] = useState<{ providerCount: number; deployedAgentCount: number; guardrailCount: number } | null>(null); const [dashboards, setDashboards] = useState<Dashboard[]>([]); const [selectedId, setSelectedId] = useState<string>("default"); const [loading, setLoading] = useState(true); const [dialogOpen, setDialogOpen] = useState(false); const [name, setName] = useState(""); const [widgets, setWidgets] = useState(DEFAULT_WIDGETS); const [busy, setBusy] = useState(false);
   const refresh = async () => { setLoading(true); try { const [command, onboarding, saved] = await Promise.all([load(), loadOnboarding(), loadDashboards()]); setData(command); setSetup(onboarding); setDashboards(saved.dashboards as Dashboard[]); } catch (error) { toast.error("Command Center unavailable", { description: error instanceof Error ? error.message : "Try again." }); } finally { setLoading(false); } };
-  useEffect(() => { const id = window.setInterval(() => void refresh(), 60000); return () => window.clearInterval(id); }, [load, loadOnboarding, loadDashboards]);
+  useEffect(() => { void refresh(); const id = window.setInterval(() => void refresh(), 60000); return () => window.clearInterval(id); }, [load, loadOnboarding, loadDashboards]);
   const selected = dashboards.find((d) => d.id === selectedId); const activeWidgets = selected?.config.widgets?.length ? selected.config.widgets : DEFAULT_WIDGETS;
   const findings = useMemo<Finding[]>(() => { if (!data) return []; const rows: Finding[] = []; const add = (id: string, name: string, status: Finding["status"], category: string, impact: string, severity: Finding["severity"], affected: number, href: string) => rows.push({ id, name, status, category, impact, severity, affected, started: data.generatedAt, href }); if (data.attention.pendingChanges) add("pending-changes", "Changes awaiting review", "Active", "Change risk", "Governed action", "High", data.attention.pendingChanges, "/approvals"); if (data.attention.proposedChanges) add("proposed-changes", "Proposed optimization changes", "Attention", "Optimization", "AI operations", "Medium", data.attention.proposedChanges, "/approvals"); if (data.attention.blockingGuardrailEvaluations) add("guardrail-blocks", "Guardrail evaluations requiring attention", "Active", "Governance", "AI agents", "Critical", data.attention.blockingGuardrailEvaluations, "/governance"); if (data.attention.integrationsNeedingAttention) add("integration-health", "Integration health needs attention", "Attention", "Availability", "Integrations", "High", data.attention.integrationsNeedingAttention, "/integrations"); if (!rows.length) add("healthy", "No active operational findings", "Closed", "Availability", "Workspace", "Low", 0, "/analytics"); return rows; }, [data]);
   const maxBars = Math.max(1, findings.length, data?.signals.length ?? 1);
