@@ -2,7 +2,7 @@ name: Apply tenant environment mode refactor
 
 on:
   pull_request:
-    types: [opened, synchronize]
+    types: [opened, synchronize, reopened]
     branches:
       - main
 
@@ -81,8 +81,6 @@ jobs:
 
           p = Path('src/lib/demo-data.ts')
           p.write_text(p.read_text(encoding='utf-8').replace('export const DEMO_DATA_ENABLED = true;\n', ''), encoding='utf-8')
-
-          # The server call-site codemod is intentionally handled after this schema/context commit.
           PY
 
       - name: Commit schema and context stage
