@@ -51,7 +51,7 @@ describe("resolveTenantContext", () => {
     const second = await resolveTenantContext(client as never, "user-a");
     const third = await resolveTenantContext(client as never, "user-a");
 
-    expect(first).toEqual({ tenantId: "tenant-a", roles: ["admin"], canManage: true });
+    expect(first).toEqual({ tenantId: "tenant-a", roles: ["admin"], canManage: true, environmentMode: "live" });
     expect(second).toEqual(first);
     expect(third).toEqual(first);
     expect(calls.profiles).toBe(1);

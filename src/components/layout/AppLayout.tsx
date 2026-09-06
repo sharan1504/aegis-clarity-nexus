@@ -31,6 +31,7 @@ function AppShell() {
       <SidebarInset className="flex flex-col">
         <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-border bg-background/90 px-4 backdrop-blur">
           <SidebarTrigger />
+          <EnvironmentModeToggle />
           <div className="ml-auto flex items-center gap-2">
             <EnvironmentModeToggle />
             <Badge variant="outline" className="hidden gap-1.5 sm:flex"><span className="h-1.5 w-1.5 rounded-full bg-success" />{tenantName ? `${tenantName} workspace` : "All systems operational"}</Badge>

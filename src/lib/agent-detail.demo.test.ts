@@ -1,7 +1,7 @@
+vi.mock("@/lib/tenant-context.server", () => ({ resolveTenantContext: vi.fn().mockResolvedValue({ environmentMode: "demo", tenantId: "demo-tenant", roles: ["admin"], canManage: true }) }));
+
 import { describe, expect, it } from "vitest";
 import { loadAgentDetail, type UserClientLike } from "@/lib/agent-detail.server";
-import { DEMO_DATA_ENABLED } from "@/lib/demo-data";
-
 // Demo mode must short-circuit before any Supabase access, so this stub throws
 // if the server function ever tries to read the database in demo mode.
 const throwingClient = {
@@ -21,9 +21,6 @@ const AGENT_KEYS = [
 ];
 
 describe("loadAgentDetail demo coverage", () => {
-  it("has demo data enabled for this suite", () => {
-    expect(DEMO_DATA_ENABLED).toBe(true);
-  });
 
   it.each(AGENT_KEYS)("returns demo detail for %s without throwing", async (agentKey) => {
     const detail = await loadAgentDetail(throwingClient, "demo-user", agentKey);

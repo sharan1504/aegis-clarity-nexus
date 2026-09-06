@@ -181,9 +181,9 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const value = useTenant();
 
   useEffect(() => {
-    if (value.tenantId) initRealtime(value.tenantId);
+    if (value.tenantId) initRealtime(value.tenantId, value.environmentMode);
     else if (!value.loading) teardownRealtime();
-  }, [value.tenantId, value.loading]);
+  }, [value.tenantId, value.environmentMode, value.loading]);
 
   return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;
 }
