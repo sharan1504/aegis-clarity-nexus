@@ -17,21 +17,12 @@ create table if not exists public.github_synced_entities (
   payload jsonb not null default '{}'::jsonb,
   unique (tenant_id, connection_id, entity_type, entity_key)
 );
-
 create index if not exists github_synced_entities_tenant_type_idx on public.github_synced_entities(tenant_id, entity_type, stale);
 create index if not exists github_synced_entities_connection_idx on public.github_synced_entities(tenant_id, connection_id);
-
 alter table public.github_synced_entities enable row level security;
 alter table public.github_synced_entities force row level security;
-
-create policy "github synced entities tenant members can read"
-on public.github_synced_entities for select
-using (exists (select 1 from public.tenant_members tm where tm.tenant_id = github_synced_entities.tenant_id and tm.user_id = auth.uid()));
-
-create policy "github synced entities service role can manage"
-on public.github_synced_entities for all
-using (auth.role() = 'service_role')
-with check (auth.role() = 'service_role');
+create policy "github synced entities tenant members can read" on public.github_synced_entities for select to authenticated using (exists (select 1 from public.user_roles ur where ur.tenant_id = github_synced_entities.tenant_id and ur.user_id = auth.uid()));
+create policy "github synced entities service role can manage" on public.github_synced_entities for all to service_role using (true) with check (true);
 
 create table if not exists public.github_sync_status (
   tenant_id uuid not null references public.tenants(id) on delete cascade,
@@ -46,15 +37,7 @@ create table if not exists public.github_sync_status (
   updated_at timestamptz not null default now(),
   primary key (tenant_id, connection_id)
 );
-
 alter table public.github_sync_status enable row level security;
 alter table public.github_sync_status force row level security;
-
-create policy "github sync status tenant members can read"
-on public.github_sync_status for select
-using (exists (select 1 from public.tenant_members tm where tm.tenant_id = github_sync_status.tenant_id and tm.user_id = auth.uid()));
-
-create policy "github sync status service role can manage"
-on public.github_sync_status for all
-using (auth.role() = 'service_role')
-with check (auth.role() = 'service_role');
+create policy "github sync status tenant members can read" on public.github_sync_status for select to authenticated using (exists (select 1 from public.user_roles ur where ur.tenant_id = github_sync_status.tenant_id and ur.user_id = auth.uid()));
+create policy "github sync status service role can manage" on public.github_sync_status for all to service_role using (true) with check (true);
