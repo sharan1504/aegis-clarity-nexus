@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Activity, ArrowLeft, CheckCircle2, Coins, Gauge, GripVertical, Plus, Save, ShieldCheck, Trash2 } from "lucide-react";
+import { Activity, ArrowLeft, CheckCircle2, Coins, Gauge, GripVertical, Loader2, Plus, Save, ShieldCheck, Trash2, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { PageHeader } from "@/components/layout/AppLayout";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyIntegrationsState } from "@/components/EmptyIntegrationsState";
 import { getAgentDetail, type AgentDetail, type AgentWorkflowStep } from "@/lib/agent-detail.functions";
+import { generateAgentWorkflowFromPrompt, type GeneratedAgentWorkflow } from "@/lib/agent-prompt-workflow.functions";
 import { saveAgentWorkflow } from "@/lib/agent-workflow.functions";
 import { pageHead } from "@/lib/seo";
 
@@ -20,12 +21,26 @@ type EditableStep = AgentWorkflowStep;
 
 function AgentDetailPage() {
   const { agentKey } = Route.useParams();
-  const load = useServerFn(getAgentDetail); const save = useServerFn(saveAgentWorkflow);
-  const [data, setData] = useState<AgentDetail | null>(null); const [loading, setLoading] = useState(true); const [saving, setSaving] = useState(false);
+  const load = useServerFn(getAgentDetail); const generate = useServerFn(generateAgentWorkflowFromPrompt); const save = useServerFn(saveAgentWorkflow);
+  const [data, setData] = useState<AgentDetail | null>(null); const [loading, setLoading] = useState(true); const [saving, setSaving] = useState(false); const [generating, setGenerating] = useState(false);
+  const [prompt, setPrompt] = useState(""); const [generated, setGenerated] = useState<GeneratedAgentWorkflow | null>(null);
   const [trigger, setTrigger] = useState(""); const [configText, setConfigText] = useState("{}"); const [steps, setSteps] = useState<EditableStep[]>([]);
 
   useEffect(() => { let active = true; void load({ data: { agentKey } }).then((result) => { if (!active) return; setData(result); if (result?.workflow) { setTrigger(result.workflow.trigger); setConfigText(JSON.stringify(result.workflow.config, null, 2)); setSteps(result.workflow.steps); } }).catch((error) => toast.error("Could not load agent", { description: error instanceof Error ? error.message : "Try again." })).finally(() => { if (active) setLoading(false); }); return () => { active = false; }; }, [agentKey, load]);
 
+  const generateWorkflow = async () => {
+    if (!prompt.trim()) { toast.error("Describe what you want this agent to automate."); return; }
+    setGenerating(true); setGenerated(null);
+    try { const result = await generate({ data: { agentKey, prompt: prompt.trim() } }); if (!result.ok) throw new Error("Workflow generation failed."); setGenerated(result); toast.success("Workflow drafted by Aegis AI", { description: "Review the generated steps before saving." }); }
+    catch (error) { toast.error("Could not generate workflow", { description: error instanceof Error ? error.message : "Try again." }); }
+    finally { setGenerating(false); }
+  };
+
+  const applyGenerated = () => {
+    if (!generated) return;
+    setTrigger(generated.trigger); setConfigText(JSON.stringify(generated.config, null, 2)); setSteps(generated.steps); setGenerated(null);
+    toast.success("AI workflow applied to the builder", { description: "Review and save when ready." });
+  };
   const updateStep = (id: string, patch: Partial<EditableStep>) => setSteps((current) => current.map((step) => step.id === id ? { ...step, ...patch } : step));
   const addStep = () => setSteps((current) => [...current, { id: `custom-${Date.now()}`, name: "New workflow step", type: "decision", action: "Describe what this step should do.", requiresApproval: false }]);
   const removeStep = (id: string) => setSteps((current) => current.filter((step) => step.id !== id));
@@ -40,8 +55,18 @@ function AgentDetailPage() {
 
   return <div>
     <PageHeader title={data.displayName} description={data.description ?? "Configure this agent for your organization's workflow."} actions={<Button variant="outline" asChild><Link to="/agents"><ArrowLeft className="mr-1.5 h-4 w-4" />Back to agents</Link></Button>} />
-    <div className="mb-4 flex flex-wrap gap-2"><Badge variant="outline">{data.category ?? "Uncategorized"}</Badge><Badge variant="outline" className="border-success/40 text-success"><CheckCircle2 className="mr-1 h-3.5 w-3.5" />Demo ready</Badge><Badge variant="outline">Tenant configurable</Badge></div>
+    <div className="mb-4 flex flex-wrap gap-2"><Badge variant="outline">{data.category ?? "Uncategorized"}</Badge><Badge variant="outline" className="border-success/40 text-success"><CheckCircle2 className="mr-1 h-3.5 w-3.5" />AI workflow ready</Badge><Badge variant="outline">Tenant configurable</Badge></div>
     <div className="grid grid-cols-2 gap-4 xl:grid-cols-4"><Metric icon={Activity} label="AI requests" value={data.telemetry.aiRequests.toLocaleString()} /><Metric icon={Coins} label="Tokens" value={data.telemetry.totalTokens.toLocaleString()} /><Metric icon={Gauge} label="Avg latency" value={data.telemetry.averageLatencyMs == null ? "—" : `${data.telemetry.averageLatencyMs} ms`} /><Metric icon={Coins} label="Estimated outcome" value={data.savings.summary} /></div>
+
+    <Card className="mt-6 border-primary/20 bg-primary/[0.03]">
+      <CardHeader><div className="flex items-center gap-2"><Wand2 className="h-5 w-5 text-primary" /><CardTitle className="text-base">Describe your automation</CardTitle></div><CardDescription>Tell this agent what you want in plain language. Aegis AI will translate the request into a governed workflow using only this agent's connected capabilities and the available Aegis MCP tools.</CardDescription></CardHeader>
+      <CardContent className="space-y-3">
+        <Textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder={`Example: For licenses unused for 90 days, send an email alert to IT operations, create a recommendation to reclaim the license, and verify that the alert was recorded.`} className="min-h-24" maxLength={6000} />
+        <div className="flex flex-wrap items-center justify-between gap-3"><span className="text-xs text-muted-foreground">{data.bindings.filter((binding) => binding.enabled).length} enabled capability{data.bindings.filter((binding) => binding.enabled).length === 1 ? "" : "ies"} · Lovable AI · governed draft</span><Button onClick={() => void generateWorkflow()} disabled={generating || !prompt.trim()}>{generating ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" />Generating workflow…</> : <><Wand2 className="mr-1.5 h-4 w-4" />Generate workflow</>}</Button></div>
+        {generated && <div className="rounded-xl border bg-background p-4 space-y-3"><div className="flex items-start justify-between gap-3"><div><div className="text-sm font-semibold">{generated.summary}</div><div className="mt-1 text-xs text-muted-foreground">Trigger: {generated.trigger}</div></div><Badge variant="outline">{generated.steps.length} steps</Badge></div><div className="space-y-2">{generated.steps.map((step, index) => <div key={step.id} className="flex gap-3 rounded-lg border p-3"><Badge variant="outline">{index + 1}</Badge><div className="min-w-0 flex-1"><div className="text-sm font-medium">{step.name}</div><div className="text-xs text-muted-foreground">{step.provider ?? "Aegis"} · {step.capability ?? step.type}</div><div className="mt-1 text-xs">{step.action}</div>{step.requiresApproval && <Badge className="mt-2" variant="secondary">Approval required</Badge>}</div></div>)}</div>{generated.assumptions.length > 0 && <div className="text-xs text-muted-foreground"><strong>Assumptions:</strong> {generated.assumptions.join(" · ")}</div>}<Button className="w-full" onClick={applyGenerated}>Apply generated workflow to builder</Button></div>}
+      </CardContent>
+    </Card>
+
     <div className="mt-6 grid gap-4 xl:grid-cols-[1fr_360px]">
       <Card><CardHeader><CardTitle className="text-base">Workflow builder</CardTitle><CardDescription>Configure the same end-to-end pattern used in production: trigger → evidence → decision → action/approval → verification → customer response.</CardDescription></CardHeader><CardContent className="space-y-4">
         <div><label className="mb-1 block text-xs font-medium">Trigger</label><Input value={trigger} onChange={(e) => setTrigger(e.target.value)} placeholder="When should this agent run?" /></div>
