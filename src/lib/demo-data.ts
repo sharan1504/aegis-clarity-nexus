@@ -1,9 +1,8 @@
 /**
- * Temporary deterministic fixtures for evaluating Aegis end-to-end before live
- * provider connections are configured. Demo mode exercises product contracts;
- * it must never claim that an external provider was actually contacted.
+ * Deterministic fixtures used only when a tenant explicitly enables Demo mode.
+ * Demo mode must never be inferred from build-time state or used as an error fallback
+ * for Live-mode requests.
  */
-export const DEMO_DATA_ENABLED = true;
 export const DEMO_NOW = "2026-09-04T08:30:00.000Z";
 
 export const DEMO_GENESYS = {
@@ -113,84 +112,29 @@ export const DEMO_AGENT_WORKFLOWS: Record<string, { trigger: string; description
       { id: "license-3", name: "Apply inactivity policy", type: "decision", action: "Flag users inactive for the configured number of days." },
       { id: "license-4", name: "Create remediation proposal", type: "action", action: "Prepare license reclamation change; do not execute without approval.", requiresApproval: true },
       { id: "license-5", name: "Verify entitlement state", type: "verification", action: "Re-read assignment state and record the result.", verification: "Assignment count decreased only for approved users." },
-      { id: "license-6", name: "Notify stakeholders", type: "response", action: "Send evidence-backed summary and customer/admin response." },
-    ],
-  },
-  "agent-security": {
-    trigger: "New security finding + hourly scan",
-    description: "Correlate security findings, identity context and ownership, then route remediation through governance.",
-    config: { severityThreshold: "medium", autoCreateChange: true, approvalMode: "required", verification: "required" },
-    steps: [
-      { id: "security-1", name: "Collect security findings", type: "evidence", provider: "AWS", capability: "security_findings", action: "Fetch current findings and affected assets." },
-      { id: "security-2", name: "Correlate identity and owner", type: "evidence", provider: "Microsoft 365", capability: "user_inventory", action: "Identify owner, privilege and business context." },
-      { id: "security-3", name: "Risk classification", type: "decision", action: "Score severity, blast radius and remediation urgency." },
-      { id: "security-4", name: "Open governed remediation", type: "action", action: "Create change record and request approval.", requiresApproval: true },
-      { id: "security-5", name: "Verify posture", type: "verification", action: "Re-scan affected asset after approved remediation.", verification: "Finding is closed or materially reduced." },
-      { id: "security-6", name: "Publish resolution", type: "response", action: "Return evidence, action and verification outcome." },
-    ],
-  },
-  "agent-incident": {
-    trigger: "Incident created or critical alert detected",
-    description: "Investigate an incident from signal to verified resolution across monitoring, service and customer systems.",
-    config: { severityThreshold: "high", maxInvestigationMinutes: 15, approvalMode: "required", customerUpdate: "on_milestone" },
-    steps: [
-      { id: "incident-1", name: "Capture incident context", type: "intent", action: "Normalize alert, customer impact and affected service." },
-      { id: "incident-2", name: "Correlate platform evidence", type: "evidence", provider: "ServiceNow", capability: "user_inventory", action: "Load related incidents, owners and recent changes." },
-      { id: "incident-3", name: "Check infrastructure signals", type: "evidence", provider: "AWS", capability: "cloud_resource_inventory", action: "Inspect impacted resources and recent health signals." },
-      { id: "incident-4", name: "Determine remediation", type: "decision", action: "Select the safest governed recovery path." },
-      { id: "incident-5", name: "Execute approved action", type: "action", action: "Run the selected remediation through the execution gateway.", requiresApproval: true },
-      { id: "incident-6", name: "Verify recovery", type: "verification", action: "Re-check service health and customer impact.", verification: "Incident signal clears and service returns to expected state." },
-      { id: "incident-7", name: "Respond to customer", type: "response", action: "Provide concise outcome with evidence-backed explanation." },
     ],
   },
   "agent-cost": {
-    trigger: "Daily cost analysis",
-    description: "Identify idle and oversized cloud resources and propose approval-gated optimization.",
-    config: { minimumSavingsUsd: 250, idleDays: 14, approvalMode: "required" },
+    trigger: "Scheduled daily",
+    description: "Identify idle cloud resources and produce approval-gated right-sizing recommendations.",
+    config: { idleDays: 14, minimumSavingsUsd: 250, approvalMode: "required" },
     steps: [
-      { id: "cost-1", name: "Load cost data", type: "evidence", provider: "AWS", capability: "cost_inventory", action: "Fetch spend and usage evidence." },
-      { id: "cost-2", name: "Find idle resources", type: "evidence", provider: "AWS", capability: "cloud_resource_inventory", action: "Correlate resource utilization and idle period." },
-      { id: "cost-3", name: "Calculate savings", type: "decision", action: "Apply tenant savings threshold and risk policy." },
-      { id: "cost-4", name: "Request approval", type: "action", action: "Create governed optimization proposal.", requiresApproval: true },
-      { id: "cost-5", name: "Verify spend impact", type: "verification", action: "Re-read resource state and expected spend impact." },
+      { id: "cost-1", name: "Load cloud inventory", type: "evidence", provider: "AWS", capability: "inventory", action: "Fetch compute, storage and database inventory." },
+      { id: "cost-2", name: "Load utilization", type: "evidence", provider: "AWS", capability: "metrics", action: "Fetch utilization and recent activity metrics." },
+      { id: "cost-3", name: "Calculate savings", type: "decision", action: "Estimate savings from provider-backed utilization data." },
+      { id: "cost-4", name: "Create right-sizing proposal", type: "action", action: "Prepare approval-gated resource changes.", requiresApproval: true },
+      { id: "cost-5", name: "Verify resource state", type: "verification", action: "Re-read provider state after approved execution.", verification: "Target resource reflects the approved size/state." },
     ],
   },
-  "agent-ccx": {
-    trigger: "Daily routing health check",
-    description: "Detect queue and routing inefficiencies in contact-center operations.",
-    config: { emptyQueueThreshold: 1, approvalMode: "required" },
+  "agent-security": {
+    trigger: "Event-driven + scheduled scan",
+    description: "Detect security exposures and route remediation through governance controls.",
+    config: { severityThreshold: "medium", approvalMode: "required" },
     steps: [
-      { id: "ccx-1", name: "Inspect queues", type: "evidence", provider: "Genesys", capability: "queue_inventory", action: "Load queue membership and activity." },
-      { id: "ccx-2", name: "Inspect presence", type: "evidence", provider: "Genesys", capability: "presence_inventory", action: "Correlate agent availability." },
-      { id: "ccx-3", name: "Recommend routing change", type: "decision", action: "Prepare recommendation with affected queues and evidence." },
-      { id: "ccx-4", name: "Verify routing", type: "verification", action: "Validate approved configuration after change." },
-    ],
-  },
-  "agent-workflow": {
-    trigger: "Workflow request or scheduled orchestration window",
-    description: "Coordinate multi-step operational workflows across connected systems with governed execution.",
-    config: { maxSteps: 12, approvalMode: "required", retryPolicy: "bounded" },
-    steps: [
-      { id: "workflow-1", name: "Resolve workflow intent", type: "intent", action: "Normalize the requested workflow and required capabilities." },
-      { id: "workflow-2", name: "Load system evidence", type: "evidence", provider: "ServiceNow", capability: "user_inventory", action: "Load current state for each step target." },
-      { id: "workflow-3", name: "Plan governed steps", type: "decision", action: "Order steps, dependencies and approval checkpoints." },
-      { id: "workflow-4", name: "Execute approved steps", type: "action", action: "Run each approved step through the execution gateway.", requiresApproval: true },
-      { id: "workflow-5", name: "Verify workflow outcome", type: "verification", action: "Re-read affected state per step.", verification: "Every executed step reports the expected end state." },
-    ],
-  },
-  "agent-knowledge": {
-    trigger: "Operator question in chat",
-    description: "Answer operational questions using only authorized, connected system evidence.",
-    config: { citationsRequired: true, approvalMode: "not_required", maxSources: 6 },
-    steps: [
-      { id: "knowledge-1", name: "Interpret question", type: "intent", action: "Identify the entities and time range being asked about." },
-      { id: "knowledge-2", name: "Retrieve authorized evidence", type: "evidence", provider: "Genesys", capability: "user_inventory", action: "Read only capabilities bound to this agent." },
-      { id: "knowledge-3", name: "Compose grounded answer", type: "decision", action: "Answer with citations, or state that evidence is insufficient." },
-      { id: "knowledge-4", name: "Return response", type: "response", action: "Return the answer with sources and freshness." },
+      { id: "security-1", name: "Load security findings", type: "evidence", provider: "AWS", capability: "security_findings", action: "Fetch current security findings and affected resources." },
+      { id: "security-2", name: "Prioritize findings", type: "decision", action: "Rank by severity, exposure and business impact." },
+      { id: "security-3", name: "Create remediation proposal", type: "action", action: "Prepare an approval-gated security change.", requiresApproval: true },
+      { id: "security-4", name: "Verify remediation", type: "verification", action: "Re-read provider finding state.", verification: "Finding is resolved or remains explicitly open with evidence." },
     ],
   },
 };
-
-export const DEMO_AGENT_KEYS = Object.keys(DEMO_AGENT_WORKFLOWS);
-export const DEMO_PROFILES = DEMO_USERS.length;
-export const DEMO_ROLES = 6;
