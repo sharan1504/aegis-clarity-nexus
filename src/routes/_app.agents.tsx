@@ -1,5 +1,5 @@
-import { createFileRoute, Link, useLoaderData } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
 import { Bot, Loader2, Plug, RefreshCw, Search, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
@@ -9,24 +9,22 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
+import { supabase } from "@/integrations/supabase/client";
 import { updateAgentDataSource } from "@/lib/agent-architecture.functions";
 import { deployAgent } from "@/lib/agent-deployment.functions";
-import { getAgentsPageData } from "@/lib/agents-page.functions";
+import { useTenantContext } from "@/lib/tenant";
 import { pageHead } from "@/lib/seo";
 
-export const Route = createFileRoute("/_app/agents")({
-  head: () => pageHead({ path: "/agents", title: "AI Agents — Aegis AI", description: "Operate deployed agents and deploy verified agent definitions from one workspace." }),
-  loader: () => getAgentsPageData(),
-  component: AgentsPage,
-});
+export const Route = createFileRoute("/_app/agents")({ head: () => pageHead({ path: "/agents", title: "AI Agents — Aegis AI", description: "Operate deployed agents and deploy verified agent definitions from one workspace." }), component: AgentsPage });
 type Agent = { agent_key: string; display_name: string; description: string | null; category: string | null };
 type Binding = { id: string; agent_key: string; enabled: boolean; is_mock: boolean; integration_id: string; capability_id: string };
 
 function AgentsPage() {
-  const initial = useLoaderData({ from: "/_app/agents" });
-  const updateBinding = useServerFn(updateAgentDataSource); const deploy = useServerFn(deployAgent); const loadPage = useServerFn(getAgentsPageData);
-  const [agents, setAgents] = useState<Agent[]>(initial.agents as Agent[]); const [bindings, setBindings] = useState<Binding[]>(initial.bindings as Binding[]); const [query, setQuery] = useState(""); const [loading, setLoading] = useState(false); const [toggling, setToggling] = useState<string | null>(null); const [deploying, setDeploying] = useState<string | null>(null);
-  const load = async () => { setLoading(true); try { const result = await loadPage(); setAgents(result.agents as Agent[]); setBindings(result.bindings as Binding[]); } catch (error) { toast.error("Agent configuration could not be loaded", { description: error instanceof Error ? error.message : "Try again." }); } finally { setLoading(false); } };
+  const { tenantId } = useTenantContext();
+  const updateBinding = useServerFn(updateAgentDataSource); const deploy = useServerFn(deployAgent);
+  const [agents, setAgents] = useState<Agent[]>([]); const [bindings, setBindings] = useState<Binding[]>([]); const [query, setQuery] = useState(""); const [loading, setLoading] = useState(true); const [toggling, setToggling] = useState<string | null>(null); const [deploying, setDeploying] = useState<string | null>(null);
+  const load = async () => { if (!tenantId) return; setLoading(true); const [a, b] = await Promise.all([supabase.from("agent_definitions").select("agent_key,display_name,description,category").order("display_name"), supabase.from("agent_integration_bindings").select("id,agent_key,enabled,is_mock,integration_id,capability_id").eq("tenant_id", tenantId)]); setAgents((a.data ?? []) as Agent[]); setBindings((b.data ?? []) as Binding[]); setLoading(false); };
+  useEffect(() => { void load(); }, [tenantId]);
   const deployedKeys = useMemo(() => new Set(bindings.filter((b) => b.enabled && !b.is_mock).map((b) => b.agent_key)), [bindings]);
   const filtered = useMemo(() => agents.filter((a) => `${a.display_name} ${a.description ?? ""} ${a.category ?? ""}`.toLowerCase().includes(query.toLowerCase())), [agents, query]);
   const toggleAgent = async (agentKey: string, enabled: boolean) => { const rows = bindings.filter((b) => b.agent_key === agentKey); if (!rows.length) { toast.error("Configure a real integration binding before enabling this agent."); return; } setToggling(agentKey); try { for (const row of rows) { const result = await updateBinding({ data: { bindingId: row.id, enabled } }); if (!result.ok) throw new Error(result.errorMessage); } toast.success(enabled ? "Agent enabled" : "Agent disabled"); await load(); } catch (error) { toast.error("Could not change agent state", { description: error instanceof Error ? error.message : "Try again." }); } finally { setToggling(null); } };
