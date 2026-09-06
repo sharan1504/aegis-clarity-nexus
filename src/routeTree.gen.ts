@@ -34,6 +34,7 @@ import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[
 import { Route as AppAgentAgentKeyRouteImport } from './routes/_app.agent.$agentKey'
 import { Route as AppApprovalsIndexRouteImport } from './routes/_app.approvals.index'
 import { Route as AppApprovalsIdRouteImport } from './routes/_app.approvals.$id'
+import { Route as ApiInternalProviderSyncRouteImport } from './routes/api.internal.provider-sync'
 import { Route as IntegrationsGenesysCallbackRouteImport } from './routes/integrations.genesys.callback'
 
 const AppRoute = AppRouteImport.update({
@@ -163,6 +164,11 @@ const AppApprovalsIdRoute = AppApprovalsIdRouteImport.update({
   path: '/approvals/$id',
   getParentRoute: () => AppRoute,
 } as any)
+const ApiInternalProviderSyncRoute = ApiInternalProviderSyncRouteImport.update({
+  id: '/api/internal/provider-sync',
+  path: '/api/internal/provider-sync',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IntegrationsGenesysCallbackRoute =
   IntegrationsGenesysCallbackRouteImport.update({
     id: '/integrations/genesys/callback',
@@ -194,6 +200,7 @@ export interface FileRoutesByFullPath {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/agent/$agentKey': typeof AppAgentAgentKeyRoute
   '/approvals/$id': typeof AppApprovalsIdRoute
+  '/api/internal/provider-sync': typeof ApiInternalProviderSyncRoute
   '/integrations/genesys/callback': typeof IntegrationsGenesysCallbackRoute
   '/approvals/': typeof AppApprovalsIndexRoute
 }
@@ -221,6 +228,7 @@ export interface FileRoutesByTo {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/agent/$agentKey': typeof AppAgentAgentKeyRoute
   '/approvals/$id': typeof AppApprovalsIdRoute
+  '/api/internal/provider-sync': typeof ApiInternalProviderSyncRoute
   '/integrations/genesys/callback': typeof IntegrationsGenesysCallbackRoute
   '/approvals': typeof AppApprovalsIndexRoute
 }
@@ -250,6 +258,7 @@ export interface FileRoutesById {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/_app/agent/$agentKey': typeof AppAgentAgentKeyRoute
   '/_app/approvals/$id': typeof AppApprovalsIdRoute
+  '/api/internal/provider-sync': typeof ApiInternalProviderSyncRoute
   '/integrations/genesys/callback': typeof IntegrationsGenesysCallbackRoute
   '/_app/approvals/': typeof AppApprovalsIndexRoute
 }
@@ -279,6 +288,7 @@ export interface FileRouteTypes {
     | '/.mcp/invoke-tool/$tool'
     | '/agent/$agentKey'
     | '/approvals/$id'
+    | '/api/internal/provider-sync'
     | '/integrations/genesys/callback'
     | '/approvals/'
   fileRoutesByTo: FileRoutesByTo
@@ -306,6 +316,7 @@ export interface FileRouteTypes {
     | '/.mcp/invoke-tool/$tool'
     | '/agent/$agentKey'
     | '/approvals/$id'
+    | '/api/internal/provider-sync'
     | '/integrations/genesys/callback'
     | '/approvals'
   id:
@@ -334,6 +345,7 @@ export interface FileRouteTypes {
     | '/.mcp/invoke-tool/$tool'
     | '/_app/agent/$agentKey'
     | '/_app/approvals/$id'
+    | '/api/internal/provider-sync'
     | '/integrations/genesys/callback'
     | '/_app/approvals/'
   fileRoutesById: FileRoutesById
@@ -348,6 +360,7 @@ export interface RootRouteChildren {
   ResourcesWhatIsAiopsRoute: typeof ResourcesWhatIsAiopsRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
+  ApiInternalProviderSyncRoute: typeof ApiInternalProviderSyncRoute
   IntegrationsGenesysCallbackRoute: typeof IntegrationsGenesysCallbackRoute
 }
 
@@ -528,6 +541,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppApprovalsIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/api/internal/provider-sync': {
+      id: '/api/internal/provider-sync'
+      path: '/api/internal/provider-sync'
+      fullPath: '/api/internal/provider-sync'
+      preLoaderRoute: typeof ApiInternalProviderSyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/integrations/genesys/callback': {
       id: '/integrations/genesys/callback'
       path: '/integrations/genesys/callback'
@@ -597,6 +617,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResourcesWhatIsAiopsRoute: ResourcesWhatIsAiopsRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
+  ApiInternalProviderSyncRoute: ApiInternalProviderSyncRoute,
   IntegrationsGenesysCallbackRoute: IntegrationsGenesysCallbackRoute,
 }
 export const routeTree = rootRouteImport
