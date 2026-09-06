@@ -1,5 +1,6 @@
 import { resolveTenant } from "@/lib/genesys/store.server";
-import { DEMO_AI_USAGE, DEMO_AGENT_WORKFLOWS, DEMO_DATA_ENABLED, DEMO_CHANGES, DEMO_AUDIT_EVENTS, DEMO_NOW } from "@/lib/demo-data";
+import { DEMO_AI_USAGE, DEMO_AGENT_WORKFLOWS, DEMO_CHANGES, DEMO_AUDIT_EVENTS, DEMO_NOW } from "@/lib/demo-data";
+import { resolveTenantContext } from "@/lib/tenant-context.server";
 
 export type UserClientLike = Parameters<typeof resolveTenant>[0];
 export interface AgentDetailBinding { integrationId: string; provider: string | null; capabilityKey: string | null; capabilityName: string | null; enabled: boolean; isMock: boolean; }
@@ -39,7 +40,7 @@ function demoAgentDetail(agentKey: string): AgentDetail | null {
     agentKey, displayName: meta.name, description: meta.description, category: meta.category,
     bindings: [{ integrationId: `demo-${agentKey}`, provider: workflow.steps.find((s) => s.provider)?.provider ?? "Aegis Demo", capabilityKey: workflow.steps.find((s) => s.capability)?.capability ?? "workflow", capabilityName: "Demo capability", enabled: true, isMock: true }],
     operational: true,
-    telemetry: { aiRequests: usage.length ? usage.length * 18 : 24, totalTokens: usage.reduce((sum, row) => sum + row.total_tokens, 0) || 18420, averageLatencyMs: usage.length ? Math.round(usage.reduce((sum, row) => sum + row.latency_ms, 0) / usage.length) : 940, firstActivityAt: "2026-09-03T06:00:00.000Z", lastActivityAt: DEMO_DATA_ENABLED ? DEMO_NOW : null, telemetryAvailable: true },
+    telemetry: { aiRequests: usage.length ? usage.length * 18 : 24, totalTokens: usage.reduce((sum, row) => sum + row.total_tokens, 0) || 18420, averageLatencyMs: usage.length ? Math.round(usage.reduce((sum, row) => sum + row.latency_ms, 0) / usage.length) : 940, firstActivityAt: "2026-09-03T06:00:00.000Z", lastActivityAt: DEMO_NOW, telemetryAvailable: true },
     changes: changes.map((row) => ({ rowId: row.id, changeId: row.changeId, title: row.title, stage: row.stage, severity: row.severity, createdAt: row.createdAt, savings: row.id === "demo-change-1" ? "USD 6,120" : row.id === "demo-change-2" ? "USD 3,480" : NOT_ESTIMATED })),
     activity: activity.map((row) => ({ action: row.action, detail: row.detail, actor: row.actor, createdAt: row.createdAt })),
     savings: { summary: agentKey === "agent-license" ? "USD 6,120" : agentKey === "agent-cost" ? "USD 3,480" : NOT_ESTIMATED, entries: agentKey === "agent-license" ? [{ currency: "USD", amount: 6120 }] : agentKey === "agent-cost" ? [{ currency: "USD", amount: 3480 }] : [] },
@@ -50,7 +51,8 @@ function demoAgentDetail(agentKey: string): AgentDetail | null {
 }
 
 export async function loadAgentDetail(supabase: UserClientLike, userId: string, agentKey: string): Promise<AgentDetail | null> {
-  if (DEMO_DATA_ENABLED) { const demo = demoAgentDetail(agentKey); if (demo) return demo; }
+  const { environmentMode } = await resolveTenantContext(supabase, userId);
+  if (environmentMode === "demo") { const demo = demoAgentDetail(agentKey); if (demo) return demo; }
   const { tenantId } = await resolveTenant(supabase, userId); const db = supabase as any;
   const definition = await db.from("agent_definitions").select("agent_key,display_name,description,category").eq("agent_key", agentKey).maybeSingle();
   if (!definition.data) return null;

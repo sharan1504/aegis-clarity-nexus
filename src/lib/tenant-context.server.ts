@@ -8,6 +8,7 @@ export interface ResolvedTenantContext {
   tenantId: string;
   roles: string[];
   canManage: boolean;
+  environmentMode: "live" | "demo";
 }
 
 interface CacheEntry {
@@ -34,12 +35,15 @@ async function loadTenantContext(
 ): Promise<ResolvedTenantContext> {
   const { data: profile } = await supabase
     .from("profiles")
-    .select("tenant_id")
+    .select("tenant_id, tenants(environment_mode)")
     .eq("id", userId)
     .maybeSingle();
 
   const tenantId = profile?.tenant_id;
   if (!tenantId) throw new TenantResolutionError();
+
+  const tenantRelation = (profile as { tenants?: { environment_mode?: string | null } | null } | null)?.tenants;
+  const environmentMode = tenantRelation?.environment_mode === "demo" ? "demo" : "live";
 
   const { data: roleRows } = await supabase
     .from("user_roles")
@@ -52,6 +56,7 @@ async function loadTenantContext(
     tenantId,
     roles,
     canManage: roles.includes("admin") || roles.includes("manager"),
+    environmentMode,
   };
 }
 

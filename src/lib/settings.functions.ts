@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveTenant } from "@/lib/genesys/store.server";
+import { clearTenantContextCache, resolveTenantContext } from "@/lib/tenant-context.server";
 
 const TIMEZONES = [
   "UTC",
@@ -59,7 +60,7 @@ export const getWorkspaceSettings = createServerFn({ method: "GET" })
     const { tenantId } = await resolveTenant(context.supabase, context.userId);
     const { data, error } = await context.supabase
       .from("tenants")
-      .select("id,name,slug,primary_domain,timezone,analytics_settings")
+      .select("id,name,slug,primary_domain,timezone,analytics_settings,environment_mode")
       .eq("id", tenantId)
       .single();
 
@@ -78,6 +79,7 @@ export const getWorkspaceSettings = createServerFn({ method: "GET" })
       primaryDomain: row.primary_domain ?? "",
       timezone: normalizeTimezone(row.timezone),
       analyticsSettings: row.analytics_settings ?? {},
+      environmentMode: row.environment_mode === "demo" ? "demo" : "live",
       securitySettings: normalizeSecuritySettings(row.analytics_settings?.security),
       timezones: [...TIMEZONES],
     };
@@ -164,4 +166,18 @@ export const updateWorkspaceSettings = createServerFn({ method: "POST" })
       securitySettings: security,
       timezone,
     };
+  });
+
+export const updateWorkspaceEnvironmentMode = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { environmentMode: "live" | "demo" }) => ({
+    environmentMode: input.environmentMode === "demo" ? "demo" as const : "live" as const,
+  }))
+  .handler(async ({ data, context }) => {
+    const { tenantId, roles } = await resolveTenantContext(context.supabase, context.userId);
+    if (!roles.includes("admin")) throw new Error("Only workspace administrators can change the environment mode.");
+    const { error } = await context.supabase.from("tenants").update({ environment_mode: data.environmentMode }).eq("id", tenantId);
+    if (error) throw new Error(`Workspace environment mode could not be saved: ${error.message}`);
+    clearTenantContextCache();
+    return { ok: true as const, environmentMode: data.environmentMode };
   });

@@ -1,6 +1,9 @@
-import { describe, expect, it } from "vitest";
-import { DEMO_DATA_ENABLED } from "@/lib/demo-data";
+import { describe, expect, it, vi } from "vitest";
 import { loadAgentDetail } from "./agent-detail.server";
+
+vi.mock("@/lib/tenant-context.server", () => ({
+  resolveTenantContext: vi.fn().mockResolvedValue({ tenantId: "demo-tenant", roles: ["admin"], canManage: true, environmentMode: "demo" }),
+}));
 
 const seededAgentKeys = [
   "agent-license",
@@ -14,8 +17,6 @@ const seededAgentKeys = [
 
 describe("loadAgentDetail demo fixtures", () => {
   it("loads every seeded demo agent without throwing", async () => {
-    if (!DEMO_DATA_ENABLED) return;
-
     for (const agentKey of seededAgentKeys) {
       await expect(loadAgentDetail({} as never, "demo-user", agentKey)).resolves.toMatchObject({
         agentKey,

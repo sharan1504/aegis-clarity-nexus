@@ -1,14 +1,16 @@
 import type { UserClient } from "@/lib/execution/gateway.server";
 import { writeAuditServer } from "@/lib/audit.server";
 import type { Json } from "@/integrations/supabase/types";
-import { DEMO_CHANGES, DEMO_DATA_ENABLED } from "@/lib/demo-data";
+import { DEMO_CHANGES } from "@/lib/demo-data";
+import { resolveTenantContext } from "@/lib/tenant-context.server";
 
-export interface ProposedChangeInput { title: string; businessImpact: string; aiReasoning: string; proposedRiskFactors: string[]; targetProvider: string; targetAgent: string; proposedRiskTier?: "Low" | "Medium" | "High" | "Critical"; }
+export interface ProposedChangeInput { title: string; businessImpact: string; aiReasoning: string; proposedRiskFactors: string[]; targetProvider: string; targetAgent: string; proposedRiskTier?: "Low" | "High" | "Medium" | "Critical"; }
 
 export async function createProposedChangeRecord(supabase: UserClient, actor: { userId: string; tenantId: string; actorRole: string }, input: ProposedChangeInput) {
+  const { environmentMode } = await resolveTenantContext(supabase, actor.userId);
   const title = input.title.trim(); const businessImpact = input.businessImpact.trim(); const aiReasoning = input.aiReasoning.trim(); const provider = input.targetProvider.trim(); const agent = input.targetAgent.trim(); const factors = [...new Set(input.proposedRiskFactors.map((factor) => factor.trim()).filter(Boolean))];
   if (!title || !businessImpact || !aiReasoning || !provider || !agent || factors.length === 0) throw new Error("Title, business impact, AI reasoning, target provider, target agent and at least one risk factor are required.");
-  if (DEMO_DATA_ENABLED) { const candidate = DEMO_CHANGES.find((row) => row.stage === "Proposed") ?? DEMO_CHANGES[0]; if (!candidate) throw new Error("No demo change fixture is available."); return { id: candidate.id, changeId: candidate.changeId, stage: candidate.stage, demo: true as const }; }
+  if (environmentMode === "demo") { const candidate = DEMO_CHANGES.find((row) => row.stage === "Proposed") ?? DEMO_CHANGES[0]; if (!candidate) throw new Error("No demo change fixture is available."); return { id: candidate.id, changeId: candidate.changeId, stage: candidate.stage, demo: true as const }; }
   const { data: tenant, error: tenantError } = await supabase.from("tenants").select("analytics_settings").eq("id", actor.tenantId).single();
   if (tenantError) throw new Error(`Could not load workspace security settings: ${tenantError.message}`);
   const analyticsSettings = tenant?.analytics_settings && typeof tenant.analytics_settings === "object" ? tenant.analytics_settings as Record<string, unknown> : {};
