@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { sanitizeOutput } from "@/lib/guardrails/sanitize";
 
 export type InvestigationChannel = "voice" | "chat" | "messaging" | "whatsapp" | "email" | "bot" | "api" | "unknown";
 
@@ -12,12 +13,29 @@ type InvestigationContext = {
   subject?: string | null;
 };
 
+type ToolContext = {
+  tenantId: string;
+  investigationId?: string;
+  conversationId?: string | null;
+  interactionId?: string | null;
+  userId?: string;
+};
+
+type ToolDescriptor = {
+  provider?: string;
+  serverName?: string;
+  toolName: string;
+  arguments?: unknown;
+};
+
 const jsonSafe = (value: unknown, maxChars = 12000) => {
+  const sanitized = sanitizeOutput(value);
   try {
-    const text = JSON.stringify(value ?? null);
-    return JSON.parse(text.length > maxChars ? `${text.slice(0, maxChars)}…` : text);
+    const text = JSON.stringify(sanitized ?? null);
+    if (text.length <= maxChars) return JSON.parse(text);
+    return { truncated: true, value: text.slice(0, maxChars) };
   } catch {
-    return { value: String(value).slice(0, maxChars) };
+    return { value: String(sanitized).slice(0, maxChars) };
   }
 };
 
@@ -70,10 +88,10 @@ export async function recordInvestigationStep(
     input: step.input === undefined ? null : jsonSafe(step.input),
     output: step.output === undefined ? null : jsonSafe(step.output),
     evidence: step.evidence === undefined ? null : jsonSafe(step.evidence),
-    finding: step.finding ?? null,
+    finding: step.finding ? String(step.finding).slice(0, 4000) : null,
     status: step.status ?? "completed",
     latency_ms: step.latencyMs ?? null,
-    error_message: step.errorMessage ?? null,
+    error_message: step.errorMessage ? String(step.errorMessage).slice(0, 2000) : null,
     completed_at: new Date().toISOString(),
   });
   if (error) throw new Error(`Could not record investigation step: ${error.message}`);
@@ -81,17 +99,17 @@ export async function recordInvestigationStep(
 
 export async function recordToolInvocation(
   db: SupabaseClient,
-  context: { tenantId: string; investigationId?: string; conversationId?: string | null; interactionId?: string | null; userId?: string },
-  tool: { provider?: string; serverName?: string; toolName: string; arguments?: unknown; result?: unknown; status: "success" | "failed"; startedAt: number; errorMessage?: string },
+  context: ToolContext,
+  tool: ToolDescriptor & { result?: unknown; status: "success" | "failed"; startedAt: number; completedAt?: number; errorMessage?: string },
 ) {
   const client = db as any;
-  const completedAt = Date.now();
+  const completedAt = tool.completedAt ?? Date.now();
   const { data, error } = await client.from("tool_invocations").insert({
     tenant_id: context.tenantId,
     investigation_id: context.investigationId ?? null,
     conversation_id: context.conversationId ?? null,
     interaction_id: context.interactionId ?? null,
-    agent_run_id: context.userId ?? null,
+    agent_run_id: null,
     provider: tool.provider ?? null,
     server_name: tool.serverName ?? null,
     tool_name: tool.toolName,
@@ -100,12 +118,34 @@ export async function recordToolInvocation(
     status: tool.status,
     started_at: new Date(tool.startedAt).toISOString(),
     completed_at: new Date(completedAt).toISOString(),
-    latency_ms: completedAt - tool.startedAt,
-    error_message: tool.errorMessage ?? null,
+    latency_ms: Math.max(0, completedAt - tool.startedAt),
+    error_message: tool.errorMessage ? String(tool.errorMessage).slice(0, 2000) : null,
     authorization: { tenantScoped: true, userId: context.userId ?? null },
   }).select("id").single();
   if (error) throw new Error(`Could not record tool invocation: ${error.message}`);
   return data.id as string;
+}
+
+/** Executes a tool and records both successful and failed calls without changing the tool's return value. */
+export async function runRecordedTool<T>(
+  db: SupabaseClient,
+  context: ToolContext,
+  tool: ToolDescriptor,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const startedAt = Date.now();
+  try {
+    const result = await operation();
+    await recordToolInvocation(db, context, { ...tool, result, status: "success", startedAt });
+    return result;
+  } catch (error) {
+    try {
+      await recordToolInvocation(db, context, { ...tool, status: "failed", startedAt, errorMessage: error instanceof Error ? error.message : String(error) });
+    } catch (recordingError) {
+      console.error("[customer-investigation] failed to record tool error", recordingError);
+    }
+    throw error;
+  }
 }
 
 export async function completeCustomerInvestigation(
@@ -126,7 +166,7 @@ export async function completeCustomerInvestigation(
   if (error) throw new Error(`Could not complete investigation: ${error.message}`);
 
   if (result.responseText) {
-    await client.from("customer_resolutions").insert({
+    const { error: resolutionError } = await client.from("customer_resolutions").insert({
       tenant_id: tenantId,
       investigation_id: investigationId,
       channel: result.channel,
@@ -135,5 +175,6 @@ export async function completeCustomerInvestigation(
       evidence_summary: jsonSafe(result.evidenceSummary ?? []),
       verified: result.verification ?? false,
     });
+    if (resolutionError) throw new Error(`Could not record customer resolution: ${resolutionError.message}`);
   }
 }
