@@ -1,3 +1,5 @@
+vi.mock("@/lib/tenant-context.server", () => ({ resolveTenantContext: vi.fn().mockResolvedValue({ environmentMode: "demo" }) }));
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -42,7 +44,7 @@ const record = (overrides: Partial<ChangeRecord> = {}): ChangeRecord => ({
   ...overrides,
 });
 
-const actor = { tenantId: "tenant-1", actor: "Admin", role: "admin" };
+const actor = { tenantId: "tenant-1", actor: "Admin", role: "admin", userId: "demo-user" };
 
 beforeEach(() => {
   vi.clearAllMocks();

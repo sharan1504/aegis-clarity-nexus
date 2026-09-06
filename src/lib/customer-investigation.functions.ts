@@ -1,12 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveTenant } from "@/lib/genesys/store.server";
-import { DEMO_DATA_ENABLED, DEMO_INVESTIGATIONS } from "@/lib/demo-data";
+import { DEMO_INVESTIGATIONS } from "@/lib/demo-data";
+import { resolveTenantContext } from "@/lib/tenant-context.server";
 
 export type CustomerInvestigationTrail = { investigation: Record<string, unknown>; steps: Array<Record<string, unknown>>; toolInvocations: Array<Record<string, unknown>>; resolutions: Array<Record<string, unknown>> };
 
 export const getCustomerInvestigationEvidence = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).inputValidator((input: { investigationId: string }) => { const investigationId = String(input?.investigationId ?? "").trim(); if (!investigationId) throw new Error("An investigation ID is required."); return { investigationId }; }).handler(async ({ data, context }) => {
-  if (DEMO_DATA_ENABLED) {
+  const { environmentMode } = await resolveTenantContext(context.supabase, context.userId);
+  if (environmentMode === "demo") {
     const item = DEMO_INVESTIGATIONS.find((candidate) => candidate.id === data.investigationId) ?? DEMO_INVESTIGATIONS[0];
     if (!item) throw new Error("Demo investigation not found.");
     return { investigation: { ...item, demo: true }, steps: [

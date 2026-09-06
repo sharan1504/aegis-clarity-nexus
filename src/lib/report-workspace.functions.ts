@@ -2,10 +2,12 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { loadLiveWorkspaceData } from "@/lib/live-workspace.functions";
 import { loadProviderReportData } from "@/lib/provider-sync.functions";
-import { DEMO_DATA_ENABLED, DEMO_AWS, DEMO_GENESYS, DEMO_INTEGRATIONS, DEMO_AUDIT_EVENTS } from "@/lib/demo-data";
+import { DEMO_AWS, DEMO_GENESYS, DEMO_INTEGRATIONS, DEMO_AUDIT_EVENTS } from "@/lib/demo-data";
+import { resolveTenantContext } from "@/lib/tenant-context.server";
 
 export const getReportWorkspaceData = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
-  if (DEMO_DATA_ENABLED) {
+  const { environmentMode } = await resolveTenantContext(context.supabase, context.userId);
+  if (environmentMode === "demo") {
     return {
       genesys: await loadLiveWorkspaceData(context.supabase, context.userId),
       providers: {

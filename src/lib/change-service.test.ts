@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
   recordEq: vi.fn(),
 }));
 
-vi.mock("@/lib/demo-data", () => ({ DEMO_DATA_ENABLED: false }));
+vi.mock("@/lib/tenant-context.server", () => ({ resolveTenantContext: vi.fn().mockResolvedValue({ environmentMode: "live" }) }));
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
@@ -58,7 +58,7 @@ const record = (overrides: Partial<ChangeRecord> = {}): ChangeRecord => ({
   ...overrides,
 });
 
-const actor = { tenantId: "tenant-1", actor: "Admin", role: "admin" };
+const actor = { tenantId: "tenant-1", actor: "Admin", role: "admin", userId: "test-user" };
 
 beforeEach(() => {
   vi.clearAllMocks();
