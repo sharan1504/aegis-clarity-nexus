@@ -71,11 +71,6 @@ async function loadTenantContext(
   };
 }
 
-/**
- * Resolves a user's tenant, roles and workspace environment once per short-lived
- * server cache window. The in-flight promise is cached too, so concurrent requests
- * share the same database resolution instead of producing a query stampede.
- */
 export async function resolveTenantContext(
   supabase: TenantResolverClient,
   userId: string,
@@ -99,6 +94,15 @@ export async function resolveTenantContext(
     cache.delete(userId);
     throw error;
   }
+}
+
+/** Resolves the authenticated browser/server client to its tenant context. */
+export async function resolveCurrentTenantContext(
+  supabase: TenantResolverClient,
+): Promise<ResolvedTenantContext> {
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) throw new TenantResolutionError();
+  return resolveTenantContext(supabase, auth.user.id);
 }
 
 /** Test/support hook; does not expose cache contents. */
