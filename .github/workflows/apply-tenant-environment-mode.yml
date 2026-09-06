@@ -1,0 +1,149 @@
+name: Apply tenant environment mode refactor
+
+on:
+  push:
+    branches:
+      - feat/tenant-live-demo-toggle
+
+permissions:
+  contents: write
+
+jobs:
+  refactor:
+    if: ${{ !contains(github.event.head_commit.message, '[env-mode-codemod]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply codemod
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+          import subprocess
+
+          # Generated Supabase types: update only the tenants table block.
+          p = Path('src/integrations/supabase/types.ts')
+          text = p.read_text(encoding='utf-8')
+          start = text.index('      tenants: {')
+          end = text.index('\n      }', start) + len('\n      }')
+          block = text[start:end]
+          if 'environment_mode:' not in block:
+              block = block.replace('          created_at: string\n', '          created_at: string\n          environment_mode: "live" | "demo"\n', 1)
+              block = block.replace('          created_at?: string\n', '          created_at?: string\n          environment_mode?: "live" | "demo"\n', 2)
+              text = text[:start] + block + text[end:]
+              p.write_text(text, encoding='utf-8')
+
+          # Tenant resolver gets mode from the same tenant relation query used for identity.
+          p = Path('src/lib/tenant-context.server.ts')
+          text = p.read_text(encoding='utf-8')
+          text = text.replace('  canManage: boolean;\n', '  canManage: boolean;\n  environmentMode: "live" | "demo";\n', 1)
+          text = text.replace('.select("tenant_id")', '.select("tenant_id, tenants(environment_mode)")', 1)
+          anchor = '  const tenantId = profile?.tenant_id;\n  if (!tenantId) throw new TenantResolutionError();\n\n'
+          insertion = '''  const tenantRelation = (profile as { tenants?: { environment_mode?: string | null } | null } | null)?.tenants;\n  const environmentMode = tenantRelation?.environment_mode === "demo" ? "demo" : "live";\n\n'''
+          if 'const environmentMode =' not in text:
+              if anchor not in text: raise SystemExit('tenant resolver anchor missing')
+              text = text.replace(anchor, anchor + insertion, 1)
+          text = text.replace('    canManage: roles.includes("admin") || roles.includes("manager"),\n', '    canManage: roles.includes("admin") || roles.includes("manager"),\n    environmentMode,\n', 1)
+          p.write_text(text, encoding='utf-8')
+
+          # Workspace bootstrap: expose mode and stop inserting demo fixtures into new LIVE tenants.
+          p = Path('src/lib/tenant.tsx')
+          text = p.read_text(encoding='utf-8')
+          text = text.replace('import type { Json } from "@/integrations/supabase/types";\nimport {\n  changeRecords as seedRecords,\n  notifications as seedNotifications,\n} from "@/lib/change-data";\n\n', '')
+          text = text.replace('  roles: AppRole[];\n  loading: boolean;', '  roles: AppRole[];\n  environmentMode: "live" | "demo";\n  loading: boolean;', 1)
+          text = text.replace('tenants(name, primary_domain)', 'tenants(name, primary_domain, environment_mode)', 1)
+          text = text.replace('tenants?: { name?: string | null; primary_domain?: string | null } | null;', 'tenants?: { name?: string | null; primary_domain?: string | null; environment_mode?: string | null } | null;', 1)
+          text = text.replace('    await seedTenant(tenantId, user.id);\n', '')
+          seed_start = text.find('/** Seeds a brand-new tenant')
+          empty_start = text.find('const EMPTY_TENANT_STATE', seed_start)
+          if seed_start != -1 and empty_start != -1:
+              text = text[:seed_start] + text[empty_start:]
+          text = text.replace('  roles: [] as AppRole[],\n  loading: true,', '  roles: [] as AppRole[],\n  environmentMode: "live",\n  loading: true,', 1)
+          text = text.replace('  const primaryDomain = existingTenant?.primary_domain ?? null;', '  const primaryDomain = existingTenant?.primary_domain ?? null;\n  const environmentMode = existingTenant?.environment_mode === "demo" ? "demo" : "live";', 1)
+          text = text.replace('  roles: (roleRows ?? []).map((r) => r.role as AppRole),\n  };', '  roles: (roleRows ?? []).map((r) => r.role as AppRole),\n    environmentMode,\n  };', 1)
+          text = text.replace('const { tenantId, tenantName, primaryDomain, roles } = await ensureTenantBootstrap(user);', 'const { tenantId, tenantName, primaryDomain, roles, environmentMode } = await ensureTenantBootstrap(user);', 1)
+          text = text.replace('setState({ user, tenantId, tenantName, primaryDomain, roles, loading: false });', 'setState({ user, tenantId, tenantName, primaryDomain, roles, environmentMode, loading: false });', 1)
+          # Live propagation for all users in the tenant without logout/login.
+          if 'tenant-environment-' not in text:
+              marker = '  useEffect(() => {\n    activeRef.current = true;'
+              realtime = '''  useEffect(() => {\n    if (!state.tenantId) return;\n    const channel = supabase\n      .channel(`tenant-environment-${state.tenantId}`)\n      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "tenants", filter: `id=eq.${state.tenantId}` }, (payload) => {\n        const mode = (payload.new as { environment_mode?: string }).environment_mode === "demo" ? "demo" : "live";\n        setState((current) => ({ ...current, environmentMode: mode }));\n      })\n      .subscribe();\n    return () => { void supabase.removeChannel(channel); };\n  }, [state.tenantId]);\n\n'''
+              if marker not in text: raise SystemExit('tenant client anchor missing')
+              text = text.replace(marker, realtime + marker, 1)
+          p.write_text(text, encoding='utf-8')
+
+          # Workspace settings: read mode and provide an admin-only mode mutation.
+          p = Path('src/lib/settings.functions.ts')
+          text = p.read_text(encoding='utf-8')
+          text = text.replace('import { resolveTenant } from "@/lib/genesys/store.server";', 'import { resolveTenant } from "@/lib/genesys/store.server";\nimport { clearTenantContextCache, resolveTenantContext } from "@/lib/tenant-context.server";', 1)
+          text = text.replace('select("id,name,slug,primary_domain,timezone,analytics_settings")', 'select("id,name,slug,primary_domain,timezone,analytics_settings,environment_mode")', 1)
+          text = text.replace('      analyticsSettings: row.analytics_settings ?? {},', '      analyticsSettings: row.analytics_settings ?? {},\n      environmentMode: row.environment_mode === "demo" ? "demo" : "live",', 1)
+          if 'export const updateWorkspaceEnvironmentMode' not in text:
+              text += '''\nexport const updateWorkspaceEnvironmentMode = createServerFn({ method: "POST" })\n  .middleware([requireSupabaseAuth])\n  .inputValidator((input: { environmentMode: "live" | "demo" }) => ({\n    environmentMode: input.environmentMode === "demo" ? "demo" as const : "live" as const,\n  }))\n  .handler(async ({ data, context }) => {\n    const { tenantId, roles } = await resolveTenantContext(context.supabase, context.userId);\n    if (!roles.includes("admin")) throw new Error("Only workspace administrators can change the environment mode.");\n    const { error } = await context.supabase.from("tenants").update({ environment_mode: data.environmentMode }).eq("id", tenantId);\n    if (error) throw new Error(`Workspace environment mode could not be saved: ${error.message}`);\n    clearTenantContextCache();\n    return { ok: true as const, environmentMode: data.environmentMode };\n  });\n'''
+          p.write_text(text, encoding='utf-8')
+
+          # Remove the global flag from the fixture module.
+          p = Path('src/lib/demo-data.ts')
+          text = p.read_text(encoding='utf-8').replace('export const DEMO_DATA_ENABLED = true;\n', '')
+          p.write_text(text, encoding='utf-8')
+
+          # Server call sites. Each gets the cached tenant environment before any demo branch.
+          server_files = [
+            'src/lib/enterprise-chat.functions.ts', 'src/lib/change-service.ts',
+            'src/lib/chat-history.functions.ts', 'src/lib/agent-workflow.functions.ts',
+            'src/lib/change-proposal.server.ts', 'src/lib/report-workspace.functions.ts',
+            'src/lib/agent-deployment.functions.ts', 'src/lib/customer-investigation.functions.ts',
+            'src/lib/agent-detail.server.ts', 'src/lib/command-center.server.ts',
+            'src/lib/analytics.functions.ts', 'src/lib/live-workspace.functions.ts',
+            'src/lib/investigation.server.ts', 'src/lib/users.functions.ts',
+          ]
+          for name in server_files:
+              p = Path(name); text = p.read_text(encoding='utf-8')
+              if 'DEMO_DATA_ENABLED' not in text: continue
+              text = re.sub(r'\bDEMO_DATA_ENABLED,\s*', '', text)
+              text = re.sub(r',\s*DEMO_DATA_ENABLED\b', '', text)
+              if 'resolveTenantContext' not in text:
+                  lines = text.splitlines()
+                  idx = max([i for i,line in enumerate(lines) if line.startswith('import ')] or [-1]) + 1
+                  lines.insert(idx, 'import { resolveTenantContext } from "@/lib/tenant-context.server";')
+                  text = '\n'.join(lines) + ('\n' if text.endswith('\n') else '')
+              if 'const { environmentMode } = await resolveTenantContext' not in text:
+                  inserted = False
+                  for pat in [r'(handler\(async \(\{ data, context \}\) => \{)', r'(handler\(async \(\{ context \}\) => \{)']:
+                      m = re.search(pat, text)
+                      if m:
+                          text = text[:m.end()] + '\n  const { environmentMode } = await resolveTenantContext(context.supabase, context.userId);' + text[m.end():]
+                          inserted = True; break
+                  if not inserted:
+                      # Helper functions with an explicit userId and supabase client.
+                      m = re.search(r'(export async function [^(]+\([^)]*userId: string[^)]*\)[^{]*\{)', text)
+                      if m:
+                          text = text[:m.end()] + '\n  const { environmentMode } = await resolveTenantContext(supabase, userId);' + text[m.end():]
+                          inserted = True
+                  if not inserted:
+                      raise SystemExit(f'Could not add environment resolver to {name}')
+              text = text.replace('DEMO_DATA_ENABLED', 'environmentMode === "demo"')
+              p.write_text(text, encoding='utf-8')
+
+          # Tests should no longer depend on a compile-time demo constant.
+          for name in ['src/lib/agent-detail.demo.test.ts', 'src/lib/agent-detail.server.test.ts']:
+              p = Path(name)
+              if not p.exists(): continue
+              text = p.read_text(encoding='utf-8')
+              text = re.sub(r'import \{ DEMO_DATA_ENABLED \} from "@/lib/demo-data";\n\n?', '', text)
+              text = re.sub(r'\n\s*it\("has demo data enabled for this suite"[\s\S]*?\n\s*\}\);\n', '\n', text, count=1)
+              text = text.replace('    if (!DEMO_DATA_ENABLED) return;\n\n', '')
+              p.write_text(text, encoding='utf-8')
+
+          leftovers = subprocess.run(['grep','-R','-n','DEMO_DATA_ENABLED','src'], capture_output=True, text=True)
+          if leftovers.stdout.strip():
+              print(leftovers.stdout)
+              raise SystemExit('DEMO_DATA_ENABLED references remain')
+          PY
+
+      - name: Commit refactor
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src supabase
+          git commit -m "env: replace global demo flag with tenant mode [env-mode-codemod]"
+          git push
