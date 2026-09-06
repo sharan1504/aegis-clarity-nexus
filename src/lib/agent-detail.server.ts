@@ -1,5 +1,5 @@
 import { resolveTenant } from "@/lib/genesys/store.server";
-import { DEMO_AI_USAGE, DEMO_AGENT_WORKFLOWS, DEMO_DATA_ENABLED, DEMO_CHANGES, DEMO_AUDIT_EVENTS } from "@/lib/demo-data";
+import { DEMO_AI_USAGE, DEMO_AGENT_WORKFLOWS, DEMO_DATA_ENABLED, DEMO_CHANGES, DEMO_AUDIT_EVENTS, DEMO_NOW } from "@/lib/demo-data";
 
 export type UserClientLike = Parameters<typeof resolveTenant>[0];
 export interface AgentDetailBinding { integrationId: string; provider: string | null; capabilityKey: string | null; capabilityName: string | null; enabled: boolean; isMock: boolean; }
