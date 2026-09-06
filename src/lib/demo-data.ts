@@ -3,7 +3,6 @@
  * provider connections are configured. Demo mode exercises product contracts;
  * it must never claim that an external provider was actually contacted.
  */
-export const DEMO_DATA_ENABLED = true;
 export const DEMO_NOW = "2026-09-04T08:30:00.000Z";
 
 export const DEMO_GENESYS = {

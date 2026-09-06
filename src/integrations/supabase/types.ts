@@ -2069,6 +2069,7 @@ export type Database = {
         Row: {
           analytics_settings: Json
           created_at: string
+          environment_mode: "live" | "demo"
           created_by: string | null
           id: string
           name: string
@@ -2081,6 +2082,7 @@ export type Database = {
         Insert: {
           analytics_settings?: Json
           created_at?: string
+          environment_mode?: "live" | "demo"
           created_by?: string | null
           id?: string
           name: string
@@ -2093,6 +2095,7 @@ export type Database = {
         Update: {
           analytics_settings?: Json
           created_at?: string
+          environment_mode?: "live" | "demo"
           created_by?: string | null
           id?: string
           name?: string

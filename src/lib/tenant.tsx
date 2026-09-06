@@ -4,12 +4,6 @@ import { initRealtime, teardownRealtime } from "@/lib/realtime";
 import type { User } from "@supabase/supabase-js";
 
 import { supabase } from "@/integrations/supabase/client";
-import type { Json } from "@/integrations/supabase/types";
-import {
-  changeRecords as seedRecords,
-  notifications as seedNotifications,
-} from "@/lib/change-data";
-
 export type AppRole = "admin" | "manager" | "analyst" | "viewer";
 
 export interface TenantContextValue {
@@ -18,6 +12,7 @@ export interface TenantContextValue {
   tenantName: string | null;
   primaryDomain: string | null;
   roles: AppRole[];
+  environmentMode: "live" | "demo";
   loading: boolean;
   /** Re-reads tenant identity (name, primary domain, roles) from the database. */
   refreshTenant: () => Promise<void>;
@@ -51,17 +46,18 @@ export async function ensureTenantBootstrap(user: User): Promise<{
 }> {
   const { data: existing } = await supabase
     .from("profiles")
-    .select("id, tenant_id, tenants(name, primary_domain)")
+    .select("id, tenant_id, tenants(name, primary_domain, environment_mode)")
     .eq("id", user.id)
     .maybeSingle();
 
   const existingTenant = (existing as {
-    tenants?: { name?: string | null; primary_domain?: string | null } | null;
+    tenants?: { name?: string | null; primary_domain?: string | null; environment_mode?: string | null } | null;
   } | null)?.tenants ?? null;
 
   let tenantId = existing?.tenant_id ?? null;
   let tenantName = existingTenant?.name ?? null;
   const primaryDomain = existingTenant?.primary_domain ?? null;
+  const environmentMode = existingTenant?.environment_mode === "demo" ? "demo" : "live";
 
   if (!existing) {
     await supabase.from("profiles").insert({
@@ -88,7 +84,6 @@ export async function ensureTenantBootstrap(user: User): Promise<{
     await supabase
       .from("user_roles")
       .insert({ user_id: user.id, tenant_id: tenantId, role: "admin" });
-    await seedTenant(tenantId, user.id);
   }
 
   const { data: roleRows } = await supabase
@@ -102,75 +97,8 @@ export async function ensureTenantBootstrap(user: User): Promise<{
     tenantName: tenantName ?? "Workspace",
     primaryDomain,
     roles: (roleRows ?? []).map((r) => r.role as AppRole),
+    environmentMode,
   };
-}
-
-/** Seeds a brand-new tenant with the reference change-management dataset. */
-async function seedTenant(tenantId: string, userId: string) {
-  const { data: inserted, error } = await supabase
-    .from("change_records")
-    .insert(
-      seedRecords.map((r) => ({
-        tenant_id: tenantId,
-        change_id: r.id,
-        title: r.title,
-        stage: r.stage,
-        severity: r.severity,
-        risk: r.risk as unknown as Json,
-        execution_mode: r.executionMode,
-        owner_team: r.ownerTeam,
-        requester: r.requester,
-        category: r.category,
-        agent: r.agent,
-        change_window: r.window as unknown as Json,
-        business_impact: r.businessImpact,
-        ai_reasoning: r.aiReasoning,
-        rollback_steps: r.rollbackSteps as unknown as Json,
-        validations: r.validations as unknown as Json,
-        external_tickets: r.externalTickets as unknown as Json,
-        timeline: r.timeline as unknown as Json,
-      })),
-    )
-    .select("id, change_id");
-  if (error) throw error;
-
-  const byChangeId = new Map((inserted ?? []).map((row) => [row.change_id, row.id]));
-
-  const approvals = seedRecords.flatMap((r) =>
-    r.approvals.map((a, i) => ({
-      tenant_id: tenantId,
-      change_record_id: byChangeId.get(r.id)!,
-      team: a.team,
-      approver: a.approver,
-      approver_role: a.role,
-      status: a.status,
-      decided_at: a.timestamp ?? null,
-      comment: a.comment ?? null,
-      position: i,
-    })),
-  );
-  if (approvals.length) await supabase.from("change_approvals").insert(approvals);
-
-  await supabase.from("notifications").insert(
-    seedNotifications.map((n) => ({
-      tenant_id: tenantId,
-      kind: n.kind,
-      title: n.title,
-      body: n.body,
-      href: n.href ?? null,
-      unread: n.unread,
-    })),
-  );
-
-  await supabase.from("audit_log").insert({
-    tenant_id: tenantId,
-    actor_id: userId,
-    action: "workspace.provisioned",
-    entity_type: "tenant",
-    entity_id: tenantId,
-    detail: "Workspace created and seeded with reference change-management dataset.",
-    payload: { seededRecords: seedRecords.length },
-  });
 }
 
 const EMPTY_TENANT_STATE = {
@@ -179,6 +107,7 @@ const EMPTY_TENANT_STATE = {
   tenantName: null,
   primaryDomain: null,
   roles: [] as AppRole[],
+  environmentMode: "live",
   loading: true,
 };
 
@@ -195,9 +124,9 @@ export function useTenant(): TenantContextValue {
       return;
     }
     try {
-      const { tenantId, tenantName, primaryDomain, roles } = await ensureTenantBootstrap(user);
+      const { tenantId, tenantName, primaryDomain, roles, environmentMode } = await ensureTenantBootstrap(user);
       if (activeRef.current) {
-        setState({ user, tenantId, tenantName, primaryDomain, roles, loading: false });
+        setState({ user, tenantId, tenantName, primaryDomain, roles, environmentMode, loading: false });
       }
     } catch {
       if (activeRef.current) {
@@ -210,6 +139,18 @@ export function useTenant(): TenantContextValue {
     const { data } = await supabase.auth.getUser();
     await resolve(data.user ?? null);
   }, [resolve]);
+
+  useEffect(() => {
+    if (!state.tenantId) return;
+    const channel = supabase
+      .channel(`tenant-environment-${state.tenantId}`)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "tenants", filter: `id=eq.${state.tenantId}` }, (payload) => {
+        const mode = (payload.new as { environment_mode?: string }).environment_mode === "demo" ? "demo" : "live";
+        setState((current) => ({ ...current, environmentMode: mode }));
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [state.tenantId]);
 
   useEffect(() => {
     activeRef.current = true;
