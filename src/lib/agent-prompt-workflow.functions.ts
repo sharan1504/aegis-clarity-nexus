@@ -35,8 +35,8 @@ function normalizeWorkflow(raw: unknown): GeneratedAgentWorkflow {
     const row = candidate && typeof candidate === "object" ? candidate as Record<string, unknown> : {};
     const type = text(row.type, "decision").toLowerCase().slice(0, 48);
     const action = text(row.action, "Evaluate the configured condition.").slice(0, 1200);
-    const mutationLike = /(^|\\b)(delete|disable|remove|revoke|modify|update|change|execute|remediate|reclaim|create ticket|write)(\\b|$)/i.test(`${type} ${action}`);
-    const notificationOnly = /(^|\\b)(email|notify|notification|alert|slack|teams)(\\b|$)/i.test(`${type} ${action}`) && !mutationLike;
+    const mutationLike = /(^|\b)(delete|disable|remove|revoke|modify|update|change|execute|remediate|reclaim|create ticket|write)(\b|$)/i.test(`${type} ${action}`);
+    const notificationOnly = /(^|\b)(email|notify|notification|alert|slack|teams)(\b|$)/i.test(`${type} ${action}`) && !mutationLike;
     return {
       id: text(row.id, `generated-${index + 1}`),
       name: text(row.name, `Workflow step ${index + 1}`).slice(0, 120),
@@ -72,7 +72,7 @@ async function generateWithLovable(messages: Array<{ role: "system" | "user"; co
   const parsed = JSON.parse(body) as { choices?: Array<{ message?: { content?: string } }> };
   const content = parsed.choices?.[0]?.message?.content;
   if (!content) throw new Error("AI returned an empty workflow.");
-  const cleaned = content.replace(/^```(?:json)?\\s*/i, "").replace(/\\s*```$/i, "").trim();
+  const cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
   return JSON.parse(cleaned) as unknown;
 }
 
