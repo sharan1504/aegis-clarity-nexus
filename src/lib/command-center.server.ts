@@ -1,7 +1,8 @@
 import { resolveTenant } from "@/lib/genesys/store.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { DEMO_DATA_ENABLED, DEMO_AUDIT_EVENTS, DEMO_CHANGES, DEMO_GENESYS, DEMO_INTEGRATIONS, DEMO_AWS } from "@/lib/demo-data";
+import { DEMO_AUDIT_EVENTS, DEMO_CHANGES, DEMO_GENESYS, DEMO_INTEGRATIONS, DEMO_AWS } from "@/lib/demo-data";
+import { resolveTenantContext } from "@/lib/tenant-context.server";
 
 export type UserClientLike = SupabaseClient<Database>;
 export interface CommandCenterChange { id: string; changeId: string; title: string; stage: string; severity: string; ownerTeam: string; createdAt: string; updatedAt: string; }
@@ -17,7 +18,7 @@ export interface CommandCenterData {
 const OPEN_STAGES = ["Proposed", "Team Approvals", "Risk Review", "Scheduled"];
 
 export async function loadCommandCenterData(supabase: UserClientLike, userId: string): Promise<CommandCenterData> {
-  const { tenantId } = await resolveTenant(supabase, userId); const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
+  const { tenantId, environmentMode } = await resolveTenantContext(supabase, userId); const usingDemo = environmentMode === "demo"; const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
   const [changes, guardrails, guardrailEvaluations, integrations, bindings, syncRuns, notifications, auditRows, genesysUsers, genesysLicenses, genesysUserLicenses, genesysQueues] = await Promise.all([
     supabase.from("change_records").select("id,change_id,title,stage,severity,owner_team,created_at,updated_at").eq("tenant_id", tenantId).order("updated_at", { ascending: false }).limit(200),
     supabase.from("guardrails").select("id,enabled,enforcement_mode").or(`tenant_id.eq.${tenantId},tenant_id.is.null`),
@@ -32,7 +33,6 @@ export async function loadCommandCenterData(supabase: UserClientLike, userId: st
     supabase.from("genesys_user_licenses").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
     supabase.from("genesys_queues").select("id,member_count", { count: "exact" }).eq("tenant_id", tenantId),
   ]);
-  const usingDemo = DEMO_DATA_ENABLED;
   const changeRows = usingDemo ? DEMO_CHANGES.map((row) => ({ id: row.id, change_id: row.changeId, title: row.title, stage: row.stage, severity: row.severity, owner_team: row.ownerTeam, created_at: row.createdAt, updated_at: row.updatedAt })) : (changes.data ?? []);
   const integrationRows = usingDemo ? DEMO_INTEGRATIONS.map((row) => ({ id: row.id, provider: row.provider, status: row.status, health_status: row.healthStatus, last_sync_at: row.lastSyncAt as string | null, last_sync_status: row.lastSyncStatus as string | null, is_mock: row.isMock, external_org_name: null as string | null, region: null as string | null, updated_at: row.lastSyncAt as string })) : (integrations.data ?? []);
   const signalRows = usingDemo ? DEMO_AUDIT_EVENTS.map((row) => ({ id: row.id, action: row.action, entity_type: row.entityType, entity_id: row.entityId as string | null, detail: row.detail as string | null, actor_email: row.actor as string | null, created_at: row.createdAt })) : (auditRows.data ?? []);
