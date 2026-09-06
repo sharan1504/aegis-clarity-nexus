@@ -19,7 +19,7 @@ export type GeneratedAgentWorkflowStep = {
 export type GeneratedAgentWorkflow = {
   summary: string;
   trigger: string;
-  config: Record<string, unknown>;
+  config: Record<string, string | number | boolean | null>;
   steps: GeneratedAgentWorkflowStep[];
   assumptions: string[];
 };
@@ -53,7 +53,7 @@ function normalizeWorkflow(raw: unknown): GeneratedAgentWorkflow {
   return {
     summary: text(value.summary, "Generated workflow based on the requested agent behavior.").slice(0, 1000),
     trigger: text(value.trigger, "Run according to the configured schedule or event.").slice(0, 500),
-    config: value.config && typeof value.config === "object" && !Array.isArray(value.config) ? value.config as Record<string, unknown> : {},
+    config: value.config && typeof value.config === "object" && !Array.isArray(value.config) ? value.config as Record<string, string | number | boolean | null> : {},
     steps,
     assumptions: Array.isArray(value.assumptions) ? value.assumptions.map((item) => text(item).slice(0, 400)).filter(Boolean).slice(0, 8) : [],
   };
