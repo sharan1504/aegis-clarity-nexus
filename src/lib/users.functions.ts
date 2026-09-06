@@ -4,7 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { createClient } from "@supabase/supabase-js";
 import { randomBytes } from "node:crypto";
 import type { Database } from "@/integrations/supabase/types";
-import { DEMO_DATA_ENABLED, DEMO_USERS } from "@/lib/demo-data";
+import { DEMO_DATA_ENABLED, DEMO_USERS, DEMO_NOW } from "@/lib/demo-data";
 
 const adminClient = () => { const url = process.env.SUPABASE_URL; const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY; if (!url || !serviceKey) throw new Error("Server invitation service is not configured."); return createClient<Database>(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } }); };
 const allowedRoles = ["admin", "manager", "analyst", "viewer"] as const; type AppRole = typeof allowedRoles[number];
