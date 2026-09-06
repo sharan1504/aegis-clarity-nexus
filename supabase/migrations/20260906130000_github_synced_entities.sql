@@ -22,7 +22,7 @@ create index if not exists github_synced_entities_connection_idx on public.githu
 alter table public.github_synced_entities enable row level security;
 alter table public.github_synced_entities force row level security;
 create policy "github synced entities tenant members can read" on public.github_synced_entities for select to authenticated using (exists (select 1 from public.user_roles ur where ur.tenant_id = github_synced_entities.tenant_id and ur.user_id = auth.uid()));
-create policy "github synced entities service role can manage" on public.github_synced_entities for all to service_role using (true) with check (true);
+create policy "github synced entities service role can manage" on public.github_synced_entities for all to service_role using (auth.role() = 'service_role') with check (auth.role() = 'service_role');
 
 create table if not exists public.github_sync_status (
   tenant_id uuid not null references public.tenants(id) on delete cascade,
@@ -40,4 +40,4 @@ create table if not exists public.github_sync_status (
 alter table public.github_sync_status enable row level security;
 alter table public.github_sync_status force row level security;
 create policy "github sync status tenant members can read" on public.github_sync_status for select to authenticated using (exists (select 1 from public.user_roles ur where ur.tenant_id = github_sync_status.tenant_id and ur.user_id = auth.uid()));
-create policy "github sync status service role can manage" on public.github_sync_status for all to service_role using (true) with check (true);
+create policy "github sync status service role can manage" on public.github_sync_status for all to service_role using (auth.role() = 'service_role') with check (auth.role() = 'service_role');
