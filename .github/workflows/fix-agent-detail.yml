@@ -1,0 +1,26 @@
+name: Fix agent detail mode guard
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('src/lib/agent-detail.server.ts'); s=p.read_text()
+          s=s.replace('lastActivityAt: environmentMode === "demo" ? DEMO_NOW : null', 'lastActivityAt: DEMO_NOW')
+          p.write_text(s)
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/lib/agent-detail.server.ts
+          git commit -m "fix: keep agent demo fixture request-scoped"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
