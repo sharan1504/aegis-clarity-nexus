@@ -5,6 +5,7 @@ import { deriveCorrelatedSignals, loadProviderReportData } from "@/lib/provider-
 import { resolveTenant } from "@/lib/genesys/store.server";
 import { resolveDepartmentContext } from "@/lib/department-access.server";
 import { completeCustomerInvestigation, recordInvestigationStep, runRecordedTool, startCustomerInvestigation } from "@/lib/customer-investigation.server";
+import { sanitizeOutput } from "@/lib/guardrails/sanitize";
 
 const ENDPOINT = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const MODEL = "google/gemini-3-flash-preview";
@@ -34,9 +35,13 @@ export const executeEnterpriseChat = createServerFn({ method: "POST" })
     if (!latest) return { ok: false as const, error: "Please enter a message." };
 
     let investigationId: string | undefined;
+    let investigationTenantId: string | undefined;
+    let investigationDb: any;
     try {
       const { tenantId } = await resolveTenant(context.supabase, context.userId);
+      investigationTenantId = tenantId;
       const db = context.supabase as any;
+      investigationDb = db;
       const { data: session, error: sessionError } = await db.from("chat_sessions").select("id,title,department_key").eq("id", data.sessionId).eq("tenant_id", tenantId).eq("user_id", context.userId).maybeSingle();
       if (sessionError || !session) throw new Error("Chat session not found.");
       const department = await resolveDepartmentContext(context.supabase, context.userId, session.department_key);
@@ -81,9 +86,9 @@ export const executeEnterpriseChat = createServerFn({ method: "POST" })
         investigationId,
         channel: "chat",
         tools: [
-          { provider: "Genesys", server: "aegis-workspace", name: "loadLiveWorkspaceData", arguments: { departmentKey: department.departmentKey } },
-          { provider: "Connected providers", server: "aegis-provider-evidence", name: "loadProviderReportData", arguments: { departmentKey: department.departmentKey } },
-          { provider: "Lovable AI", server: "ai.gateway.lovable.dev", name: "enterprise_model", arguments: { model: MODEL, temperature: 0.1, responseFormat: "json_object" } },
+          { provider: "Genesys", server: "aegis-workspace", name: "loadLiveWorkspaceData", arguments: { departmentKey: department.departmentKey }, result: sanitizeOutput(live) },
+          { provider: "Connected providers", server: "aegis-provider-evidence", name: "loadProviderReportData", arguments: { departmentKey: department.departmentKey }, result: sanitizeOutput(providers) },
+          { provider: "Lovable AI", server: "ai.gateway.lovable.dev", name: "enterprise_model", arguments: { model: MODEL, temperature: 0.1, responseFormat: "json_object" }, result: sanitizeOutput(parsed) },
         ],
         steps: ["Customer request received", "Authorized enterprise evidence gathered", "AI investigation and findings", "Customer response generated"],
       } : undefined;
@@ -105,6 +110,13 @@ export const executeEnterpriseChat = createServerFn({ method: "POST" })
       return { ok: true as const, ...safeResult, provider: "Lovable AI", model: MODEL, readOnly: true as const, fetchedAt: live.fetchedAt, investigationId };
     } catch (error) {
       console.error("[enterprise-chat] failed", error);
+      if (investigationId && investigationTenantId && investigationDb) {
+        try {
+          await completeCustomerInvestigation(investigationDb, investigationId, investigationTenantId, { status: "failed", channel: "chat", resolution: error instanceof Error ? error.message : "Enterprise AI could not complete the analysis." });
+        } catch (completionError) {
+          console.error("[customer-investigation] failed to close failed investigation", completionError);
+        }
+      }
       return { ok: false as const, error: error instanceof Error ? error.message : "Enterprise AI could not complete the analysis.", investigationId };
     }
   });
