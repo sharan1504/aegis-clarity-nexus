@@ -63,7 +63,6 @@ jobs:
           text = text.replace('  roles: (roleRows ?? []).map((r) => r.role as AppRole),\n  };', '  roles: (roleRows ?? []).map((r) => r.role as AppRole),\n    environmentMode,\n  };', 1)
           text = text.replace('const { tenantId, tenantName, primaryDomain, roles } = await ensureTenantBootstrap(user);', 'const { tenantId, tenantName, primaryDomain, roles, environmentMode } = await ensureTenantBootstrap(user);', 1)
           text = text.replace('setState({ user, tenantId, tenantName, primaryDomain, roles, loading: false });', 'setState({ user, tenantId, tenantName, primaryDomain, roles, environmentMode, loading: false });', 1)
-          # Live propagation for all users in the tenant without logout/login.
           if 'tenant-environment-' not in text:
               marker = '  useEffect(() => {\n    activeRef.current = true;'
               realtime = '''  useEffect(() => {\n    if (!state.tenantId) return;\n    const channel = supabase\n      .channel(`tenant-environment-${state.tenantId}`)\n      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "tenants", filter: `id=eq.${state.tenantId}` }, (payload) => {\n        const mode = (payload.new as { environment_mode?: string }).environment_mode === "demo" ? "demo" : "live";\n        setState((current) => ({ ...current, environmentMode: mode }));\n      })\n      .subscribe();\n    return () => { void supabase.removeChannel(channel); };\n  }, [state.tenantId]);\n\n'''
@@ -86,64 +85,14 @@ jobs:
           text = p.read_text(encoding='utf-8').replace('export const DEMO_DATA_ENABLED = true;\n', '')
           p.write_text(text, encoding='utf-8')
 
-          # Server call sites. Each gets the cached tenant environment before any demo branch.
-          server_files = [
-            'src/lib/enterprise-chat.functions.ts', 'src/lib/change-service.ts',
-            'src/lib/chat-history.functions.ts', 'src/lib/agent-workflow.functions.ts',
-            'src/lib/change-proposal.server.ts', 'src/lib/report-workspace.functions.ts',
-            'src/lib/agent-deployment.functions.ts', 'src/lib/customer-investigation.functions.ts',
-            'src/lib/agent-detail.server.ts', 'src/lib/command-center.server.ts',
-            'src/lib/analytics.functions.ts', 'src/lib/live-workspace.functions.ts',
-            'src/lib/investigation.server.ts', 'src/lib/users.functions.ts',
-          ]
-          for name in server_files:
-              p = Path(name); text = p.read_text(encoding='utf-8')
-              if 'DEMO_DATA_ENABLED' not in text: continue
-              text = re.sub(r'\bDEMO_DATA_ENABLED,\s*', '', text)
-              text = re.sub(r',\s*DEMO_DATA_ENABLED\b', '', text)
-              if 'resolveTenantContext' not in text:
-                  lines = text.splitlines()
-                  idx = max([i for i,line in enumerate(lines) if line.startswith('import ')] or [-1]) + 1
-                  lines.insert(idx, 'import { resolveTenantContext } from "@/lib/tenant-context.server";')
-                  text = '\n'.join(lines) + ('\n' if text.endswith('\n') else '')
-              if 'const { environmentMode } = await resolveTenantContext' not in text:
-                  inserted = False
-                  for pat in [r'(handler\(async \(\{ data, context \}\) => \{)', r'(handler\(async \(\{ context \}\) => \{)']:
-                      m = re.search(pat, text)
-                      if m:
-                          text = text[:m.end()] + '\n  const { environmentMode } = await resolveTenantContext(context.supabase, context.userId);' + text[m.end():]
-                          inserted = True; break
-                  if not inserted:
-                      # Helper functions with an explicit userId and supabase client.
-                      m = re.search(r'(export async function [^(]+\([^)]*userId: string[^)]*\)[^{]*\{)', text)
-                      if m:
-                          text = text[:m.end()] + '\n  const { environmentMode } = await resolveTenantContext(supabase, userId);' + text[m.end():]
-                          inserted = True
-                  if not inserted:
-                      raise SystemExit(f'Could not add environment resolver to {name}')
-              text = text.replace('DEMO_DATA_ENABLED', 'environmentMode === "demo"')
-              p.write_text(text, encoding='utf-8')
-
-          # Tests should no longer depend on a compile-time demo constant.
-          for name in ['src/lib/agent-detail.demo.test.ts', 'src/lib/agent-detail.server.test.ts']:
-              p = Path(name)
-              if not p.exists(): continue
-              text = p.read_text(encoding='utf-8')
-              text = re.sub(r'import \{ DEMO_DATA_ENABLED \} from "@/lib/demo-data";\n\n?', '', text)
-              text = re.sub(r'\n\s*it\("has demo data enabled for this suite"[\s\S]*?\n\s*\}\);\n', '\n', text, count=1)
-              text = text.replace('    if (!DEMO_DATA_ENABLED) return;\n\n', '')
-              p.write_text(text, encoding='utf-8')
-
-          leftovers = subprocess.run(['grep','-R','-n','DEMO_DATA_ENABLED','src'], capture_output=True, text=True)
-          if leftovers.stdout.strip():
-              print(leftovers.stdout)
-              raise SystemExit('DEMO_DATA_ENABLED references remain')
+          # Server call sites are handled in a follow-up commit after schema validation.
+          # This workflow intentionally stops here; it is removed below after the first refactor commit.
           PY
 
-      - name: Commit refactor
+      - name: Commit schema and context changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src supabase
-          git commit -m "env: replace global demo flag with tenant mode [env-mode-codemod]"
+          git add src/integrations/supabase/types.ts src/lib/tenant-context.server.ts src/lib/tenant.tsx src/lib/settings.functions.ts src/lib/demo-data.ts supabase/migrations
+          git commit -m "env: add tenant environment mode [env-mode-codemod]"
           git push
