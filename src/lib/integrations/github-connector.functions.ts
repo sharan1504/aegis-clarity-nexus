@@ -14,8 +14,8 @@ export const healthCheckGitHubFn = createServerFn({ method: "POST" }).middleware
 
 export const syncGitHubFn = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { connectionId: string; entityScope?: GitHubEntityScope }) => ({ connectionId: String(input.connectionId), entityScope: input.entityScope ?? "all" })).handler(async ({ data, context }) => {
   const tenantId = await authorizeGitHubSync(context.supabase, context.userId, data.connectionId);
-  const idempotencyKey = `github-manual:${tenantId}:${data.connectionId}:${Math.floor(Date.now() / 300000)}`;
+  const idempotencyKey = `github-manual:${tenantId}:${data.connectionId}:${Date.now()}`;
   const { data: run, error } = await context.supabase.from("provider_sync_runs").insert({ tenant_id: tenantId, provider: "github", connection_id: data.connectionId, idempotency_key: idempotencyKey, status: "running", started_at: new Date().toISOString() }).select("id").single();
-  if (error) { if (String(error.message).toLowerCase().includes("duplicate")) return getGitHubSyncStatus(tenantId, data.connectionId); throw error; }
+  if (error) throw error;
   return syncGitHub(tenantId, data.connectionId, data.entityScope, run.id, idempotencyKey);
 });
