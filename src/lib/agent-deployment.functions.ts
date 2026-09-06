@@ -1,11 +1,18 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { DEMO_AGENT_KEYS, DEMO_DATA_ENABLED } from "@/lib/demo-data";
 
 export const deployAgent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { agentKey: string }) => ({ agentKey: String(input?.agentKey ?? "").trim() }))
   .handler(async ({ data, context }) => {
     if (!data.agentKey) return { ok: false as const, error: "Agent definition is required." };
+
+    // Demo mode intentionally exercises the complete deployment UX without creating
+    // fake production bindings or pretending an external provider was contacted.
+    if (DEMO_DATA_ENABLED && DEMO_AGENT_KEYS.includes(data.agentKey)) {
+      return { ok: true as const, agentKey: data.agentKey, displayName: data.agentKey.replace("agent-", "").replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()), bindingCount: 0, demo: true as const };
+    }
 
     const { data: roles, error: roleError } = await context.supabase
       .from("user_roles").select("tenant_id,role").eq("user_id", context.userId);
