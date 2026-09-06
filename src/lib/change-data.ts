@@ -81,6 +81,8 @@ export interface ChangeRecord {
   timeline: ChangeTimelineEvent[];
   audit: ChangeAuditEntry[];
   createdAt: string;
+  /** True when the record comes from bundled demo fixtures rather than the change_records table. */
+  demo?: boolean;
 }
 
 export const changeRecords: ChangeRecord[] = [
