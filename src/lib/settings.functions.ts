@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveTenant } from "@/lib/genesys/store.server";
+import { clearTenantContextCache } from "@/lib/tenant-context.server";
+import type { EnvironmentMode } from "@/lib/environment-mode";
 
 const TIMEZONES = [
   "UTC",
@@ -53,13 +55,17 @@ function normalizeSecuritySettings(value: unknown): SecuritySettings {
   };
 }
 
+function normalizeEnvironmentMode(value: unknown): EnvironmentMode {
+  return value === "demo" ? "demo" : "live";
+}
+
 export const getWorkspaceSettings = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { tenantId } = await resolveTenant(context.supabase, context.userId);
-    const { data, error } = await context.supabase
+    const { data, error } = await (context.supabase as any)
       .from("tenants")
-      .select("id,name,slug,primary_domain,timezone,analytics_settings")
+      .select("id,name,slug,primary_domain,timezone,analytics_settings,environment_mode")
       .eq("id", tenantId)
       .single();
 
@@ -71,12 +77,14 @@ export const getWorkspaceSettings = createServerFn({ method: "GET" })
       primary_domain?: string | null;
       timezone?: string | null;
       analytics_settings?: Record<string, unknown> | null;
+      environment_mode?: string | null;
     };
 
     return {
       organizationName: row.name ?? "",
       primaryDomain: row.primary_domain ?? "",
       timezone: normalizeTimezone(row.timezone),
+      environmentMode: normalizeEnvironmentMode(row.environment_mode),
       analyticsSettings: row.analytics_settings ?? {},
       securitySettings: normalizeSecuritySettings(row.analytics_settings?.security),
       timezones: [...TIMEZONES],
@@ -89,12 +97,14 @@ export const updateWorkspaceSettings = createServerFn({ method: "POST" })
     organizationName: string;
     primaryDomain: string;
     timezone: string;
+    environmentMode?: EnvironmentMode;
     analyticsSettings?: Record<string, unknown>;
     securitySettings?: Partial<SecuritySettings>;
   }) => ({
     organizationName: String(input.organizationName ?? "").trim(),
     primaryDomain: String(input.primaryDomain ?? "").trim().toLowerCase(),
     timezone: String(input.timezone ?? "UTC").trim(),
+    environmentMode: normalizeEnvironmentMode(input.environmentMode),
     analyticsSettings: input.analyticsSettings ?? {},
     securitySettings: input.securitySettings ?? {},
   }))
@@ -113,9 +123,6 @@ export const updateWorkspaceSettings = createServerFn({ method: "POST" })
 
     const timezone = normalizeTimezone(data.timezone);
 
-    // Use the authenticated, tenant-scoped client for both the read and write.
-    // The database policy independently requires membership + admin role, so the
-    // service-role client is deliberately not needed for workspace settings.
     const { data: current, error: currentError } = await context.supabase
       .from("tenants")
       .select("analytics_settings")
@@ -145,12 +152,13 @@ export const updateWorkspaceSettings = createServerFn({ method: "POST" })
       security,
     };
 
-    const { error } = await context.supabase
+    const { error } = await (context.supabase as any)
       .from("tenants")
       .update({
         name: data.organizationName,
         primary_domain: data.primaryDomain || null,
         timezone,
+        environment_mode: data.environmentMode,
         analytics_settings: analyticsSettings,
       })
       .eq("id", tenantId);
@@ -159,8 +167,11 @@ export const updateWorkspaceSettings = createServerFn({ method: "POST" })
       throw new Error(`Workspace settings could not be saved: ${error.message}`);
     }
 
+    clearTenantContextCache();
+
     return {
       ok: true as const,
+      environmentMode: data.environmentMode,
       securitySettings: security,
       timezone,
     };
