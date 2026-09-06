@@ -1,7 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveTenant } from "@/lib/genesys/store.server";
-import { DEMO_DATA_ENABLED, DEMO_AGENT_WORKFLOWS } from "@/lib/demo-data";
+import { DEMO_AGENT_WORKFLOWS } from "@/lib/demo-data";
+import { resolveTenantContext } from "@/lib/tenant-context.server";
 
 export type AgentWorkflowStepInput = {
   id: string; name: string; type: string; provider?: string; capability?: string; action: string; requiresApproval?: boolean; verification?: string;
@@ -14,7 +15,8 @@ export const saveAgentWorkflow = createServerFn({ method: "POST" })
   }))
   .handler(async ({ data, context }) => {
     if (!data.agentKey) return { ok: false as const, error: "Agent key is required." };
-    if (DEMO_DATA_ENABLED && DEMO_AGENT_WORKFLOWS[data.agentKey]) return { ok: true as const, demo: true as const };
+    const { environmentMode } = await resolveTenantContext(context.supabase, context.userId);
+    if (environmentMode === "demo" && DEMO_AGENT_WORKFLOWS[data.agentKey]) return { ok: true as const, demo: true as const };
     const { tenantId } = await resolveTenant(context.supabase, context.userId);
     const db = context.supabase as any;
     const { error: configError } = await db.from("agent_workflow_configs").upsert({ tenant_id: tenantId, agent_key: data.agentKey, trigger_config: { trigger: data.trigger, prompt: data.prompt || null, summary: data.summary || null }, policy: data.config, updated_by: context.userId }, { onConflict: "tenant_id,agent_key" });
