@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
   recordEq: vi.fn(),
 }));
 
+vi.mock("@/lib/demo-data", () => ({ DEMO_DATA_ENABLED: false }));
+
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
     from: vi.fn((table: string) => {
