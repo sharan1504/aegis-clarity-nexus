@@ -18,11 +18,13 @@ Required environment:
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `AEGIS_JOB_QUEUE_SECRET`
 - `AEGIS_JOB_WORKER_PORT` (optional, defaults to `8787`)
-- `PROVIDER_SYNC_INTERNAL_URL`
-- `PROVIDER_SYNC_INTERNAL_SECRET`
+- `PROVIDER_SYNC_INTERNAL_URL` — the application URL for `POST /api/internal/provider-sync`
+- `PROVIDER_SYNC_INTERNAL_SECRET` — shared only between the worker and application server
 - `EXTERNAL_TICKET_INTERNAL_URL` and `EXTERNAL_TICKET_INTERNAL_SECRET` when external-ticket jobs are enabled
 
 Supabase Edge schedulers call `POST /enqueue` on this worker using `Authorization: Bearer $AEGIS_JOB_QUEUE_SECRET`. Every payload carries `tenantId`; pg-boss group concurrency and singleton keys are tenant-scoped.
+
+The provider-sync worker currently dispatches GitHub jobs to `/api/internal/provider-sync`. That endpoint validates the worker secret, accepts only registered providers, retrieves the tenant-scoped encrypted GitHub credential server-side, and runs the provider's real sync implementation. GitHub scheduled syncs are discovered from connected `provider_connections` and are throttled to one enqueue window per 15 minutes per connection.
 
 Queues use five total attempts (initial attempt + four retries), exponential backoff starting at 30 seconds, and dedicated dead-letter queues. The application tables remain the source of tenant-visible delivery/sync status; pg-boss is the durable execution layer.
 
