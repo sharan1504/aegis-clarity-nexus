@@ -10,83 +10,127 @@ permissions:
   contents: write
 
 jobs:
-  refactor:
-    if: ${{ !contains(github.event.pull_request.head.sha, 'env-mode-codemod') }}
+  backend-refactor:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Apply codemod
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - name: Apply backend refactor
         run: |
           python3 <<'PY'
           from pathlib import Path
           import re
-          import subprocess
 
-          p = Path('src/integrations/supabase/types.ts')
-          text = p.read_text(encoding='utf-8')
-          start = text.index('      tenants: {')
-          end = text.index('\n      }', start) + len('\n      }')
-          block = text[start:end]
-          if 'environment_mode:' not in block:
-              block = block.replace('          created_at: string\n', '          created_at: string\n          environment_mode: "live" | "demo"\n', 1)
-              block = block.replace('          created_at?: string\n', '          created_at?: string\n          environment_mode?: "live" | "demo"\n', 2)
-              text = text[:start] + block + text[end:]
+          marker = Path('.env-mode-backend-done')
+          if marker.exists():
+              print('Backend stage already applied; nothing to do.')
+              raise SystemExit(0)
+
+          def add_import(text):
+              if 'from "@/lib/tenant-context.server"' in text:
+                  return text
+              lines = text.splitlines()
+              idx = max([i for i, line in enumerate(lines) if line.startswith('import ')] or [-1]) + 1
+              lines.insert(idx, 'import { resolveTenantContext } from "@/lib/tenant-context.server";')
+              return '\n'.join(lines) + ('\n' if text.endswith('\n') else '')
+
+          # Server handlers already have authenticated context.
+          handler_files = [
+              'src/lib/enterprise-chat.functions.ts', 'src/lib/chat-history.functions.ts',
+              'src/lib/agent-workflow.functions.ts', 'src/lib/report-workspace.functions.ts',
+              'src/lib/agent-deployment.functions.ts', 'src/lib/customer-investigation.functions.ts',
+              'src/lib/command-center.server.ts', 'src/lib/analytics.functions.ts',
+              'src/lib/users.functions.ts',
+          ]
+          for name in handler_files:
+              p = Path(name); text = p.read_text(encoding='utf-8')
+              if 'DEMO_DATA_ENABLED' not in text: continue
+              text = re.sub(r'\bDEMO_DATA_ENABLED,\s*', '', text)
+              text = re.sub(r',\s*DEMO_DATA_ENABLED\b', '', text)
+              text = add_import(text)
+              if 'const { environmentMode } = await resolveTenantContext' not in text:
+                  m = re.search(r'(handler\(async \(\{ (?:data, )?context \}\) => \{)', text)
+                  if not m: raise SystemExit(f'No handler context anchor in {name}')
+                  text = text[:m.end()] + '\n  const { environmentMode } = await resolveTenantContext(context.supabase, context.userId);' + text[m.end():]
+              text = text.replace('DEMO_DATA_ENABLED', 'environmentMode === "demo"')
               p.write_text(text, encoding='utf-8')
 
-          p = Path('src/lib/tenant-context.server.ts')
-          text = p.read_text(encoding='utf-8')
-          if 'environmentMode: "live" | "demo";' not in text:
-              text = text.replace('  canManage: boolean;\n', '  canManage: boolean;\n  environmentMode: "live" | "demo";\n', 1)
-          text = text.replace('.select("tenant_id")', '.select("tenant_id, tenants(environment_mode)")', 1)
-          anchor = '  const tenantId = profile?.tenant_id;\n  if (!tenantId) throw new TenantResolutionError();\n\n'
-          if 'const environmentMode =' not in text:
-              insertion = '''  const tenantRelation = (profile as { tenants?: { environment_mode?: string | null } | null } | null)?.tenants;\n  const environmentMode = tenantRelation?.environment_mode === "demo" ? "demo" : "live";\n\n'''
-              if anchor not in text: raise SystemExit('tenant resolver anchor missing')
-              text = text.replace(anchor, anchor + insertion, 1)
-          if '    environmentMode,\n' not in text:
-              text = text.replace('    canManage: roles.includes("admin") || roles.includes("manager"),\n', '    canManage: roles.includes("admin") || roles.includes("manager"),\n    environmentMode,\n', 1)
+          # Explicit userId server helpers.
+          helper_files = ['src/lib/agent-detail.server.ts', 'src/lib/investigation.server.ts', 'src/lib/live-workspace.functions.ts', 'src/lib/customer-investigation.functions.ts']
+          for name in helper_files:
+              p = Path(name); text = p.read_text(encoding='utf-8')
+              if 'DEMO_DATA_ENABLED' not in text: continue
+              text = re.sub(r'\bDEMO_DATA_ENABLED,\s*', '', text)
+              text = re.sub(r',\s*DEMO_DATA_ENABLED\b', '', text)
+              text = add_import(text)
+              # Insert resolver separately into every exported async function that uses demo fixtures.
+              pieces = []
+              pos = 0
+              for m in list(re.finditer(r'export async function [^(]+\([^)]*userId: string[^)]*\)[^{]*\{', text)):
+                  pieces.append((m.end(),))
+              offset = 0
+              for (end,) in pieces:
+                  at = end + offset
+                  segment_end = text.find('\nexport ', at)
+                  if segment_end == -1: segment_end = len(text)
+                  segment = text[at:segment_end]
+                  if 'DEMO_DATA_ENABLED' in segment or 'environmentMode === "demo"' in segment:
+                      if 'const { environmentMode } = await resolveTenantContext' not in segment:
+                          insertion = '\n  const { environmentMode } = await resolveTenantContext(supabase, userId);'
+                          text = text[:at] + insertion + text[at:]
+                          offset += len(insertion)
+              text = text.replace('DEMO_DATA_ENABLED', 'environmentMode === "demo"')
+              p.write_text(text, encoding='utf-8')
+
+          # Change-control helpers receive the authenticated user id from their callers.
+          p = Path('src/lib/change-service.ts'); text = p.read_text(encoding='utf-8')
+          text = text.replace('import { DEMO_DATA_ENABLED } from "@/lib/demo-data";', 'import { DEMO_DATA_ENABLED } from "@/lib/demo-data";')
+          text = re.sub(r'\bDEMO_DATA_ENABLED\b', 'environmentMode === "demo"', text)
+          text = text.replace('import { environmentMode === "demo" } from "@/lib/demo-data";', '')
+          text = add_import(text)
+          text = text.replace('interface ActorContext { tenantId: string; actor: string; role: string; }', 'interface ActorContext { tenantId: string; actor: string; role: string; userId: string; }')
+          text = text.replace('export async function decideChange(record: ChangeRecord, decision: "approved" | "rejected", ctx: ActorContext, comment?: string) {', 'export async function decideChange(record: ChangeRecord, decision: "approved" | "rejected", ctx: ActorContext, comment?: string) {\n  const { environmentMode } = await resolveTenantContext(supabase, ctx.userId);')
           p.write_text(text, encoding='utf-8')
 
-          p = Path('src/lib/tenant.tsx')
-          text = p.read_text(encoding='utf-8')
-          text = re.sub(r'import type \{ Json \} from "@/integrations/supabase/types";\nimport \{\n  changeRecords as seedRecords,\n  notifications as seedNotifications,\n\} from "@/lib/change-data";\n\n', '', text, count=1)
-          text = text.replace('  roles: AppRole[];\n  loading: boolean;', '  roles: AppRole[];\n  environmentMode: "live" | "demo";\n  loading: boolean;', 1)
-          text = text.replace('tenants(name, primary_domain)', 'tenants(name, primary_domain, environment_mode)', 1)
-          text = text.replace('tenants?: { name?: string | null; primary_domain?: string | null } | null;', 'tenants?: { name?: string | null; primary_domain?: string | null; environment_mode?: string | null } | null;', 1)
-          text = text.replace('    await seedTenant(tenantId, user.id);\n', '')
-          seed_start = text.find('/** Seeds a brand-new tenant')
-          empty_start = text.find('const EMPTY_TENANT_STATE', seed_start)
-          if seed_start != -1 and empty_start != -1:
-              text = text[:seed_start] + text[empty_start:]
-          text = text.replace('  roles: [] as AppRole[],\n  loading: true,', '  roles: [] as AppRole[],\n  environmentMode: "live",\n  loading: true,', 1)
-          text = text.replace('  const primaryDomain = existingTenant?.primary_domain ?? null;', '  const primaryDomain = existingTenant?.primary_domain ?? null;\n  const environmentMode = existingTenant?.environment_mode === "demo" ? "demo" : "live";', 1)
-          text = text.replace('  roles: (roleRows ?? []).map((r) => r.role as AppRole),\n  };', '  roles: (roleRows ?? []).map((r) => r.role as AppRole),\n    environmentMode,\n  };', 1)
-          text = text.replace('const { tenantId, tenantName, primaryDomain, roles } = await ensureTenantBootstrap(user);', 'const { tenantId, tenantName, primaryDomain, roles, environmentMode } = await ensureTenantBootstrap(user);', 1)
-          text = text.replace('setState({ user, tenantId, tenantName, primaryDomain, roles, loading: false });', 'setState({ user, tenantId, tenantName, primaryDomain, roles, environmentMode, loading: false });', 1)
-          if 'tenant-environment-' not in text:
-              marker = '  useEffect(() => {\n    activeRef.current = true;'
-              realtime = '''  useEffect(() => {\n    if (!state.tenantId) return;\n    const channel = supabase\n      .channel(`tenant-environment-${state.tenantId}`)\n      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "tenants", filter: `id=eq.${state.tenantId}` }, (payload) => {\n        const mode = (payload.new as { environment_mode?: string }).environment_mode === "demo" ? "demo" : "live";\n        setState((current) => ({ ...current, environmentMode: mode }));\n      })\n      .subscribe();\n    return () => { void supabase.removeChannel(channel); };\n  }, [state.tenantId]);\n\n'''
-              if marker not in text: raise SystemExit('tenant client anchor missing')
-              text = text.replace(marker, realtime + marker, 1)
+          # Update UI callers and tests for the authenticated user id required by change-control.
+          for name in ['src/routes/_app.approvals.index.tsx', 'src/routes/_app.approvals.$id.tsx']:
+              p = Path(name); text = p.read_text(encoding='utf-8')
+              text = text.replace('tenantId, actor: user?.email ?? "unknown", role', 'tenantId, actor: user?.email ?? "unknown", role, userId: user?.id ?? ""')
+              text = text.replace('tenantId, actor: user?.email ?? "unknown", role,\n', 'tenantId, actor: user?.email ?? "unknown", role, userId: user?.id ?? "" }\n')
+              p.write_text(text, encoding='utf-8')
+          for name in ['src/lib/change-service.test.ts', 'src/lib/change-service.demo.test.ts']:
+              p = Path(name)
+              if not p.exists(): continue
+              text = p.read_text(encoding='utf-8')
+              text = re.sub(r'(const actor[^\n]*?role:\s*[^,}]+)([},])', r'\1, userId: "test-user"\2', text)
+              p.write_text(text, encoding='utf-8')
+
+          # Client realtime store receives the mode from TenantProvider rather than a global constant.
+          p = Path('src/lib/realtime.ts'); text = p.read_text(encoding='utf-8')
+          text = text.replace('import { DEMO_CHANGES, DEMO_DATA_ENABLED } from "@/lib/demo-data";', 'import { DEMO_CHANGES } from "@/lib/demo-data";')
+          text = text.replace('export interface RealtimeState { records:', 'export interface RealtimeState { environmentMode: "live" | "demo"; records:', 1)
+          text = text.replace('const initialState: RealtimeState = { records:', 'const initialState: RealtimeState = { environmentMode: "live", records:', 1)
+          text = text.replace('async function loadAll(tenantId:string){if(DEMO_DATA_ENABLED)', 'async function loadAll(tenantId:string){if(state.environmentMode === "demo")')
+          text = text.replace('export function initRealtime(tenantId:string){', 'export function initRealtime(tenantId:string, environmentMode: "live" | "demo"){')
+          text = text.replace('activeTenant=tenantId;setState({loading:true,tenantId});void loadAll(tenantId);if(DEMO_DATA_ENABLED)', 'activeTenant=tenantId;setState({loading:true,tenantId,environmentMode});void loadAll(tenantId);if(environmentMode === "demo")')
+          text = text.replace('if(DEMO_DATA_ENABLED){setState({notifications:', 'if(state.environmentMode === "demo"){setState({notifications:')
+          text = text.replace('if(!DEMO_DATA_ENABLED)await supabase.from("notifications")', 'if(state.environmentMode !== "demo")await supabase.from("notifications")')
+          text = text.replace('if(!DEMO_DATA_ENABLED&&ids.length)', 'if(state.environmentMode !== "demo"&&ids.length)')
           p.write_text(text, encoding='utf-8')
 
-          p = Path('src/lib/settings.functions.ts')
-          text = p.read_text(encoding='utf-8')
-          text = text.replace('import { resolveTenant } from "@/lib/genesys/store.server";', 'import { resolveTenant } from "@/lib/genesys/store.server";\nimport { clearTenantContextCache, resolveTenantContext } from "@/lib/tenant-context.server";', 1)
-          text = text.replace('select("id,name,slug,primary_domain,timezone,analytics_settings")', 'select("id,name,slug,primary_domain,timezone,analytics_settings,environment_mode")', 1)
-          text = text.replace('      analyticsSettings: row.analytics_settings ?? {},', '      analyticsSettings: row.analytics_settings ?? {},\n      environmentMode: row.environment_mode === "demo" ? "demo" : "live",', 1)
-          if 'export const updateWorkspaceEnvironmentMode' not in text:
-              text += '''\nexport const updateWorkspaceEnvironmentMode = createServerFn({ method: "POST" })\n  .middleware([requireSupabaseAuth])\n  .inputValidator((input: { environmentMode: "live" | "demo" }) => ({\n    environmentMode: input.environmentMode === "demo" ? "demo" as const : "live" as const,\n  }))\n  .handler(async ({ data, context }) => {\n    const { tenantId, roles } = await resolveTenantContext(context.supabase, context.userId);\n    if (!roles.includes("admin")) throw new Error("Only workspace administrators can change the environment mode.");\n    const { error } = await context.supabase.from("tenants").update({ environment_mode: data.environmentMode }).eq("id", tenantId);\n    if (error) throw new Error(`Workspace environment mode could not be saved: ${error.message}`);\n    clearTenantContextCache();\n    return { ok: true as const, environmentMode: data.environmentMode };\n  });\n'''
-          p.write_text(text, encoding='utf-8')
-
-          p = Path('src/lib/demo-data.ts')
-          p.write_text(p.read_text(encoding='utf-8').replace('export const DEMO_DATA_ENABLED = true;\n', ''), encoding='utf-8')
+          # Remove all obsolete global references.
+          leftovers = []
+          for p in Path('src').rglob('*'):
+              if p.suffix in ('.ts','.tsx') and 'DEMO_DATA_ENABLED' in p.read_text(encoding='utf-8'):
+                  leftovers.append(str(p))
+          if leftovers: raise SystemExit('DEMO_DATA_ENABLED remains in: ' + ', '.join(leftovers))
+          marker.write_text('backend refactor complete\n', encoding='utf-8')
           PY
-
-      - name: Commit schema and context stage
+      - name: Commit backend refactor
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/integrations/supabase/types.ts src/lib/tenant-context.server.ts src/lib/tenant.tsx src/lib/settings.functions.ts src/lib/demo-data.ts supabase/migrations
-          git commit -m "env: add tenant environment mode [env-mode-codemod]"
-          git push
+          git add src .env-mode-backend-done
+          git commit -m "env: refactor demo call sites to tenant mode [env-mode-backend]"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
