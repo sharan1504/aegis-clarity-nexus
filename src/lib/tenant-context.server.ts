@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/integrations/supabase/types";
+import type { EnvironmentMode } from "@/lib/environment-mode";
 
 export type TenantResolverClient = SupabaseClient<Database>;
 
@@ -8,6 +9,7 @@ export interface ResolvedTenantContext {
   tenantId: string;
   roles: string[];
   canManage: boolean;
+  environmentMode: EnvironmentMode;
 }
 
 interface CacheEntry {
@@ -48,17 +50,31 @@ async function loadTenantContext(
     .eq("tenant_id", tenantId);
 
   const roles = (roleRows ?? []).map((row) => String(row.role));
+
+  const { data: tenant, error: tenantError } = await (supabase as any)
+    .from("tenants")
+    .select("environment_mode")
+    .eq("id", tenantId)
+    .single();
+
+  if (tenantError) {
+    throw new Error(`Unable to resolve workspace environment: ${tenantError.message}`);
+  }
+
+  const environmentMode: EnvironmentMode = tenant?.environment_mode === "demo" ? "demo" : "live";
+
   return {
     tenantId,
     roles,
     canManage: roles.includes("admin") || roles.includes("manager"),
+    environmentMode,
   };
 }
 
 /**
- * Resolves a user's tenant and roles once per short-lived server cache window.
- * The in-flight promise is cached too, so concurrent requests share the same
- * database resolution instead of producing a query stampede.
+ * Resolves a user's tenant, roles and workspace environment once per short-lived
+ * server cache window. The in-flight promise is cached too, so concurrent requests
+ * share the same database resolution instead of producing a query stampede.
  */
 export async function resolveTenantContext(
   supabase: TenantResolverClient,
