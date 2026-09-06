@@ -1,16 +1,17 @@
 name: Apply tenant environment mode refactor
 
 on:
-  push:
+  pull_request:
+    types: [opened, synchronize]
     branches:
-      - feat/tenant-live-demo-toggle
+      - main
 
 permissions:
   contents: write
 
 jobs:
   refactor:
-    if: ${{ !contains(github.event.head_commit.message, '[env-mode-codemod]') }}
+    if: ${{ !contains(github.event.pull_request.head.sha, 'env-mode-codemod') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,7 +22,6 @@ jobs:
           import re
           import subprocess
 
-          # Generated Supabase types: update only the tenants table block.
           p = Path('src/integrations/supabase/types.ts')
           text = p.read_text(encoding='utf-8')
           start = text.index('      tenants: {')
@@ -33,23 +33,23 @@ jobs:
               text = text[:start] + block + text[end:]
               p.write_text(text, encoding='utf-8')
 
-          # Tenant resolver gets mode from the same tenant relation query used for identity.
           p = Path('src/lib/tenant-context.server.ts')
           text = p.read_text(encoding='utf-8')
-          text = text.replace('  canManage: boolean;\n', '  canManage: boolean;\n  environmentMode: "live" | "demo";\n', 1)
+          if 'environmentMode: "live" | "demo";' not in text:
+              text = text.replace('  canManage: boolean;\n', '  canManage: boolean;\n  environmentMode: "live" | "demo";\n', 1)
           text = text.replace('.select("tenant_id")', '.select("tenant_id, tenants(environment_mode)")', 1)
           anchor = '  const tenantId = profile?.tenant_id;\n  if (!tenantId) throw new TenantResolutionError();\n\n'
-          insertion = '''  const tenantRelation = (profile as { tenants?: { environment_mode?: string | null } | null } | null)?.tenants;\n  const environmentMode = tenantRelation?.environment_mode === "demo" ? "demo" : "live";\n\n'''
           if 'const environmentMode =' not in text:
+              insertion = '''  const tenantRelation = (profile as { tenants?: { environment_mode?: string | null } | null } | null)?.tenants;\n  const environmentMode = tenantRelation?.environment_mode === "demo" ? "demo" : "live";\n\n'''
               if anchor not in text: raise SystemExit('tenant resolver anchor missing')
               text = text.replace(anchor, anchor + insertion, 1)
-          text = text.replace('    canManage: roles.includes("admin") || roles.includes("manager"),\n', '    canManage: roles.includes("admin") || roles.includes("manager"),\n    environmentMode,\n', 1)
+          if '    environmentMode,\n' not in text:
+              text = text.replace('    canManage: roles.includes("admin") || roles.includes("manager"),\n', '    canManage: roles.includes("admin") || roles.includes("manager"),\n    environmentMode,\n', 1)
           p.write_text(text, encoding='utf-8')
 
-          # Workspace bootstrap: expose mode and stop inserting demo fixtures into new LIVE tenants.
           p = Path('src/lib/tenant.tsx')
           text = p.read_text(encoding='utf-8')
-          text = text.replace('import type { Json } from "@/integrations/supabase/types";\nimport {\n  changeRecords as seedRecords,\n  notifications as seedNotifications,\n} from "@/lib/change-data";\n\n', '')
+          text = re.sub(r'import type \{ Json \} from "@/integrations/supabase/types";\nimport \{\n  changeRecords as seedRecords,\n  notifications as seedNotifications,\n\} from "@/lib/change-data";\n\n', '', text, count=1)
           text = text.replace('  roles: AppRole[];\n  loading: boolean;', '  roles: AppRole[];\n  environmentMode: "live" | "demo";\n  loading: boolean;', 1)
           text = text.replace('tenants(name, primary_domain)', 'tenants(name, primary_domain, environment_mode)', 1)
           text = text.replace('tenants?: { name?: string | null; primary_domain?: string | null } | null;', 'tenants?: { name?: string | null; primary_domain?: string | null; environment_mode?: string | null } | null;', 1)
@@ -70,7 +70,6 @@ jobs:
               text = text.replace(marker, realtime + marker, 1)
           p.write_text(text, encoding='utf-8')
 
-          # Workspace settings: read mode and provide an admin-only mode mutation.
           p = Path('src/lib/settings.functions.ts')
           text = p.read_text(encoding='utf-8')
           text = text.replace('import { resolveTenant } from "@/lib/genesys/store.server";', 'import { resolveTenant } from "@/lib/genesys/store.server";\nimport { clearTenantContextCache, resolveTenantContext } from "@/lib/tenant-context.server";', 1)
@@ -80,16 +79,13 @@ jobs:
               text += '''\nexport const updateWorkspaceEnvironmentMode = createServerFn({ method: "POST" })\n  .middleware([requireSupabaseAuth])\n  .inputValidator((input: { environmentMode: "live" | "demo" }) => ({\n    environmentMode: input.environmentMode === "demo" ? "demo" as const : "live" as const,\n  }))\n  .handler(async ({ data, context }) => {\n    const { tenantId, roles } = await resolveTenantContext(context.supabase, context.userId);\n    if (!roles.includes("admin")) throw new Error("Only workspace administrators can change the environment mode.");\n    const { error } = await context.supabase.from("tenants").update({ environment_mode: data.environmentMode }).eq("id", tenantId);\n    if (error) throw new Error(`Workspace environment mode could not be saved: ${error.message}`);\n    clearTenantContextCache();\n    return { ok: true as const, environmentMode: data.environmentMode };\n  });\n'''
           p.write_text(text, encoding='utf-8')
 
-          # Remove the global flag from the fixture module.
           p = Path('src/lib/demo-data.ts')
-          text = p.read_text(encoding='utf-8').replace('export const DEMO_DATA_ENABLED = true;\n', '')
-          p.write_text(text, encoding='utf-8')
+          p.write_text(p.read_text(encoding='utf-8').replace('export const DEMO_DATA_ENABLED = true;\n', ''), encoding='utf-8')
 
-          # Server call sites are handled in a follow-up commit after schema validation.
-          # This workflow intentionally stops here; it is removed below after the first refactor commit.
+          # The server call-site codemod is intentionally handled after this schema/context commit.
           PY
 
-      - name: Commit schema and context changes
+      - name: Commit schema and context stage
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
