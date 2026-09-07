@@ -1,7 +1,13 @@
--- Workspace environment mode: live is the safe default; demo is explicit and tenant-scoped.
+-- Workspace environment mode is tenant-scoped and defaults to LIVE.
+-- Existing and newly-created tenants must never silently enter DEMO mode.
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'environment_mode') THEN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_type
+    WHERE typnamespace = 'public'::regnamespace
+      AND typname = 'environment_mode'
+  ) THEN
     CREATE TYPE public.environment_mode AS ENUM ('live', 'demo');
   END IF;
 END $$;
@@ -9,6 +15,7 @@ END $$;
 ALTER TABLE public.tenants
   ADD COLUMN IF NOT EXISTS environment_mode public.environment_mode NOT NULL DEFAULT 'live';
 
+-- Defensive normalization for legacy rows created before this setting existed.
 UPDATE public.tenants
 SET environment_mode = 'live'
 WHERE environment_mode IS NULL;
