@@ -51,7 +51,7 @@ async function loadTenantContext(
 
   const roles = (roleRows ?? []).map((row) => String(row.role));
 
-  const { data: tenant, error: tenantError } = await (supabase as any)
+  const { data: tenant, error: tenantError } = await supabase
     .from("tenants")
     .select("environment_mode")
     .eq("id", tenantId)
