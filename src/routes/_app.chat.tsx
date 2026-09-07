@@ -12,7 +12,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { executeEnterpriseChat, type EnterpriseChatMessage } from "@/lib/enterprise-chat.functions";
 import { createChatSession, deleteChatSession, getChatSession, getMyDepartments, listChatSessions, type ChatSession, type StoredChatMessage } from "@/lib/chat-history.functions";
 import { createChangeFromRecommendation } from "@/lib/change-recommendation.functions";
-import { useTenantContext } from "@/lib/tenant";
 import { pageHead } from "@/lib/seo";
 import { toast } from "sonner";
 
@@ -22,7 +21,6 @@ type Result = { demo?: boolean; answer?: string; analysis?: string; recommendati
 type Message = EnterpriseChatMessage & { result?: Result; id?: string; createdAt?: string };
 const suggestions = ["What are the biggest license optimization opportunities right now?", "Analyze the current operational risks and recommend actions.", "Give me an executive summary of the connected workspace.", "Which changes should I send to the approval center?"];
 function ChatPage() {
-  const { environmentMode } = useTenantContext();
   const chat = useServerFn(executeEnterpriseChat); const createSession = useServerFn(createChatSession); const loadSessions = useServerFn(listChatSessions); const loadSession = useServerFn(getChatSession); const loadDepartments = useServerFn(getMyDepartments); const removeSession = useServerFn(deleteChatSession); const createChange = useServerFn(createChangeFromRecommendation);
   const [sessions, setSessions] = useState<ChatSession[]>([]); const [sessionId, setSessionId] = useState<string | null>(null); const [messages, setMessages] = useState<Message[]>([]); const [input, setInput] = useState(""); const [departments, setDepartments] = useState<Array<{ department_key: string; display_name: string }>>([]); const [departmentKey, setDepartmentKey] = useState<string | null>(null); const [loading, setLoading] = useState(true); const scrollRef = useRef<HTMLDivElement>(null);
   const refreshHistory = async () => { const result = await loadSessions(); setSessions(result.sessions); return result.sessions; };
