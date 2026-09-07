@@ -7,8 +7,8 @@ import type { EnvironmentMode } from "@/lib/environment-mode";
 const TIMEZONES = ["UTC","Asia/Kolkata","Asia/Dubai","Asia/Singapore","Asia/Tokyo","Asia/Seoul","Asia/Shanghai","Australia/Sydney","Pacific/Auckland","Europe/London","Europe/Dublin","Europe/Paris","Europe/Berlin","America/New_York","America/Chicago","America/Denver","America/Los_Angeles","America/Toronto","America/Vancouver","America/Sao_Paulo"] as const;
 type SecuritySettings = { dataMasking: boolean; requireApprovalForWrites: boolean; autoGenerateRollbackPlans: boolean; };
 function normalizeTimezone(value: string | null | undefined): string { const candidate = String(value ?? "").trim(); const aliases: Record<string, string> = { "Asia/Calcutta": "Asia/Kolkata", "US/Eastern": "America/New_York", "US/Central": "America/Chicago", "US/Mountain": "America/Denver", "US/Pacific": "America/Los_Angeles" }; const normalized = aliases[candidate] ?? candidate; return TIMEZONES.includes(normalized as (typeof TIMEZONES)[number]) ? normalized : "UTC"; }
+export function normalizeEnvironmentMode(value: unknown): EnvironmentMode { return value === "demo" ? "demo" : "live"; }
 function normalizeSecuritySettings(value: unknown): SecuritySettings { const source = value && typeof value === "object" ? value as Record<string, unknown> : {}; return { dataMasking: source.dataMasking !== false, requireApprovalForWrites: source.requireApprovalForWrites !== false, autoGenerateRollbackPlans: source.autoGenerateRollbackPlans !== false }; }
-function normalizeEnvironmentMode(value: unknown): EnvironmentMode { return value === "demo" ? "demo" : "live"; }
 
 export const getWorkspaceSettings = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
   const { tenantId } = await resolveTenant(context.supabase, context.userId); const { data, error } = await (context.supabase as any).from("tenants").select("id,name,slug,primary_domain,timezone,analytics_settings,environment_mode").eq("id", tenantId).single(); if (error || !data) throw new Error(error?.message ?? "Workspace settings could not be loaded."); const row = data as any;
@@ -17,7 +17,9 @@ export const getWorkspaceSettings = createServerFn({ method: "GET" }).middleware
 
 export const updateEnvironmentMode = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { environmentMode: EnvironmentMode }) => ({ environmentMode: normalizeEnvironmentMode(input?.environmentMode) })).handler(async ({ data, context }) => {
   const { tenantId, roles } = await resolveTenant(context.supabase, context.userId); if (!roles.includes("admin")) throw new Error("Only workspace administrators can change the workspace environment mode.");
-  const { error } = await (context.supabase as any).from("tenants").update({ environment_mode: data.environmentMode }).eq("id", tenantId); if (error) throw new Error(`Workspace environment mode could not be changed: ${error.message}`);
+  const { data: updated, error } = await (context.supabase as any).from("tenants").update({ environment_mode: data.environmentMode }).eq("id", tenantId).select("environment_mode").single();
+  if (error) throw new Error(`Workspace environment mode could not be changed: ${error.message}`);
+  if (!updated || normalizeEnvironmentMode(updated.environment_mode) !== data.environmentMode) throw new Error("Workspace environment mode could not be verified after saving.");
   clearTenantContextCache(); return { ok: true as const, environmentMode: data.environmentMode };
 });
 
