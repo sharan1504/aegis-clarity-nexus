@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { DEMO_AGENT_KEYS } from "@/lib/demo-data";
+import { DEMO_AGENT_WORKFLOWS } from "@/lib/demo-data";
 import { resolveTenantContext } from "@/lib/tenant-context.server";
 
 export const deployAgent = createServerFn({ method: "POST" })
@@ -9,7 +9,7 @@ export const deployAgent = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     if (!data.agentKey) return { ok: false as const, error: "Agent definition is required." };
     const { environmentMode } = await resolveTenantContext(context.supabase, context.userId);
-    if (environmentMode === "demo" && DEMO_AGENT_KEYS.includes(data.agentKey)) {
+    if (environmentMode === "demo" && Object.prototype.hasOwnProperty.call(DEMO_AGENT_WORKFLOWS, data.agentKey)) {
       return { ok: true as const, agentKey: data.agentKey, displayName: data.agentKey.replace("agent-", "").replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()), bindingCount: 0, demo: true as const };
     }
 
