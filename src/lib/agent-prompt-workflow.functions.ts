@@ -49,7 +49,7 @@ function normalizeWorkflow(raw: unknown): GeneratedAgentWorkflow {
     };
   });
 
-  if (!steps.length) throw new Error("The AI could not produce a usable workflow. Please make the requested behavior more specific.");
+  if (!steps.length) throw new Error("The AI returned no executable workflow steps. This usually means the request requires a capability that is not enabled for this agent.");
   return {
     summary: text(value.summary, "Generated workflow based on the requested agent behavior.").slice(0, 1000),
     trigger: text(value.trigger, "Run according to the configured schedule or event.").slice(0, 500),
@@ -57,6 +57,17 @@ function normalizeWorkflow(raw: unknown): GeneratedAgentWorkflow {
     steps,
     assumptions: Array.isArray(value.assumptions) ? value.assumptions.map((item) => text(item).slice(0, 400)).filter(Boolean).slice(0, 8) : [],
   };
+}
+
+export function findUnavailableRequestedCapabilities(prompt: string, capabilities: Array<{ provider: string; capability: string; name: string; mock: boolean }>): string[] {
+  const requested = prompt.toLowerCase();
+  const available = capabilities.map((item) => `${item.provider} ${item.capability} ${item.name}`.toLowerCase()).join(" ");
+  const unavailable: string[] = [];
+  if (/\b(salesforce|sfdc)\b/i.test(requested) && !/\bsalesforce\b|\bsfdc\b/i.test(available)) unavailable.push("Salesforce integration/capability");
+  const requestsEmailNotification = /\b(email|e-mail)\b/i.test(requested) && /\b(send|sending|notify|notification|alert)\b/i.test(requested);
+  const hasNotificationCapability = capabilities.some((item) => /\b(email|notification|notify|alert|mail)\b/i.test(`${item.provider} ${item.capability} ${item.name}`));
+  if (requestsEmailNotification && !hasNotificationCapability) unavailable.push("email/notification capability");
+  return unavailable;
 }
 
 async function generateWithLovable(messages: Array<{ role: "system" | "user"; content: string }>) {
@@ -95,6 +106,11 @@ export const generateAgentWorkflowFromPrompt = createServerFn({ method: "POST" }
       name: binding.capabilityName,
       mock: binding.isMock,
     }));
+    const unavailableCapabilities = findUnavailableRequestedCapabilities(data.prompt, capabilities);
+    if (unavailableCapabilities.length) {
+      const available = capabilities.length ? capabilities.map((item) => `${item.provider} / ${item.capability}`).join(", ") : "none";
+      throw new Error(`This request requires capabilities that are not enabled for ${detail.displayName}: ${unavailableCapabilities.join("; ")}. Available integration capabilities: ${available}. Connect the required integration/capability or revise the request; Aegis will not fabricate unsupported workflow steps.`);
+    }
     const mcpTools = [
       "get_operations_overview (read)",
       "list_agents (read)",
@@ -105,7 +121,7 @@ export const generateAgentWorkflowFromPrompt = createServerFn({ method: "POST" }
       "get_change_record (read)",
       "propose_change_record (write: creates a governed Proposed change; never executes it)",
     ];
-    const system = `You are the Aegis Workflow Architect. Convert a customer's natural-language request into a concrete, tenant-safe workflow for one Aegis AI agent. Use ONLY the agent's enabled integrations/capabilities and the available MCP tools supplied below. Never invent a provider capability. If the request needs an unavailable capability, represent it as an explicit assumption or explain the limitation in the summary rather than fabricating it. Build an inspectable workflow with trigger -> evidence -> conditions/decision -> action or recommendation -> verification. The workflow is a DRAFT: never claim that an external action has already happened. Keep write/mutation/remediation actions approval-gated. Notifications such as email/alert can be ungated when they are only informational. Return JSON only with exactly these fields: summary (string), trigger (string), config (object), steps (array), assumptions (string array). Each step must have id, name, type, provider, capability, action, requiresApproval, and optional verification. Keep the workflow practical and executable by Aegis's existing capability/MCP layer. Do not output code. MODEL: ${MODEL}`;
+    const system = `You are the Aegis Workflow Architect. Convert a customer's natural-language request into a concrete, tenant-safe workflow for one Aegis AI agent. Use ONLY the agent's enabled integrations/capabilities and the available MCP tools supplied below. Never invent a provider capability. If the request needs an unavailable capability, represent it as an explicit assumption or explain the limitation in the summary rather than fabricating it. Build an inspectable workflow with trigger -> evidence -> conditions/decision -> action or recommendation -> verification. The workflow is a DRAFT: never claim that an external action has already happened. Keep write/mutation/remediation actions approval-gated. Notifications such as email/alert can be ungated when they are only informational and an actual notification capability is available. Return JSON only with exactly these fields: summary (string), trigger (string), config (object), steps (array), assumptions (string array). Each step must have id, name, type, provider, capability, action, requiresApproval, and optional verification. Keep the workflow practical and executable by Aegis's existing capability/MCP layer. Do not output code. MODEL: ${MODEL}`;
     const user = JSON.stringify({
       agent: { key: detail.agentKey, name: detail.displayName, category: detail.category, description: detail.description },
       enabledCapabilities: capabilities,
