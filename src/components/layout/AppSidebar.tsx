@@ -1,12 +1,12 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Bot, Plug, ShieldAlert, ShieldCheck, Users, Settings, Sparkles, History, BarChart3, SearchCheck } from "lucide-react";
+import { Bot, Plug, ShieldAlert, ShieldCheck, Users, Settings, Sparkles, History, BarChart3, SearchCheck, Workflow } from "lucide-react";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar";
 import { useTenantContext } from "@/lib/tenant";
 import { GlobalSearch } from "./GlobalSearch";
 
 const nav = [
   { section: "Overview", items: [{ title: "Command Center", url: "/", icon: Sparkles }, { title: "Analytics", url: "/analytics", icon: BarChart3 }, { title: "Vulnerabilities", url: "/investigations", icon: SearchCheck }] },
-  { section: "AI Operations", items: [{ title: "AI Agents", url: "/agents", icon: Bot }, { title: "Approval Center", url: "/approvals", icon: ShieldCheck }] },
+  { section: "AI Operations", items: [{ title: "AI Agents", url: "/agents", icon: Bot }, { title: "Agentic Studio", url: "/agentic-studio", icon: Workflow }, { title: "Approval Center", url: "/approvals", icon: ShieldCheck }] },
   { section: "Data & Systems", items: [{ title: "Integrations", url: "/integrations", icon: Plug }, { title: "Audit Viewer", url: "/audit", icon: History }] },
   { section: "Administration", items: [{ title: "Guardrails", url: "/governance", icon: ShieldAlert }, { title: "User Management", url: "/users", icon: Users }, { title: "Settings", url: "/settings", icon: Settings }] },
 ];
