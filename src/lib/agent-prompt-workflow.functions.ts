@@ -59,7 +59,7 @@ function normalizeWorkflow(raw: unknown): GeneratedAgentWorkflow {
   };
 }
 
-function findUnavailableRequestedCapabilities(prompt: string, capabilities: Array<{ provider: string; capability: string; name: string; mock: boolean }>): string[] {
+export function findUnavailableRequestedCapabilities(prompt: string, capabilities: Array<{ provider: string; capability: string; name: string; mock: boolean }>): string[] {
   const requested = prompt.toLowerCase();
   const available = capabilities.map((item) => `${item.provider} ${item.capability} ${item.name}`.toLowerCase()).join(" ");
   const unavailable: string[] = [];
