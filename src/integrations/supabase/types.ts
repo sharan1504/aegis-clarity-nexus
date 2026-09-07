@@ -2070,6 +2070,7 @@ export type Database = {
           analytics_settings: Json
           created_at: string
           created_by: string | null
+          environment_mode: Database["public"]["Enums"]["environment_mode"]
           id: string
           name: string
           primary_domain: string | null
@@ -2082,6 +2083,7 @@ export type Database = {
           analytics_settings?: Json
           created_at?: string
           created_by?: string | null
+          environment_mode?: Database["public"]["Enums"]["environment_mode"]
           id?: string
           name: string
           primary_domain?: string | null
@@ -2094,6 +2096,7 @@ export type Database = {
           analytics_settings?: Json
           created_at?: string
           created_by?: string | null
+          environment_mode?: Database["public"]["Enums"]["environment_mode"]
           id?: string
           name?: string
           primary_domain?: string | null
@@ -2356,6 +2359,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "manager" | "analyst" | "viewer"
+      environment_mode: "live" | "demo"
       guardrail_effect:
         | "block"
         | "require_approval"
@@ -2502,6 +2506,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "manager", "analyst", "viewer"],
+      environment_mode: ["live", "demo"],
       guardrail_effect: [
         "block",
         "require_approval",
