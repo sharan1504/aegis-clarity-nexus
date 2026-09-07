@@ -1,6 +1,15 @@
-import { describe, expect, it } from "vitest";
-import { DEMO_DATA_ENABLED } from "@/lib/demo-data";
-import { loadAgentDetail } from "./agent-detail.server";
+import { describe, expect, it, vi } from "vitest";
+import { loadAgentDetail, type UserClientLike } from "@/lib/agent-detail.server";
+
+vi.mock("@/lib/tenant-context.server", () => ({
+  resolveTenantContext: vi.fn(async () => ({ tenantId: "demo-tenant", roles: ["admin"], environmentMode: "demo" as const })),
+}));
+
+const throwingClient = {
+  from() {
+    throw new Error("Supabase must not be reached while demo data is enabled.");
+  },
+} as unknown as UserClientLike;
 
 const seededAgentKeys = [
   "agent-license",
@@ -14,10 +23,8 @@ const seededAgentKeys = [
 
 describe("loadAgentDetail demo fixtures", () => {
   it("loads every seeded demo agent without throwing", async () => {
-    if (!DEMO_DATA_ENABLED) return;
-
     for (const agentKey of seededAgentKeys) {
-      await expect(loadAgentDetail({} as never, "demo-user", agentKey)).resolves.toMatchObject({
+      await expect(loadAgentDetail(throwingClient, "demo-user", agentKey)).resolves.toMatchObject({
         agentKey,
         generatedAt: expect.any(String),
       });
