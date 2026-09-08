@@ -9,12 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getAgentRun, orchestrateAgentRun, advanceAgentRun } from "@/lib/agent-runtime.functions";
 import { evaluateAgentRunFn } from "@/lib/agent-evaluation.functions";
-import type { AgentRunState, AgentRunStep } from "@/lib/agent-runtime";
+import type { AgentRunState } from "@/lib/agent-runtime";
 import { buildAgentRunReplay, type EvidenceGraphNode } from "@/lib/agent-run-replay";
 import type { AgentRunEvent } from "@/lib/agent-run-events";
 
 export const Route = createFileRoute("/_app/agent-run/$runId")({ component: AgentRunPage });
-const steps: Array<{ key: AgentRunStep; label: string }> = [{ key: "plan", label: "Plan" }, { key: "investigate", label: "Investigate" }, { key: "policy", label: "Policy" }, { key: "approval", label: "Approval" }, { key: "execute", label: "Execute" }, { key: "verify", label: "Verify" }];
 function statusBadge(status: AgentRunState["status"]) { if (status === "completed") return <Badge className="gap-1 bg-success/15 text-success"><CheckCircle2 className="h-3 w-3" />Completed</Badge>; if (status === "waiting_approval") return <Badge variant="secondary" className="gap-1"><Clock3 className="h-3 w-3" />Waiting for approval</Badge>; if (status === "failed") return <Badge variant="destructive" className="gap-1"><XCircle className="h-3 w-3" />Failed</Badge>; return <Badge variant="outline">{status.replace("_", " ")}</Badge>; }
 const graphIcon: Record<EvidenceGraphNode["kind"], typeof Search> = { finding: Search, evidence: GitBranch, agent: ShieldCheck, policy: ShieldCheck, recommendation: ArrowRight, approval: UserCheck, execution: LockKeyhole, verification: CheckCircle2 };
 function GraphNode({ node }: { node: EvidenceGraphNode }) { const Icon = graphIcon[node.kind]; return <div className="min-w-[180px] rounded-xl border bg-background p-3 shadow-sm"><div className="flex items-center gap-2"><Icon className="h-4 w-4 text-primary" /><span className="text-xs font-semibold">{node.label}</span></div>{node.detail && <p className="mt-2 line-clamp-3 text-[11px] text-muted-foreground">{node.detail}</p>}</div>; }
