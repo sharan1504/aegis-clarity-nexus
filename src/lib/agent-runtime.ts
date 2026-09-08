@@ -12,9 +12,10 @@ export const AGENT_RUN_STEPS = ["plan", "investigate", "policy", "approval", "ex
 export type AgentRunStep = (typeof AGENT_RUN_STEPS)[number];
 export interface AgentRunState {
   runId: string; tenantId: string; agentKey: string; status: AgentRunStatus; currentStep: AgentRunStep; input: string;
-  plan: unknown | null; evidence: unknown[]; policyVerdict: unknown | null; approval: unknown | null;
-  execution: unknown | null; verification: unknown | null; error: string | null; createdAt: string; updatedAt: string;
+  plan: JsonValue | null; evidence: JsonValue[]; policyVerdict: JsonValue | null; approval: JsonValue | null;
+  execution: JsonValue | null; verification: JsonValue | null; error: string | null; createdAt: string; updatedAt: string;
 }
+
 export interface AgentRunClock { now(): string; }
 export interface AgentRunIdFactory { create(): string; }
 const defaultClock: AgentRunClock = { now: () => new Date().toISOString() };
