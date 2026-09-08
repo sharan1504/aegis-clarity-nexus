@@ -1,9 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { loadAgentDetail } from "@/lib/agent-detail.server";
-
-const ENDPOINT = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "google/gemini-3-flash-preview";
+import { defaultModelGateway, type ModelMessage } from "@/lib/model-gateway";
 
 export type GeneratedAgentWorkflowStep = {
   id: string;
@@ -70,21 +68,15 @@ export function findUnavailableRequestedCapabilities(prompt: string, capabilitie
   return unavailable;
 }
 
-async function generateWithLovable(messages: Array<{ role: "system" | "user"; content: string }>) {
-  const key = process.env.LOVABLE_API_KEY;
-  if (!key) throw new Error("Lovable AI is not configured for this workspace.");
-  const response = await fetch(ENDPOINT, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: MODEL, messages, temperature: 0.1, response_format: { type: "json_object" } }),
+export async function generateWithModelGateway(messages: ModelMessage[]) {
+  const response = await defaultModelGateway.complete({
+    task: "workflow_planning",
+    messages,
+    temperature: 0.1,
+    json: true,
   });
-  const body = await response.text();
-  if (!response.ok) throw new Error(`AI workflow generation failed (${response.status}).`);
-  const parsed = JSON.parse(body) as { choices?: Array<{ message?: { content?: string } }> };
-  const content = parsed.choices?.[0]?.message?.content;
-  if (!content) throw new Error("AI returned an empty workflow.");
-  const cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
-  return JSON.parse(cleaned) as unknown;
+  const cleaned = response.content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+  return { raw: JSON.parse(cleaned) as unknown, model: response.model, provider: response.provider };
 }
 
 export const generateAgentWorkflowFromPrompt = createServerFn({ method: "POST" })
@@ -121,7 +113,7 @@ export const generateAgentWorkflowFromPrompt = createServerFn({ method: "POST" }
       "get_change_record (read)",
       "propose_change_record (write: creates a governed Proposed change; never executes it)",
     ];
-    const system = `You are the Aegis Workflow Architect. Convert a customer's natural-language request into a concrete, tenant-safe workflow for one Aegis AI agent. Use ONLY the agent's enabled integrations/capabilities and the available MCP tools supplied below. Never invent a provider capability. If the request needs an unavailable capability, represent it as an explicit assumption or explain the limitation in the summary rather than fabricating it. Build an inspectable workflow with trigger -> evidence -> conditions/decision -> action or recommendation -> verification. The workflow is a DRAFT: never claim that an external action has already happened. Keep write/mutation/remediation actions approval-gated. Notifications such as email/alert can be ungated when they are only informational and an actual notification capability is available. Return JSON only with exactly these fields: summary (string), trigger (string), config (object), steps (array), assumptions (string array). Each step must have id, name, type, provider, capability, action, requiresApproval, and optional verification. Keep the workflow practical and executable by Aegis's existing capability/MCP layer. Do not output code. MODEL: ${MODEL}`;
+    const system = `You are the Aegis Workflow Architect. Convert a customer's natural-language request into a concrete, tenant-safe workflow for one Aegis AI agent. Use ONLY the agent's enabled integrations/capabilities and the available MCP tools supplied below. Never invent a provider capability. If the request needs an unavailable capability, represent it as an explicit assumption or explain the limitation in the summary rather than fabricating it. Build an inspectable workflow with trigger -> evidence -> conditions/decision -> action or recommendation -> verification. The workflow is a DRAFT: never claim that an external action has already happened. Keep write/mutation/remediation actions approval-gated. Notifications such as email/alert can be ungated when they are only informational and an actual notification capability is available. Return JSON only with exactly these fields: summary (string), trigger (string), config (object), steps (array), assumptions (string array). Each step must have id, name, type, provider, capability, action, requiresApproval, and optional verification. Keep the workflow practical and executable by Aegis's existing capability/MCP layer. Do not output code.`;
     const user = JSON.stringify({
       agent: { key: detail.agentKey, name: detail.displayName, category: detail.category, description: detail.description },
       enabledCapabilities: capabilities,
@@ -129,6 +121,9 @@ export const generateAgentWorkflowFromPrompt = createServerFn({ method: "POST" }
       existingWorkflow: detail.workflow,
       customerRequest: data.prompt,
     });
-    const generated = normalizeWorkflow(await generateWithLovable([{ role: "system", content: system }, { role: "user", content: user }]));
-    return { ok: true as const, model: MODEL, ...generated };
+    const generated = await generateWithModelGateway([
+      { role: "system", content: system },
+      { role: "user", content: user },
+    ]);
+    return { ok: true as const, model: generated.model, provider: generated.provider, ...normalizeWorkflow(generated.raw) };
   });
