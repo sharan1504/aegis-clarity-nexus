@@ -49,7 +49,7 @@ export function buildAgentRunReplay(run: AgentRunState): AgentRunReplay {
   const currentIndex = ordered.indexOf(run.currentStep);
   const events = ordered.map((step, index) => {
     const value = values[step] ? run[values[step] as keyof AgentRunState] : null;
-    const completed = run.status === "completed" || index < currentIndex || (index === currentIndex && value !== null);
+    const completed = run.status === "completed" || index < currentIndex;
     const blocked = run.status === "failed" && index >= currentIndex;
     return {
       step,
