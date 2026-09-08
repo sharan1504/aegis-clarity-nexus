@@ -1,1 +1,0 @@
-The Runtime Orchestrator is deterministic and approval-gated. Evidence comes through the Capability Router; policy is evaluated by deterministic policy code; execution requires an explicit trusted capability; verification follows execution.
