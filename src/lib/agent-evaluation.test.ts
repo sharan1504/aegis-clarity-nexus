@@ -18,6 +18,10 @@ const events: AgentRunEvent[] = [
   { id: "e4", runId: "1", tenantId: "tenant-1", sequence: 4, eventType: "approval_requested", step: "approval", actorId: "u1", provider: null, capabilityKey: null, outcome: "pending", payload: {}, occurredAt: "2026-09-09T00:00:30Z" },
 ];
 
+const emptyEvidenceEvents: AgentRunEvent[] = [
+  { id: "empty-1", runId: "1", tenantId: "tenant-1", sequence: 1, eventType: "run_created", step: "plan", actorId: "u1", provider: null, capabilityKey: null, outcome: "planned", payload: {}, occurredAt: "2026-09-09T00:00:00Z" },
+];
+
 describe("evaluateAgentRun", () => {
   it("passes the governed security run suite", () => {
     const result = evaluateAgentRun(run, events);
@@ -28,14 +32,14 @@ describe("evaluateAgentRun", () => {
 
   it("passes the empty-evidence boundary when no recommendation exists", () => {
     const emptyRun = { ...run, evidence: [], policyVerdict: { recommendations: [] } };
-    const result = evaluateAgentRun(emptyRun, events);
+    const result = evaluateAgentRun(emptyRun, emptyEvidenceEvents);
     const edge = result.results.find((item) => item.caseId === "edge-empty-evidence");
     expect(edge?.status).toBe("passed");
   });
 
   it("fails the empty-evidence case when a recommendation is fabricated", () => {
     const fabricatedRun = { ...run, evidence: [] };
-    const result = evaluateAgentRun(fabricatedRun, events);
+    const result = evaluateAgentRun(fabricatedRun, emptyEvidenceEvents);
     const edge = result.results.find((item) => item.caseId === "edge-empty-evidence");
     expect(edge?.status).toBe("failed");
   });
