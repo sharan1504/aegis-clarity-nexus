@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import type { JsonValue } from "@/lib/json";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveTenantContext } from "@/lib/tenant-context.server";
 import { orchestrateSecurityRun } from "./agent-runtime-orchestrator.server";
@@ -60,7 +61,7 @@ export const orchestrateAgentRun = createServerFn({ method: "POST" }).middleware
   } catch (error) { return runtimeError(error); }
 });
 
-export const advanceAgentRun = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { runId: string; transition: { type: string; step?: string; value?: unknown; error?: string; approval?: unknown } }) => ({ runId: String(input.runId ?? "").trim(), transition: input.transition })).handler(async ({ data, context }) => {
+export const advanceAgentRun = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { runId: string; transition: { type: string; step?: string; value?: JsonValue; error?: string; approval?: JsonValue } }) => ({ runId: String(input.runId ?? "").trim(), transition: input.transition })).handler(async ({ data, context }) => {
   try {
     const tenant = await resolveTenantContext(context.supabase, context.userId); const run = await loadRun(context.supabase, tenant.tenantId, data.runId); let transition: Parameters<typeof transitionAgentRun>[1];
     switch (data.transition.type) {
@@ -68,7 +69,7 @@ export const advanceAgentRun = createServerFn({ method: "POST" }).middleware([re
       case "resume": transition = { type: "resume" }; break;
       case "cancel": transition = { type: "cancel" }; break;
       case "fail": transition = { type: "fail", error: String(data.transition.error ?? "Unknown runtime failure.") }; break;
-      case "await_approval": transition = { type: "await_approval", approval: data.transition.approval ?? { status: "pending" } }; break;
+      case "await_approval": transition = { type: "await_approval", approval: data.transition.approval ?? { status: "pending" as const } }; break;
       case "complete_step": { const step = String(data.transition.step ?? "") as AgentRunStep; if (!["plan", "investigate", "policy", "approval", "execute", "verify"].includes(step)) throw new Error("Invalid agent run step."); transition = { type: "complete_step", step, value: data.transition.value }; break; }
       default: throw new Error("Unsupported agent runtime transition.");
     }

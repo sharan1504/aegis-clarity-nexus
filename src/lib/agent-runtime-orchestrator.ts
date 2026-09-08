@@ -1,14 +1,15 @@
+import type { JsonValue } from "@/lib/json";
 import type { AgentRunState, AgentRunStep } from "./agent-runtime";
 import { AGENT_RUN_STEPS, transitionAgentRun } from "./agent-runtime";
 
 export type RuntimeOrchestratorAction =
-  | { type: "plan"; value: unknown }
-  | { type: "investigate"; value: unknown }
-  | { type: "policy"; value: unknown }
-  | { type: "await_approval"; value: unknown }
-  | { type: "approve"; value: unknown }
-  | { type: "execute"; value: unknown }
-  | { type: "verify"; value: unknown };
+  | { type: "plan"; value: JsonValue }
+  | { type: "investigate"; value: JsonValue }
+  | { type: "policy"; value: JsonValue }
+  | { type: "await_approval"; value: JsonValue }
+  | { type: "approve"; value: JsonValue }
+  | { type: "execute"; value: JsonValue }
+  | { type: "verify"; value: JsonValue };
 
 export interface RuntimeOrchestratorResult {
   run: AgentRunState;
