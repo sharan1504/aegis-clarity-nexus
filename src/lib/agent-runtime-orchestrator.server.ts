@@ -18,6 +18,7 @@ export async function orchestrateSecurityRun(supabase: UserClient, userId: strin
   const evaluatedCount = results.reduce((count, result) => count + result.evaluatedCount, 0);
   const excludedCount = results.reduce((count, result) => count + result.excludedCount, 0);
   const actions: Parameters<typeof orchestrateAgentRun>[1] = [
+    { type: "plan", value: { agentKey: SECURITY_AGENT_KEY, stages: ["investigate", "policy", "approval", "execute", "verify"] } },
     { type: "investigate", value: { records: routed.records, sources: routed.sources, evaluatedAt: routed.evaluatedAt } },
     { type: "policy", value: { recommendations, evaluatedCount, excludedCount, exceededRepositoryCeiling: results.some((result) => result.exceededRepositoryCeiling) } },
   ];
