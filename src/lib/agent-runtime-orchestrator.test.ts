@@ -38,15 +38,18 @@ describe("agent runtime orchestrator", () => {
     expect(result.completedActions).toHaveLength(3);
   });
 
-  it("supports the trusted execution and verification stages after approval", () => {
+  it("supports execution and verification only after explicit approval", () => {
     const result = orchestrateAgentRun(createRun(), [
       { type: "investigate", value: { findingId: "f-1" } },
       { type: "policy", value: { verdict: "allow" } },
+      { type: "await_approval", value: { status: "pending" } },
+      { type: "approve", value: { status: "approved", approvedBy: "user-1" } },
       { type: "execute", value: { status: "executed" } },
       { type: "verify", value: { status: "verified" } },
     ], clock);
 
     expect(result.run.status).toBe("completed");
+    expect(result.run.approval).toEqual({ status: "approved", approvedBy: "user-1" });
     expect(result.run.execution).toEqual({ status: "executed" });
     expect(result.run.verification).toEqual({ status: "verified" });
   });
