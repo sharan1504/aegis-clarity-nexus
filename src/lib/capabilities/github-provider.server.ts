@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Supabase service-role query shape is generated from runtime migration state. */
 import type { AuthorizedSource } from "./authorization.server";
-import type { NormalizedRepository, NormalizedSecurityFinding, RecordProvenance } from "./registry";
+import type { NormalizedFindingSeverity, NormalizedRepository, NormalizedSecurityFinding, RecordProvenance } from "./registry";
 
 function provenanceFor(source: AuthorizedSource, row: Record<string, unknown>): RecordProvenance {
   return { provider: source.provider, integrationId: source.integrationId, sourceSystem: "GitHub", source: "github_synced_entities", snapshotId: (row.snapshot_id as string | null | undefined) ?? source.snapshotId, syncId: (row.sync_id as string | null | undefined) ?? source.syncRunId, dataAsOf: (row.synced_at as string | null | undefined) ?? source.lastSyncAt, lastSuccessfulSyncAt: source.lastSyncAt, freshness: source.freshness.state };
