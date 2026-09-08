@@ -23,7 +23,11 @@ describe("agent runtime orchestrator", () => {
   });
 
   it("requires explicit approval before execution and verification", () => {
-    const result = orchestrateAgentRun(createRun(), [{ type: "plan", value: plan }, { type: "investigate", value: { findingId: "f-1" } }, { type: "policy", value: { verdict: "allow" } }, { type: "await_approval", value: { status: "pending" } }, { type: "approve", value: { status: "approved", approvedBy: "user-1" } }, { type: "execute", value: { status: "executed" } }, { type: "verify", value: { status: "verified" } }], clock);
+    const pending = orchestrateAgentRun(createRun(), [{ type: "plan", value: plan }, { type: "investigate", value: { findingId: "f-1" } }, { type: "policy", value: { verdict: "allow" } }, { type: "await_approval", value: { status: "pending" } }], clock);
+    expect(pending.run.status).toBe("waiting_approval");
+    expect(pending.run.execution).toBeNull();
+
+    const result = orchestrateAgentRun(pending.run, [{ type: "approve", value: { status: "approved", approvedBy: "user-1" } }, { type: "execute", value: { status: "executed" } }, { type: "verify", value: { status: "verified" } }], clock);
     expect(result.run.status).toBe("completed");
     expect(result.run.approval).toEqual({ status: "approved", approvedBy: "user-1" });
     expect(result.run.verification).toEqual({ status: "verified" });
