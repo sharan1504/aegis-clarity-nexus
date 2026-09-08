@@ -5,6 +5,8 @@ import { loadAgentDetail } from "@/lib/agent-detail.server";
 const ENDPOINT = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const MODEL = "google/gemini-3-flash-preview";
 
+type WorkflowCapability = { provider: string; capability: string; name: string; mock: boolean };
+
 export type GeneratedAgentWorkflowStep = {
   id: string;
   name: string;
@@ -59,10 +61,10 @@ function normalizeWorkflow(raw: unknown): GeneratedAgentWorkflow {
   };
 }
 
-export function findUnavailableRequestedCapabilities(prompt: string, capabilities: Array<{ provider: string; capability: string; name: string; mock: boolean }>): string[] {
+export function findUnavailableRequestedCapabilities(prompt: string, capabilities: WorkflowCapability[]): string[] {
   const requested = prompt.toLowerCase();
   const unavailable: string[] = [];
-  const hasCapability = (predicate: (item: { provider: string; capability: string; name: string; mock: boolean }) => boolean) => capabilities.some(predicate);
+  const hasCapability = (predicate: (item: WorkflowCapability) => boolean) => capabilities.some(predicate);
 
   if (/\b(salesforce|sfdc)\b/i.test(requested) && !hasCapability((item) => /\b(salesforce|sfdc)\b/i.test(`${item.provider} ${item.name}`))) {
     unavailable.push("Salesforce integration/capability");
@@ -81,6 +83,21 @@ export function findUnavailableRequestedCapabilities(prompt: string, capabilitie
   if (requestsSecurityFindings && !hasSecurityFindings) unavailable.push("security findings capability");
 
   return unavailable;
+}
+
+function planningCapabilities(prompt: string, capabilities: WorkflowCapability[]): WorkflowCapability[] {
+  const requestsGitHubSecurity = /\bgithub\b/i.test(prompt) && /\b(security findings?|vulnerabilit(?:y|ies)|code scanning|dependabot)\b/i.test(prompt);
+  const allMock = capabilities.length > 0 && capabilities.every((item) => item.mock);
+  if (!requestsGitHubSecurity || !allMock) return capabilities;
+
+  return capabilities.map((item) => {
+    if (item.capability !== "security_findings") return item;
+    return {
+      ...item,
+      provider: "GitHub (Demo)",
+      name: "GitHub security findings (Demo)",
+    };
+  });
 }
 
 async function generateWithLovable(messages: Array<{ role: "system" | "user"; content: string }>) {
@@ -113,15 +130,16 @@ export const generateAgentWorkflowFromPrompt = createServerFn({ method: "POST" }
   .handler(async ({ data, context }) => {
     const detail = await loadAgentDetail(context.supabase, context.userId, data.agentKey);
     if (!detail) throw new Error("Agent not found.");
-    const capabilities = detail.bindings.filter((binding) => binding.enabled).map((binding) => ({
-      provider: binding.provider,
-      capability: binding.capabilityKey,
-      name: binding.capabilityName,
+    const configuredCapabilities = detail.bindings.filter((binding) => binding.enabled).map((binding) => ({
+      provider: binding.provider ?? "Unknown",
+      capability: binding.capabilityKey ?? "unknown",
+      name: binding.capabilityName ?? binding.capabilityKey ?? "Unknown capability",
       mock: binding.isMock,
     }));
+    const capabilities = planningCapabilities(data.prompt, configuredCapabilities);
     const unavailableCapabilities = findUnavailableRequestedCapabilities(data.prompt, capabilities);
     if (unavailableCapabilities.length) {
-      const available = capabilities.length ? capabilities.map((item) => `${item.provider} / ${item.capability}`).join(", ") : "none";
+      const available = configuredCapabilities.length ? configuredCapabilities.map((item) => `${item.provider} / ${item.capability}`).join(", ") : "none";
       throw new Error(`This request requires capabilities that are not enabled for ${detail.displayName}: ${unavailableCapabilities.join("; ")}. Available integration capabilities: ${available}. Connect the required integration/capability or revise the request; Aegis will not fabricate unsupported workflow steps.`);
     }
     const mcpTools = [
@@ -134,7 +152,8 @@ export const generateAgentWorkflowFromPrompt = createServerFn({ method: "POST" }
       "get_change_record (read)",
       "propose_change_record (write: creates a governed Proposed change; never executes it)",
     ];
-    const system = `You are the Aegis Workflow Architect. Convert a customer's natural-language request into a concrete, tenant-safe workflow for one Aegis AI agent. Use ONLY the agent's enabled integrations/capabilities and the available MCP tools supplied below. Never invent a provider capability. If the request needs an unavailable capability, represent it as an explicit assumption or explain the limitation in the summary rather than fabricating it. Build an inspectable workflow with trigger -> evidence -> conditions/decision -> action or recommendation -> verification. The workflow is a DRAFT: never claim that an external action has already happened. Keep write/mutation/remediation actions approval-gated. Notifications such as email/alert can be ungated when they are only informational and an actual notification capability is available. Return JSON only with exactly these fields: summary (string), trigger (string), config (object), steps (array), assumptions (string array). Each step must have id, name, type, provider, capability, action, requiresApproval, and optional verification. Keep the workflow practical and executable by Aegis's existing capability/MCP layer. Do not output code. MODEL: ${MODEL}`;
+    const demoPlanning = capabilities.some((item) => item.provider === "GitHub (Demo)");
+    const system = `You are the Aegis Workflow Architect. Convert a customer's natural-language request into a concrete, tenant-safe workflow for one Aegis AI agent. Use ONLY the agent's enabled integrations/capabilities and the available MCP tools supplied below. Never invent a provider capability. If the request needs an unavailable capability, represent it as an explicit assumption or explain the limitation in the summary rather than fabricating it. Build an inspectable workflow with trigger -> evidence -> conditions/decision -> action or recommendation -> verification. The workflow is a DRAFT: never claim that an external action has already happened. Keep write/mutation/remediation actions approval-gated. Notifications such as email/alert can be ungated when they are only informational and an actual notification capability is available. ${demoPlanning ? "This is Demo mode. GitHub (Demo) represents deterministic demonstration evidence only; never claim that a real GitHub repository was accessed or changed." : "Do not claim that mock/demo evidence is live provider evidence."} Return JSON only with exactly these fields: summary (string), trigger (string), config (object), steps (array), assumptions (string array). Each step must have id, name, type, provider, capability, action, requiresApproval, and optional verification. Keep the workflow practical and executable by Aegis's existing capability/MCP layer. Do not output code. MODEL: ${MODEL}`;
     const user = JSON.stringify({
       agent: { key: detail.agentKey, name: detail.displayName, category: detail.category, description: detail.description },
       enabledCapabilities: capabilities,
