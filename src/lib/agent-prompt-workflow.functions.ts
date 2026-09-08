@@ -101,11 +101,12 @@ export const generateAgentWorkflowFromPrompt = createServerFn({ method: "POST" }
     const detail = await loadAgentDetail(context.supabase, context.userId, data.agentKey);
     if (!detail) throw new Error("Agent not found.");
     const capabilities = detail.bindings.filter((binding) => binding.enabled).map((binding) => ({
-      provider: binding.provider,
-      capability: binding.capabilityKey,
-      name: binding.capabilityName,
+      provider: binding.provider ?? "unknown",
+      capability: binding.capabilityKey ?? "unknown",
+      name: binding.capabilityName ?? "Unnamed capability",
       mock: binding.isMock,
     }));
+
     const unavailableCapabilities = findUnavailableRequestedCapabilities(data.prompt, capabilities);
     if (unavailableCapabilities.length) {
       const available = capabilities.length ? capabilities.map((item) => `${item.provider} / ${item.capability}`).join(", ") : "none";
