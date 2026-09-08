@@ -61,12 +61,25 @@ function normalizeWorkflow(raw: unknown): GeneratedAgentWorkflow {
 
 export function findUnavailableRequestedCapabilities(prompt: string, capabilities: Array<{ provider: string; capability: string; name: string; mock: boolean }>): string[] {
   const requested = prompt.toLowerCase();
-  const available = capabilities.map((item) => `${item.provider} ${item.capability} ${item.name}`.toLowerCase()).join(" ");
   const unavailable: string[] = [];
-  if (/\b(salesforce|sfdc)\b/i.test(requested) && !/\bsalesforce\b|\bsfdc\b/i.test(available)) unavailable.push("Salesforce integration/capability");
+  const hasCapability = (predicate: (item: { provider: string; capability: string; name: string; mock: boolean }) => boolean) => capabilities.some(predicate);
+
+  if (/\b(salesforce|sfdc)\b/i.test(requested) && !hasCapability((item) => /\b(salesforce|sfdc)\b/i.test(`${item.provider} ${item.name}`))) {
+    unavailable.push("Salesforce integration/capability");
+  }
+
   const requestsEmailNotification = /\b(email|e-mail)\b/i.test(requested) && /\b(send|sending|notify|notification|alert)\b/i.test(requested);
-  const hasNotificationCapability = capabilities.some((item) => /\b(email|notification|notify|alert|mail)\b/i.test(`${item.provider} ${item.capability} ${item.name}`));
+  const hasNotificationCapability = hasCapability((item) => /\b(email|notification|notify|alert|mail)\b/i.test(`${item.provider} ${item.capability} ${item.name}`));
   if (requestsEmailNotification && !hasNotificationCapability) unavailable.push("email/notification capability");
+
+  if (/\bgithub\b/i.test(requested) && !hasCapability((item) => /\bgithub\b/i.test(item.provider))) {
+    unavailable.push("GitHub integration");
+  }
+
+  const requestsSecurityFindings = /\b(security findings?|vulnerabilit(?:y|ies)|code scanning|dependabot)\b/i.test(requested);
+  const hasSecurityFindings = hasCapability((item) => /\bsecurity_findings\b/i.test(item.capability) || /\bsecurity findings?\b/i.test(item.name));
+  if (requestsSecurityFindings && !hasSecurityFindings) unavailable.push("security findings capability");
+
   return unavailable;
 }
 
