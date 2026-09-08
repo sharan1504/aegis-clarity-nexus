@@ -1,3 +1,4 @@
+import { toJsonValue } from "@/lib/json";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { githubCapabilityRouter } from "@/lib/capabilities/github-router.server";
@@ -20,8 +21,8 @@ export async function orchestrateSecurityRun(supabase: UserClient, userId: strin
   const excludedCount = results.reduce((count, result) => count + result.excludedCount, 0);
   const actions: Parameters<typeof orchestrateAgentRun>[1] = [
     { type: "plan", value: { agentKey: SECURITY_AGENT_KEY, stages: ["investigate", "policy", "approval", "execute", "verify"] } },
-    { type: "investigate", value: { records: routed.records, sources: routed.sources, evaluatedAt: routed.evaluatedAt } },
-    { type: "policy", value: { recommendations, evaluatedCount, excludedCount, exceededRepositoryCeiling: results.some((result) => result.exceededRepositoryCeiling) } },
+    { type: "investigate", value: toJsonValue({ records: routed.records, sources: routed.sources, evaluatedAt: routed.evaluatedAt }) },
+    { type: "policy", value: toJsonValue({ recommendations, evaluatedCount, excludedCount, exceededRepositoryCeiling: results.some((result) => result.exceededRepositoryCeiling) }) },
   ];
   if (recommendations.length) actions.push({ type: "await_approval", value: { status: "pending", recommendationCount: recommendations.length, reason: "Explicit approval is required before any mutation can be attempted." } });
   const orchestration = orchestrateAgentRun(run, actions, clock);
