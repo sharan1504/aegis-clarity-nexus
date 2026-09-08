@@ -8,10 +8,11 @@ import type { AgentRunState } from "./agent-runtime";
 
 type UserClient = SupabaseClient<Database>;
 
-export async function orchestrateSecurityRun(supabase: UserClient, userId: string, run: AgentRunState, now = Date.now()) {
+export async function orchestrateSecurityRun(supabase: UserClient, userId: string, run: AgentRunState, now = Date.now()): Promise<{ run: AgentRunState; recommendationCount: number; evaluatedCount: number; excludedCount: number; warnings: string[] }> {
   const clock = { now: () => new Date(now).toISOString() };
   const routed = await githubCapabilityRouter.getSecurityFindings(supabase, userId, SECURITY_AGENT_KEY, { now });
-  if (routed.denied) return { run: { ...run, status: "failed", error: routed.denied.message, updatedAt: clock.now() }, recommendationCount: 0, evaluatedCount: 0, excludedCount: 0, warnings: routed.warnings };
+  if (routed.denied) return { run: { ...run, status: "failed" as const, error: routed.denied.message, updatedAt: clock.now() }, recommendationCount: 0, evaluatedCount: 0, excludedCount: 0, warnings: routed.warnings };
+
 
   const results = Object.entries(routed.policies).map(([integrationId, entry]) => analyzeSecurityFindings(routed.records.filter((finding) => finding.integrationId === integrationId), entry.policy, entry.revision, now));
   const recommendations = results.flatMap((result) => result.recommendations);
