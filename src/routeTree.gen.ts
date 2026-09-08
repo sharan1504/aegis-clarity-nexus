@@ -16,6 +16,7 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
+import { Route as AppAgenticStudioRouteImport } from './routes/_app.agentic-studio'
 import { Route as AppAgentsRouteImport } from './routes/_app.agents'
 import { Route as AppAnalyticsRouteImport } from './routes/_app.analytics'
 import { Route as AppAuditRouteImport } from './routes/_app.audit'
@@ -31,6 +32,7 @@ import { Route as AuthChangePasswordRouteImport } from './routes/auth.change-pas
 import { Route as ResourcesWhatIsAiopsRouteImport } from './routes/resources.what-is-aiops'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
+import { Route as AppAgentRunRunIdRouteImport } from './routes/_app.agent-run.$runId'
 import { Route as AppAgentAgentKeyRouteImport } from './routes/_app.agent.$agentKey'
 import { Route as AppApprovalsIndexRouteImport } from './routes/_app.approvals.index'
 import { Route as AppApprovalsIdRouteImport } from './routes/_app.approvals.$id'
@@ -71,6 +73,11 @@ const Char91DotwellKnownChar93OauthProtectedResourceRoute =
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAgenticStudioRoute = AppAgenticStudioRouteImport.update({
+  id: '/agentic-studio',
+  path: '/agentic-studio',
   getParentRoute: () => AppRoute,
 } as any)
 const AppAgentsRoute = AppAgentsRouteImport.update({
@@ -149,6 +156,11 @@ const Char91DotmcpChar93InvokeToolToolRoute =
     path: '/.mcp/invoke-tool/$tool',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AppAgentRunRunIdRoute = AppAgentRunRunIdRouteImport.update({
+  id: '/agent-run/$runId',
+  path: '/agent-run/$runId',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAgentAgentKeyRoute = AppAgentAgentKeyRouteImport.update({
   id: '/agent/$agentKey',
   path: '/agent/$agentKey',
@@ -183,6 +195,7 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/agentic-studio': typeof AppAgenticStudioRoute
   '/agents': typeof AppAgentsRoute
   '/analytics': typeof AppAnalyticsRoute
   '/audit': typeof AppAuditRoute
@@ -198,6 +211,7 @@ export interface FileRoutesByFullPath {
   '/resources/what-is-aiops': typeof ResourcesWhatIsAiopsRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/agent-run/$runId': typeof AppAgentRunRunIdRoute
   '/agent/$agentKey': typeof AppAgentAgentKeyRoute
   '/approvals/$id': typeof AppApprovalsIdRoute
   '/api/internal/provider-sync': typeof ApiInternalProviderSyncRoute
@@ -210,6 +224,7 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/agentic-studio': typeof AppAgenticStudioRoute
   '/agents': typeof AppAgentsRoute
   '/analytics': typeof AppAnalyticsRoute
   '/audit': typeof AppAuditRoute
@@ -226,6 +241,7 @@ export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/agent-run/$runId': typeof AppAgentRunRunIdRoute
   '/agent/$agentKey': typeof AppAgentAgentKeyRoute
   '/approvals/$id': typeof AppApprovalsIdRoute
   '/api/internal/provider-sync': typeof ApiInternalProviderSyncRoute
@@ -240,6 +256,7 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
+  '/_app/agentic-studio': typeof AppAgenticStudioRoute
   '/_app/agents': typeof AppAgentsRoute
   '/_app/analytics': typeof AppAnalyticsRoute
   '/_app/audit': typeof AppAuditRoute
@@ -256,6 +273,7 @@ export interface FileRoutesById {
   '/_app/': typeof AppIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/_app/agent-run/$runId': typeof AppAgentRunRunIdRoute
   '/_app/agent/$agentKey': typeof AppAgentAgentKeyRoute
   '/_app/approvals/$id': typeof AppApprovalsIdRoute
   '/api/internal/provider-sync': typeof ApiInternalProviderSyncRoute
@@ -271,6 +289,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
+    | '/agentic-studio'
     | '/agents'
     | '/analytics'
     | '/audit'
@@ -286,6 +305,7 @@ export interface FileRouteTypes {
     | '/resources/what-is-aiops'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
+    | '/agent-run/$runId'
     | '/agent/$agentKey'
     | '/approvals/$id'
     | '/api/internal/provider-sync'
@@ -298,6 +318,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
+    | '/agentic-studio'
     | '/agents'
     | '/analytics'
     | '/audit'
@@ -314,6 +335,7 @@ export interface FileRouteTypes {
     | '/'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
+    | '/agent-run/$runId'
     | '/agent/$agentKey'
     | '/approvals/$id'
     | '/api/internal/provider-sync'
@@ -327,6 +349,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
+    | '/_app/agentic-studio'
     | '/_app/agents'
     | '/_app/analytics'
     | '/_app/audit'
@@ -343,6 +366,7 @@ export interface FileRouteTypes {
     | '/_app/'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
+    | '/_app/agent-run/$runId'
     | '/_app/agent/$agentKey'
     | '/_app/approvals/$id'
     | '/api/internal/provider-sync'
@@ -413,6 +437,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/agentic-studio': {
+      id: '/_app/agentic-studio'
+      path: '/agentic-studio'
+      fullPath: '/agentic-studio'
+      preLoaderRoute: typeof AppAgenticStudioRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/agents': {
@@ -520,6 +551,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char91DotmcpChar93InvokeToolToolRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/agent-run/$runId': {
+      id: '/_app/agent-run/$runId'
+      path: '/agent-run/$runId'
+      fullPath: '/agent-run/$runId'
+      preLoaderRoute: typeof AppAgentRunRunIdRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/agent/$agentKey': {
       id: '/_app/agent/$agentKey'
       path: '/agent/$agentKey'
@@ -559,6 +597,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppAgenticStudioRoute: typeof AppAgenticStudioRoute
   AppAgentsRoute: typeof AppAgentsRoute
   AppAnalyticsRoute: typeof AppAnalyticsRoute
   AppAuditRoute: typeof AppAuditRoute
@@ -571,12 +610,14 @@ interface AppRouteChildren {
   AppSettingsRoute: typeof AppSettingsRoute
   AppUsersRoute: typeof AppUsersRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppAgentRunRunIdRoute: typeof AppAgentRunRunIdRoute
   AppAgentAgentKeyRoute: typeof AppAgentAgentKeyRoute
   AppApprovalsIdRoute: typeof AppApprovalsIdRoute
   AppApprovalsIndexRoute: typeof AppApprovalsIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAgenticStudioRoute: AppAgenticStudioRoute,
   AppAgentsRoute: AppAgentsRoute,
   AppAnalyticsRoute: AppAnalyticsRoute,
   AppAuditRoute: AppAuditRoute,
@@ -589,6 +630,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppSettingsRoute: AppSettingsRoute,
   AppUsersRoute: AppUsersRoute,
   AppIndexRoute: AppIndexRoute,
+  AppAgentRunRunIdRoute: AppAgentRunRunIdRoute,
   AppAgentAgentKeyRoute: AppAgentAgentKeyRoute,
   AppApprovalsIdRoute: AppApprovalsIdRoute,
   AppApprovalsIndexRoute: AppApprovalsIndexRoute,

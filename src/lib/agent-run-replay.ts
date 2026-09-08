@@ -15,11 +15,13 @@ const values: Record<AgentRunStep, keyof AgentRunState | null> = { plan: "plan",
 
 export function buildAgentRunReplay(run: AgentRunState, persistedEvents: AgentRunEvent[] = []): AgentRunReplay {
   const ordered = Object.keys(labels) as AgentRunStep[]; const currentIndex = ordered.indexOf(run.currentStep);
-  const events = ordered.map((step, index) => {
+  const events = ordered.map((step, index): AgentRunReplayEvent => {
     const value = values[step] ? run[values[step] as keyof AgentRunState] : null;
     const completed = run.status === "completed" || index < currentIndex; const blocked = run.status === "failed" && index >= currentIndex;
-    return { step, label: labels[step], state: blocked ? "blocked" : completed ? "completed" : index === currentIndex ? "current" : "pending", value: Array.isArray(value) ? value[value.length - 1] ?? null : value };
+    const state: AgentRunReplayEvent["state"] = blocked ? "blocked" : completed ? "completed" : index === currentIndex ? "current" : "pending";
+    return { step, label: labels[step], state, value: Array.isArray(value) ? value[value.length - 1] ?? null : value };
   });
+
   const nodes: EvidenceGraphNode[] = [
     { id: "intent", kind: "finding", label: "User intent", detail: run.input },
     { id: "agent", kind: "agent", label: run.agentKey, detail: "Governed agent runtime" },

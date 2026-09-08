@@ -1,3 +1,5 @@
+import type { JsonValue } from "@/lib/json";
+
 export const AGENT_RUN_STATUSES = [
   "planned",
   "running",
@@ -12,9 +14,10 @@ export const AGENT_RUN_STEPS = ["plan", "investigate", "policy", "approval", "ex
 export type AgentRunStep = (typeof AGENT_RUN_STEPS)[number];
 export interface AgentRunState {
   runId: string; tenantId: string; agentKey: string; status: AgentRunStatus; currentStep: AgentRunStep; input: string;
-  plan: unknown | null; evidence: unknown[]; policyVerdict: unknown | null; approval: unknown | null;
-  execution: unknown | null; verification: unknown | null; error: string | null; createdAt: string; updatedAt: string;
+  plan: JsonValue | null; evidence: JsonValue[]; policyVerdict: JsonValue | null; approval: JsonValue | null;
+  execution: JsonValue | null; verification: JsonValue | null; error: string | null; createdAt: string; updatedAt: string;
 }
+
 export interface AgentRunClock { now(): string; }
 export interface AgentRunIdFactory { create(): string; }
 const defaultClock: AgentRunClock = { now: () => new Date().toISOString() };
@@ -24,8 +27,8 @@ export function createAgentRunState(input: Pick<AgentRunState, "tenantId" | "age
   return { runId: idFactory.create(), tenantId: input.tenantId, agentKey: input.agentKey, status: "planned", currentStep: "plan", input: input.input, plan: null, evidence: [], policyVerdict: null, approval: null, execution: null, verification: null, error: null, createdAt: timestamp, updatedAt: timestamp };
 }
 export function transitionAgentRun(run: AgentRunState, transition:
-  | { type: "start" } | { type: "await_approval"; approval: unknown } | { type: "resume" }
-  | { type: "complete_step"; step: AgentRunStep; value?: unknown } | { type: "fail"; error: string } | { type: "cancel" }, clock: AgentRunClock = defaultClock): AgentRunState {
+  | { type: "start" } | { type: "await_approval"; approval: JsonValue } | { type: "resume" }
+  | { type: "complete_step"; step: AgentRunStep; value?: JsonValue } | { type: "fail"; error: string } | { type: "cancel" }, clock: AgentRunClock = defaultClock): AgentRunState {
   const next = { ...run, updatedAt: clock.now() };
   switch (transition.type) {
     case "start": if (run.status !== "planned" && run.status !== "paused") throw new Error(`Run cannot start from ${run.status}.`); return { ...next, status: "running", error: null };
