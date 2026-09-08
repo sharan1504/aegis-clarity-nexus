@@ -26,8 +26,16 @@ describe("evaluateAgentRun", () => {
     expect(result.results).toHaveLength(5);
   });
 
+  it("passes the empty-evidence boundary when no recommendation exists", () => {
+    const emptyRun = { ...run, evidence: [], policyVerdict: { recommendations: [] } };
+    const result = evaluateAgentRun(emptyRun, events);
+    const edge = result.results.find((item) => item.caseId === "edge-empty-evidence");
+    expect(edge?.status).toBe("passed");
+  });
+
   it("fails the empty-evidence case when a recommendation is fabricated", () => {
-    const result = evaluateAgentRun({ ...run, evidence: [] }, events);
+    const fabricatedRun = { ...run, evidence: [] };
+    const result = evaluateAgentRun(fabricatedRun, events);
     const edge = result.results.find((item) => item.caseId === "edge-empty-evidence");
     expect(edge?.status).toBe("failed");
   });
