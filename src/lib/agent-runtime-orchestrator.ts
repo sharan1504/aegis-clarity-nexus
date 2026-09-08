@@ -2,6 +2,7 @@ import type { AgentRunState, AgentRunStep } from "./agent-runtime";
 import { AGENT_RUN_STEPS, transitionAgentRun } from "./agent-runtime";
 
 export type RuntimeOrchestratorAction =
+  | { type: "plan"; value: unknown }
   | { type: "investigate"; value: unknown }
   | { type: "policy"; value: unknown }
   | { type: "await_approval"; value: unknown }
@@ -15,6 +16,7 @@ export interface RuntimeOrchestratorResult {
   stoppedAt: AgentRunStep;
 }
 
+/** Coordinates trusted runtime stages. It never uses an LLM to authorize a transition. */
 export function orchestrateAgentRun(initial: AgentRunState, actions: RuntimeOrchestratorAction[], clock: { now(): string }): RuntimeOrchestratorResult {
   let run = initial;
   if (run.status === "planned") run = transitionAgentRun(run, { type: "start" }, clock);
@@ -32,11 +34,16 @@ export function orchestrateAgentRun(initial: AgentRunState, actions: RuntimeOrch
       completedActions.push(action);
       continue;
     }
-    const expectedStep: AgentRunStep = action.type === "investigate" ? "investigate" : action.type === "policy" ? "policy" : action.type === "execute" ? "execute" : "verify";
+    const expectedStep: AgentRunStep = action.type;
     if (run.currentStep !== expectedStep) throw new Error(`Runtime expected ${run.currentStep} but received ${expectedStep}.`);
     run = transitionAgentRun(run, { type: "complete_step", step: expectedStep, value: action.value }, clock);
     completedActions.push(action);
     if (run.status === "completed") break;
   }
   return { run, completedActions, stoppedAt: run.currentStep };
+}
+
+export function nextRuntimeStep(step: AgentRunStep): AgentRunStep | null {
+  const index = AGENT_RUN_STEPS.indexOf(step);
+  return index >= 0 && index < AGENT_RUN_STEPS.length - 1 ? AGENT_RUN_STEPS[index + 1] : null;
 }
