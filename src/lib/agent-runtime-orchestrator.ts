@@ -5,6 +5,7 @@ export type RuntimeOrchestratorAction =
   | { type: "investigate"; value: unknown }
   | { type: "policy"; value: unknown }
   | { type: "await_approval"; value: unknown }
+  | { type: "approve"; value: unknown }
   | { type: "execute"; value: unknown }
   | { type: "verify"; value: unknown };
 
@@ -29,6 +30,14 @@ export function orchestrateAgentRun(
       run = transitionAgentRun(run, { type: "await_approval", approval: action.value }, clock);
       completedActions.push(action);
       break;
+    }
+
+    if (action.type === "approve") {
+      if (run.status !== "waiting_approval") throw new Error(`Runtime cannot approve from ${run.status}.`);
+      run = transitionAgentRun(run, { type: "resume" }, clock);
+      run = transitionAgentRun(run, { type: "complete_step", step: "approval", value: action.value }, clock);
+      completedActions.push(action);
+      continue;
     }
 
     const expectedStep: AgentRunStep = action.type === "investigate"
