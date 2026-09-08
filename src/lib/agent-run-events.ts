@@ -1,3 +1,4 @@
+import type { JsonValue } from "@/lib/json";
 import type { AgentRunState, AgentRunStep } from "@/lib/agent-runtime";
 
 export const AGENT_RUN_EVENT_TYPES = [
@@ -26,7 +27,7 @@ export interface AgentRunEvent {
   provider: string | null;
   capabilityKey: string | null;
   outcome: string | null;
-  payload: unknown;
+  payload: JsonValue;
   occurredAt: string;
 }
 

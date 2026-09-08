@@ -1,3 +1,5 @@
+import type { JsonValue } from "@/lib/json";
+
 export const AGENT_RUN_STATUSES = [
   "planned",
   "running",
