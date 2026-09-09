@@ -15,6 +15,7 @@ function builder(result: { data?: unknown; error?: { message: string } | null })
     eq: vi.fn(() => value),
     order: vi.fn(() => value),
     single: vi.fn(async () => result),
+    then: (resolve: (value: typeof result) => unknown) => Promise.resolve(result).then(resolve),
   };
   return value;
 }
