@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { availableAgentMcpTools, getAgentMcpToolAvailability } from "./agent-tools.server";
-import type { AgentToolAvailability } from "./agent-tools.server";
+import { availableAgentMcpTools, getAgentMcpToolAvailability } from "./agent-tool-availability.server";
+import type { AgentToolAvailability } from "./agent-tool-availability.server";
 
 describe("agent MCP tool availability", () => {
   it("hides tools whose governed capability is not bound to the agent", async () => {
