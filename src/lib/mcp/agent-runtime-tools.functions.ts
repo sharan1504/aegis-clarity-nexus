@@ -15,6 +15,12 @@ function requestToken(): string {
   return header.slice("Bearer ".length).trim();
 }
 
+async function nextEventSequence(supabase: any, runId: string, tenantId: string) {
+  const { data, error } = await supabase.from("agent_run_events").select("sequence").eq("run_id", runId).eq("tenant_id", tenantId).order("sequence", { ascending: false }).limit(1).maybeSingle();
+  if (error) throw new Error(`Unable to allocate agent event sequence: ${error.message}`);
+  return Number(data?.sequence ?? 0) + 1;
+}
+
 export const listAgentRuntimeTools = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { agentKey: string }) => ({ agentKey: String(input.agentKey ?? "").trim() }))
@@ -49,9 +55,7 @@ export const invokeAgentRuntimeTool = createServerFn({ method: "POST" })
         .eq("tenant_id", tenant.tenantId)
         .single();
       if (runError || !run) throw new Error(runError?.message ?? "Agent run was not found.");
-      if (!["running", "waiting_approval"].includes(run.status)) {
-        throw new Error(`Agent run is not currently able to invoke tools (status: ${run.status}).`);
-      }
+      if (run.status !== "running") throw new Error(`Agent run is not currently able to invoke tools (status: ${run.status}).`);
       if (!["investigate", "policy", "execute"].includes(String(run.current_step ?? ""))) {
         throw new Error(`Tool invocation is not allowed during the ${run.current_step ?? "unknown"} stage.`);
       }
@@ -61,17 +65,16 @@ export const invokeAgentRuntimeTool = createServerFn({ method: "POST" })
       if (!selected) throw new Error(`Unknown MCP tool: ${data.toolName}`);
       if (!selected.available) throw new Error(selected.reasons.join(" "));
 
-      const token = requestToken();
       const result = await MCP_TOOL_REGISTRY.invoke(data.toolName, data.input, {
         isAuthenticated: () => true,
-        token,
+        token: requestToken(),
         userId: context.userId,
       });
 
       const { error: eventError } = await context.supabase.from("agent_run_events").insert({
         run_id: data.runId,
         tenant_id: tenant.tenantId,
-        sequence: 0,
+        sequence: await nextEventSequence(context.supabase, data.runId, tenant.tenantId),
         event_type: "tool_call",
         step: run.current_step,
         actor_id: context.userId,
