@@ -43,6 +43,15 @@ function descriptorFor<T extends McpTool>(registration: McpToolRegistration<T>):
   };
 }
 
+/**
+ * The MCP gateway is the registry/factory between the protocol surface and
+ * Aegis governance. Tools are registered once with their policy metadata, then
+ * every exposed handler is wrapped by the existing fail-closed governance gate.
+ *
+ * This deliberately does not contain business decisions or provider calls.
+ * Providers remain behind Capability Router / connector boundaries, and MCP
+ * remains a caller of those governed surfaces rather than a privileged path.
+ */
 export function createMcpToolRegistry<const T extends readonly McpToolRegistration[]>(registrations: T) {
   const catalog = registrations.map(descriptorFor);
   const tools = registrations.map(({ tool, governance }) => guardedTool(tool, governance));
