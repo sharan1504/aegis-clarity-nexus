@@ -17,13 +17,13 @@ export function brokeredPreviewStorage() {
   const editorOrigins = ancestor && EDITOR.test(ancestor) ? [ancestor] : (dev ? ['https://lovable.dev', 'http://localhost:3000'] : ['https://lovable.dev']);
   const RESULT = 'lovable-preview-auth:result'; const TIMEOUT = 2000; const newId = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
   const request = (type: string, key: string, value?: string): Promise<{ ok: boolean; value?: string | null } | null> => new Promise((resolve) => {
-    const requestId = newId(); let done = false; let timer: ReturnType<typeof setTimeout>;
+    const requestId = newId(); let done = false;
     const finish = (r: { ok: boolean; value?: string | null } | null) => { if (done) return; done = true; clearTimeout(timer); window.removeEventListener('message', onMessage); resolve(r); };
     const onMessage = (e: MessageEvent) => { if (editorOrigins.indexOf(e.origin) < 0) return; const d = e.data; if (d && d.type === RESULT && d.requestId === requestId) finish(d); };
     window.addEventListener('message', onMessage);
     const msg: Record<string, unknown> = { type, requestId, projectId, key }; if (value !== undefined) msg['value'] = value;
     for (const origin of editorOrigins) window.parent.postMessage(msg, origin);
-    timer = setTimeout(() => finish(null), TIMEOUT);
+    const timer = setTimeout(() => finish(null), TIMEOUT);
   });
   let firstGet = true; const RETRY_DELAY = 250;
   return { getItem: async (key: string) => { let res = await request('lovable-preview-auth:get', key); if (!res && firstGet) { await new Promise((r) => setTimeout(r, RETRY_DELAY)); res = await request('lovable-preview-auth:get', key); } firstGet = false; if (res && res.ok && typeof res.value === 'string') { if (res.value === '') { localStorage.removeItem(key); return null; } return res.value; } return localStorage.getItem(key); }, setItem: (key: string, value: string) => { localStorage.setItem(key, value); return request('lovable-preview-auth:set', key, value).then(() => undefined); }, removeItem: (key: string) => { localStorage.removeItem(key); return request('lovable-preview-auth:remove', key).then(() => undefined); } };
