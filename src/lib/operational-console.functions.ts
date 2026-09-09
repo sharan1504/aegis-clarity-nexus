@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveTenantContext } from "@/lib/tenant-context.server";
 import type { OperationalIssueStatus } from "@/lib/operational-issues.server";
+import { DEMO_OPERATIONAL_ISSUES } from "@/lib/operational-console-demo";
 
 const SOURCES = ["sync", "agent_run", "integration_health", "guardrail_evaluation", "webhook_delivery", "command_center", "other"] as const;
 const SEVERITIES = ["critical", "high", "medium", "low"] as const;
@@ -9,7 +10,13 @@ const STATUSES = ["open", "acknowledged", "resolved"] as const;
 
 export const listOperationalIssues = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { source?: string; severity?: string; status?: string }) => ({ source: input.source && SOURCES.includes(input.source as any) ? input.source : null, severity: input.severity && SEVERITIES.includes(input.severity as any) ? input.severity : null, status: input.status && STATUSES.includes(input.status as any) ? input.status : null })).handler(async ({ data, context }) => {
   const tenant = await resolveTenantContext(context.supabase, context.userId);
-  if (tenant.environmentMode === "demo") return { ok: true as const, environmentMode: "demo" as const, issues: [], openHighCritical: 0 };
+  if (tenant.environmentMode === "demo") {
+    let issues = [...DEMO_OPERATIONAL_ISSUES];
+    if (data.source) issues = issues.filter((issue) => issue.source === data.source);
+    if (data.severity) issues = issues.filter((issue) => issue.severity === data.severity);
+    if (data.status) issues = issues.filter((issue) => issue.status === data.status);
+    return { ok: true as const, environmentMode: "demo" as const, issues, openHighCritical: issues.filter((issue) => ["open", "acknowledged"].includes(issue.status) && ["critical", "high"].includes(issue.severity)).length };
+  }
   let query = (context.supabase as any).from("operational_issues").select("id,tenant_id,source,severity,title,detail,status,related_id,first_seen_at,last_seen_at,occurrence_count,resolved_at,resolved_by").eq("tenant_id", tenant.tenantId).order("last_seen_at", { ascending: false });
   if (data.source) query = query.eq("source", data.source);
   if (data.severity) query = query.eq("severity", data.severity);
@@ -17,8 +24,7 @@ export const listOperationalIssues = createServerFn({ method: "POST" }).middlewa
   const { data: rows, error } = await query.limit(500);
   if (error) throw new Error(error.message);
   const issues = rows ?? [];
-  const openHighCritical = issues.filter((issue: any) => ["open", "acknowledged"].includes(issue.status) && ["critical", "high"].includes(issue.severity)).length;
-  return { ok: true as const, environmentMode: "live" as const, issues, openHighCritical };
+  return { ok: true as const, environmentMode: "live" as const, issues, openHighCritical: issues.filter((issue: any) => ["open", "acknowledged"].includes(issue.status) && ["critical", "high"].includes(issue.severity)).length };
 });
 
 export const updateOperationalIssue = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { issueId: string; status: OperationalIssueStatus; note?: string }) => ({ issueId: String(input.issueId ?? "").trim(), status: input.status, note: String(input.note ?? "").trim().slice(0, 1000) })).handler(async ({ data, context }) => {
