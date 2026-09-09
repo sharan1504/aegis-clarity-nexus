@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveTenantContext } from "@/lib/tenant-context.server";
-import { getAgentMcpToolAvailability } from "./agent-tools.server";
+import { getAgentMcpToolAvailability } from "./agent-tool-availability.server";
 import { MCP_TOOL_REGISTRY } from "./gateway-catalog";
 
 function runtimeToolError(error: unknown) {
