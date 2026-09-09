@@ -11,7 +11,8 @@ const mocks = vi.hoisted(() => ({
   recordSelect: vi.fn(),
   recordMaybeSingle: vi.fn(),
   runUpdate: vi.fn(),
-  runEq: vi.fn(),
+  runIdEq: vi.fn(),
+  runTenantEq: vi.fn(),
 }));
 
 vi.mock("@/lib/tenant-context.server", () => ({
@@ -46,8 +47,9 @@ beforeEach(() => {
   mocks.recordEq.mockResolvedValue({ error: null });
   mocks.recordSelect.mockImplementation(() => ({ eq: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: mocks.recordMaybeSingle })) })) }));
   mocks.recordMaybeSingle.mockResolvedValue({ data: { agent_run_id: null }, error: null });
-  mocks.runUpdate.mockImplementation(() => ({ eq: mocks.runEq }));
-  mocks.runEq.mockResolvedValue({ error: null });
+  mocks.runUpdate.mockImplementation(() => ({ eq: mocks.runIdEq }));
+  mocks.runIdEq.mockImplementation(() => ({ eq: mocks.runTenantEq }));
+  mocks.runTenantEq.mockResolvedValue({ error: null });
   mocks.audit.mockResolvedValue(undefined);
   mocks.notify.mockResolvedValue(undefined);
 });
@@ -62,6 +64,7 @@ describe("change-service edge cases", () => {
     const change = record({ approvals: [{ rowId: "approval-1", team: "Security", approver: "A", role: "Analyst", status: "pending" }] });
     await decideChange(change, "approved", actor);
     expect(mocks.runUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: "running", current_step: "execute" }));
-    expect(mocks.runEq).toHaveBeenCalledWith("tenant-1");
+    expect(mocks.runIdEq).toHaveBeenCalledWith("id", "run-1");
+    expect(mocks.runTenantEq).toHaveBeenCalledWith("tenant_id", "tenant-1");
   });
 });
