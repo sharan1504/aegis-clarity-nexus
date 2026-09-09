@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { ActorContext } from "@/lib/execution/gateway.server";
 
 const gate = vi.fn();
@@ -23,14 +23,14 @@ function supabaseFor(run: unknown, change: unknown, approvals: unknown[]) {
   const runs = builder({ data: run, error: null });
   const changes = builder({ data: change, error: null });
   const approvalRows = builder({ data: approvals, error: null });
-  return {
-    from: vi.fn((table: string) => table === "agent_runs" ? runs : table === "change_records" ? changes : approvalRows),
-  } as never;
+  return { from: vi.fn((table: string) => table === "agent_runs" ? runs : table === "change_records" ? changes : approvalRows) } as never;
 }
 
 const actor: ActorContext = { userId: "user-1", tenantId: "tenant-1", roles: ["manager"], actorRole: "manager" };
 const run = { id: "run-1", tenant_id: "tenant-1", agent_key: "agent-security", status: "running", current_step: "execute", input: "Investigate", plan: { capability: "security_findings" }, policy_verdict: {}, approval: { changeRecordId: "change-row-1" }, execution: null, verification: null };
 const change = { id: "change-row-1", change_id: "AIG-1234", tenant_id: "tenant-1", stage: "Ready to Execute", agent: "agent-security", owner_team: "GitHub Operations", execution_mode: "Manual", rollback_steps: ["Restore prior state"], validations: [] };
+
+beforeEach(() => gate.mockReset());
 
 describe("executeApprovedAgentRun", () => {
   it("blocks a run before the execute stage", async () => {
@@ -56,9 +56,9 @@ describe("executeApprovedAgentRun", () => {
   });
 
   it("passes only fully approved changes through the governance gate", async () => {
-    const executor = vi.fn().mockResolvedValue({ provider: "github", mutation: "unsupported-in-test" });
-    gate.mockImplementationOnce(async (_supabase, _actor, _operation, fn) => ({ ok: true, result: await fn({}), verdict: { decision: "allow", reasons: [], requiredActions: [] }, capped: false }));
-    const result = await executeApprovedAgentRun(supabaseFor(run, change, [{ status: "approved'" }]), actor, { runId: "run-1", changeRecordId: "change-row-1" }, executor);
+    const executor = vi.fn().mockResolvedValue({ provider: "github", mutation: "test" });
+    gate.mockImplementationOnce(async (_supabase: unknown, _actor: unknown, _operation: unknown, fn: (verdict: unknown) => Promise<unknown>) => ({ ok: true, result: await fn({}), verdict: { decision: "allow", reasons: [], requiredActions: [] }, capped: false }));
+    const result = await executeApprovedAgentRun(supabaseFor(run, change, [{ status: "approved" }]), actor, { runId: "run-1", changeRecordId: "change-row-1" }, executor);
     expect(result.ok).toBe(true);
     expect(executor).toHaveBeenCalledOnce();
     expect(gate).toHaveBeenCalledOnce();
