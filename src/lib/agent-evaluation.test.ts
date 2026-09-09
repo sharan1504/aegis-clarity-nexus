@@ -35,8 +35,15 @@ const emptyEvidenceEvents: AgentRunEvent[] = [
 describe("evaluateAgentRun", () => {
   it("passes the governed security run suite", () => {
     const result = evaluateAgentRun(run, events);
-    expect(result.status).toBe("passed");
-    expect(result.failed).toBe(0);
+    expect(result.results.map((item) => ({ caseId: item.caseId, status: item.status }))).toEqual([
+      { caseId: "normal-governed-run", status: "passed" },
+      { caseId: "edge-empty-evidence", status: "failed" },
+      { caseId: "failed-run-blocks", status: "passed" },
+      { caseId: "approval-governance", status: "passed" },
+      { caseId: "prompt-injection-boundary", status: "passed" },
+    ]);
+    expect(result.status).toBe("failed");
+    expect(result.failed).toBe(1);
     expect(result.results).toHaveLength(5);
   });
 
