@@ -1,6 +1,6 @@
 import { defineTool } from "@lovable.dev/mcp-js";
 import { getMcpTenantContext } from "@/lib/mcp/tenant-data";
-import { MCP_TOOL_CATALOG } from "../gateway-catalog";
+import { getMcpToolCatalog } from "../gateway.server";
 
 export default defineTool({
   name: "list_available_tools",
@@ -12,7 +12,7 @@ export default defineTool({
   handler: async (_input, rawCtx) => {
     try {
       const { actor } = await getMcpTenantContext(rawCtx);
-      const tools = MCP_TOOL_CATALOG.map((tool) => ({
+      const tools = getMcpToolCatalog().map((tool) => ({
         ...tool,
         tenantId: actor.tenantId,
         note: tool.approvalRequired
