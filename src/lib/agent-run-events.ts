@@ -7,6 +7,7 @@ export const AGENT_RUN_EVENT_TYPES = [
   "stage_completed",
   "approval_requested",
   "approval_resolved",
+  "tool_call",
   "execution_attempted",
   "execution_completed",
   "verification_completed",

@@ -54,14 +54,21 @@ function descriptorFor<T extends McpTool>(registration: McpToolRegistration<T>):
  */
 export function createMcpToolRegistry<const T extends readonly McpToolRegistration[]>(registrations: T) {
   const catalog = registrations.map(descriptorFor);
+  const tools = registrations.map(({ tool, governance }) => guardedTool(tool, governance));
   activeCatalog = catalog;
 
   return {
     catalog,
-    tools: registrations.map(({ tool, governance }) => guardedTool(tool, governance)),
+    tools,
     get(name: string) {
       const index = registrations.findIndex(({ tool }) => tool.name === name);
       return index >= 0 ? registrations[index] : undefined;
+    },
+    /** Invoke only a registered, already-governed tool. */
+    async invoke(name: string, input: unknown, ctx: unknown) {
+      const tool = tools.find((candidate) => candidate.name === name);
+      if (!tool) throw new Error(`Unknown MCP tool: ${name}`);
+      return tool.handler(input, ctx);
     },
   };
 }
