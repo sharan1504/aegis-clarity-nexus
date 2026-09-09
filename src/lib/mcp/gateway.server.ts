@@ -24,6 +24,8 @@ export interface McpToolRegistration<T extends McpTool = McpTool> {
   governance: ToolGovernance;
 }
 
+let activeCatalog: McpToolDescriptor[] = [];
+
 function descriptorFor<T extends McpTool>(registration: McpToolRegistration<T>): McpToolDescriptor {
   const { tool, governance } = registration;
   const executionClass = governance.executionClass ?? "read_only";
@@ -52,6 +54,7 @@ function descriptorFor<T extends McpTool>(registration: McpToolRegistration<T>):
  */
 export function createMcpToolRegistry<const T extends readonly McpToolRegistration[]>(registrations: T) {
   const catalog = registrations.map(descriptorFor);
+  activeCatalog = catalog;
 
   return {
     catalog,
@@ -61,6 +64,10 @@ export function createMcpToolRegistry<const T extends readonly McpToolRegistrati
       return index >= 0 ? registrations[index] : undefined;
     },
   };
+}
+
+export function getMcpToolCatalog(): readonly McpToolDescriptor[] {
+  return activeCatalog;
 }
 
 export function mcpCatalogText(descriptor: McpToolDescriptor): string {
