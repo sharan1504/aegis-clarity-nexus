@@ -91,7 +91,7 @@ beforeEach(() => {
   state.runs.length = 0;
   state.statuses.length = 0;
   state.credentials = encrypted();
-  vi.restoreAllMocks();
+  vi.clearAllMocks();
 });
 
 describe("GitHub sync end-to-end persistence", () => {
