@@ -10,7 +10,7 @@ import { executeLicenseAgent } from "./functions";
 import { LICENSE_AGENT_KEY } from "./types";
 
 const LOVABLE_AI_ENDPOINT = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const LOVABLE_AI_MODEL = "google/gemini-3-flash-preview";
+const LOVABLE_AI_MODEL = "openai/gpt-6-astra";
 const OUT_OF_SCOPE_MESSAGE = "I don't have access to a connected data source that can answer that question. This License Agent can only answer questions using data from connected and authorized sources.";
 const SOURCE_NOT_CONNECTED_MESSAGE = "I don't have access to the requested license data because a connected and authorized data source is not available. Please connect or enable the appropriate data source for this agent.";
 
