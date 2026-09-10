@@ -49,7 +49,7 @@ export const removeProviderIntegration = createServerFn({ method: "POST" }).midd
   if (syncStatusError && !/relation .* does not exist/i.test(syncStatusError.message)) return { ok: false as const, errorMessage: syncStatusError.message };
   const { error: deleteError } = await supabaseAdmin.from("provider_connections").delete().eq("id", data.connectionId).eq("tenant_id", tenantId);
   if (deleteError) return { ok: false as const, errorMessage: deleteError.message };
-  const { error: auditError } = await supabaseAdmin.from("audit_log").insert({ tenant_id: tenantId, action: "integration.removed", entity_type: "provider_connection", entity_id: data.connectionId, detail: `Removed ${connection.provider} integration ${connection.display_name || data.connectionId}.`, payload: { provider: connection.provider, connectionId: data.connectionId, actorUserId: context.userId } });
+  const { error: auditError } = await supabaseAdmin.from("audit_log").insert({ tenant_id: tenantId, action: "integration.removed", entity_type: "integration", entity_id: data.connectionId, detail: `Removed ${connection.provider} integration ${connection.display_name || data.connectionId}.`, payload: { provider: connection.provider, connectionId: data.connectionId, actorUserId: context.userId } });
   if (auditError) return { ok: false as const, errorMessage: auditError.message };
   return { ok: true as const, connectionId: data.connectionId };
 });
