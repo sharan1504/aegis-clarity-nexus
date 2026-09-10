@@ -25,6 +25,7 @@ import { Route as AppGovernanceRouteImport } from './routes/_app.governance'
 import { Route as AppIntegrationsRouteImport } from './routes/_app.integrations'
 import { Route as AppInvestigationsRouteImport } from './routes/_app.investigations'
 import { Route as AppMarketplaceRouteImport } from './routes/_app.marketplace'
+import { Route as AppOperationalConsoleRouteImport } from './routes/_app.operational-console'
 import { Route as AppReportsRouteImport } from './routes/_app.reports'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppUsersRouteImport } from './routes/_app.users'
@@ -32,6 +33,7 @@ import { Route as AuthChangePasswordRouteImport } from './routes/auth.change-pas
 import { Route as ResourcesWhatIsAiopsRouteImport } from './routes/resources.what-is-aiops'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
+import { Route as AppAgentEvaluationRunIdRouteImport } from './routes/_app.agent-evaluation.$runId'
 import { Route as AppAgentRunRunIdRouteImport } from './routes/_app.agent-run.$runId'
 import { Route as AppAgentAgentKeyRouteImport } from './routes/_app.agent.$agentKey'
 import { Route as AppApprovalsIndexRouteImport } from './routes/_app.approvals.index'
@@ -120,6 +122,11 @@ const AppMarketplaceRoute = AppMarketplaceRouteImport.update({
   path: '/marketplace',
   getParentRoute: () => AppRoute,
 } as any)
+const AppOperationalConsoleRoute = AppOperationalConsoleRouteImport.update({
+  id: '/operational-console',
+  path: '/operational-console',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppReportsRoute = AppReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
@@ -156,6 +163,11 @@ const Char91DotmcpChar93InvokeToolToolRoute =
     path: '/.mcp/invoke-tool/$tool',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AppAgentEvaluationRunIdRoute = AppAgentEvaluationRunIdRouteImport.update({
+  id: '/agent-evaluation/$runId',
+  path: '/agent-evaluation/$runId',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAgentRunRunIdRoute = AppAgentRunRunIdRouteImport.update({
   id: '/agent-run/$runId',
   path: '/agent-run/$runId',
@@ -204,6 +216,7 @@ export interface FileRoutesByFullPath {
   '/integrations': typeof AppIntegrationsRoute
   '/investigations': typeof AppInvestigationsRoute
   '/marketplace': typeof AppMarketplaceRoute
+  '/operational-console': typeof AppOperationalConsoleRoute
   '/reports': typeof AppReportsRoute
   '/settings': typeof AppSettingsRoute
   '/users': typeof AppUsersRoute
@@ -211,6 +224,7 @@ export interface FileRoutesByFullPath {
   '/resources/what-is-aiops': typeof ResourcesWhatIsAiopsRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/agent-evaluation/$runId': typeof AppAgentEvaluationRunIdRoute
   '/agent-run/$runId': typeof AppAgentRunRunIdRoute
   '/agent/$agentKey': typeof AppAgentAgentKeyRoute
   '/approvals/$id': typeof AppApprovalsIdRoute
@@ -233,6 +247,7 @@ export interface FileRoutesByTo {
   '/integrations': typeof AppIntegrationsRoute
   '/investigations': typeof AppInvestigationsRoute
   '/marketplace': typeof AppMarketplaceRoute
+  '/operational-console': typeof AppOperationalConsoleRoute
   '/reports': typeof AppReportsRoute
   '/settings': typeof AppSettingsRoute
   '/users': typeof AppUsersRoute
@@ -241,6 +256,7 @@ export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/agent-evaluation/$runId': typeof AppAgentEvaluationRunIdRoute
   '/agent-run/$runId': typeof AppAgentRunRunIdRoute
   '/agent/$agentKey': typeof AppAgentAgentKeyRoute
   '/approvals/$id': typeof AppApprovalsIdRoute
@@ -265,6 +281,7 @@ export interface FileRoutesById {
   '/_app/integrations': typeof AppIntegrationsRoute
   '/_app/investigations': typeof AppInvestigationsRoute
   '/_app/marketplace': typeof AppMarketplaceRoute
+  '/_app/operational-console': typeof AppOperationalConsoleRoute
   '/_app/reports': typeof AppReportsRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/users': typeof AppUsersRoute
@@ -273,6 +290,7 @@ export interface FileRoutesById {
   '/_app/': typeof AppIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/_app/agent-evaluation/$runId': typeof AppAgentEvaluationRunIdRoute
   '/_app/agent-run/$runId': typeof AppAgentRunRunIdRoute
   '/_app/agent/$agentKey': typeof AppAgentAgentKeyRoute
   '/_app/approvals/$id': typeof AppApprovalsIdRoute
@@ -298,6 +316,7 @@ export interface FileRouteTypes {
     | '/integrations'
     | '/investigations'
     | '/marketplace'
+    | '/operational-console'
     | '/reports'
     | '/settings'
     | '/users'
@@ -305,6 +324,7 @@ export interface FileRouteTypes {
     | '/resources/what-is-aiops'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
+    | '/agent-evaluation/$runId'
     | '/agent-run/$runId'
     | '/agent/$agentKey'
     | '/approvals/$id'
@@ -327,6 +347,7 @@ export interface FileRouteTypes {
     | '/integrations'
     | '/investigations'
     | '/marketplace'
+    | '/operational-console'
     | '/reports'
     | '/settings'
     | '/users'
@@ -335,6 +356,7 @@ export interface FileRouteTypes {
     | '/'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
+    | '/agent-evaluation/$runId'
     | '/agent-run/$runId'
     | '/agent/$agentKey'
     | '/approvals/$id'
@@ -358,6 +380,7 @@ export interface FileRouteTypes {
     | '/_app/integrations'
     | '/_app/investigations'
     | '/_app/marketplace'
+    | '/_app/operational-console'
     | '/_app/reports'
     | '/_app/settings'
     | '/_app/users'
@@ -366,6 +389,7 @@ export interface FileRouteTypes {
     | '/_app/'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
+    | '/_app/agent-evaluation/$runId'
     | '/_app/agent-run/$runId'
     | '/_app/agent/$agentKey'
     | '/_app/approvals/$id'
@@ -502,6 +526,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppMarketplaceRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/operational-console': {
+      id: '/_app/operational-console'
+      path: '/operational-console'
+      fullPath: '/operational-console'
+      preLoaderRoute: typeof AppOperationalConsoleRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/reports': {
       id: '/_app/reports'
       path: '/reports'
@@ -550,6 +581,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/.mcp/invoke-tool/$tool'
       preLoaderRoute: typeof Char91DotmcpChar93InvokeToolToolRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_app/agent-evaluation/$runId': {
+      id: '/_app/agent-evaluation/$runId'
+      path: '/agent-evaluation/$runId'
+      fullPath: '/agent-evaluation/$runId'
+      preLoaderRoute: typeof AppAgentEvaluationRunIdRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_app/agent-run/$runId': {
       id: '/_app/agent-run/$runId'
@@ -606,10 +644,12 @@ interface AppRouteChildren {
   AppIntegrationsRoute: typeof AppIntegrationsRoute
   AppInvestigationsRoute: typeof AppInvestigationsRoute
   AppMarketplaceRoute: typeof AppMarketplaceRoute
+  AppOperationalConsoleRoute: typeof AppOperationalConsoleRoute
   AppReportsRoute: typeof AppReportsRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppUsersRoute: typeof AppUsersRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppAgentEvaluationRunIdRoute: typeof AppAgentEvaluationRunIdRoute
   AppAgentRunRunIdRoute: typeof AppAgentRunRunIdRoute
   AppAgentAgentKeyRoute: typeof AppAgentAgentKeyRoute
   AppApprovalsIdRoute: typeof AppApprovalsIdRoute
@@ -626,10 +666,12 @@ const AppRouteChildren: AppRouteChildren = {
   AppIntegrationsRoute: AppIntegrationsRoute,
   AppInvestigationsRoute: AppInvestigationsRoute,
   AppMarketplaceRoute: AppMarketplaceRoute,
+  AppOperationalConsoleRoute: AppOperationalConsoleRoute,
   AppReportsRoute: AppReportsRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppUsersRoute: AppUsersRoute,
   AppIndexRoute: AppIndexRoute,
+  AppAgentEvaluationRunIdRoute: AppAgentEvaluationRunIdRoute,
   AppAgentRunRunIdRoute: AppAgentRunRunIdRoute,
   AppAgentAgentKeyRoute: AppAgentAgentKeyRoute,
   AppApprovalsIdRoute: AppApprovalsIdRoute,
