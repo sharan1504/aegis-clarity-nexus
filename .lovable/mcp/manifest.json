@@ -12,10 +12,26 @@
   "mcp": {
     "server": {
       "name": "aegis-operations-hub",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "title": "Aegis Operations Hub"
     },
     "tools": [
+      {
+        "name": "list_available_tools",
+        "title": "List available Aegis tools",
+        "description": "Describe the governed MCP tool catalog. This is metadata only; it does not grant permission to call a tool or execute a change.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
       {
         "name": "get_operations_overview",
         "title": "Get operations overview",
