@@ -6,7 +6,7 @@ export interface ProviderDefinition {
   name: string;
   category: string;
   description: string;
-  auth: "OAuth 2.0" | "API Key" | "Access Keys" | "MCP";
+  auth: "OAuth 2.0" | "API Key" | "Access Keys" | "GitHub App" | "MCP";
   scopes: string[];
   capabilities: ProviderCapability[];
   availability: ProviderAvailability;
@@ -30,7 +30,7 @@ export const PROVIDER_REGISTRY: ProviderDefinition[] = [
   { id: "zoho", name: "Zoho", category: "CRM & Business", description: "CRM, Desk, Projects and business applications.", auth: "OAuth 2.0", scopes: ["provider-managed"], capabilities: ["read", "write", "sync"], availability: "coming_soon", logoUrl: logo("zoho") },
   { id: "hubspot", name: "HubSpot", category: "CRM & Marketing", description: "CRM records, tickets, engagements and automation context.", auth: "OAuth 2.0", scopes: ["provider-managed"], capabilities: ["read", "sync"], availability: "coming_soon", logoUrl: logo("hubspot") },
   { id: "slack", name: "Slack", category: "Collaboration", description: "Channels, messages and workflow context.", auth: "OAuth 2.0", scopes: ["provider-managed"], capabilities: ["read", "sync"], availability: "available", logoUrl: logo("slack") },
-  { id: "github", name: "GitHub", category: "DevOps", description: "Repositories, Actions and security context.", auth: "OAuth 2.0", scopes: ["repo"], capabilities: ["read", "sync"], availability: "available", logoUrl: logo("github") },
+  { id: "github", name: "GitHub", category: "DevOps", description: "Repositories, Actions and security context via GitHub App installation.", auth: "GitHub App", scopes: ["installation-selected-repositories"], capabilities: ["read", "sync"], availability: "available", logoUrl: logo("github") },
   { id: "gitlab", name: "GitLab", category: "DevOps", description: "Projects, pipelines, repositories and security findings.", auth: "OAuth 2.0", scopes: ["provider-managed"], capabilities: ["read", "sync"], availability: "coming_soon", logoUrl: logo("gitlab") },
   { id: "confluence", name: "Confluence", category: "Knowledge & Collaboration", description: "Knowledge spaces, pages and operational documentation.", auth: "OAuth 2.0", scopes: ["provider-managed"], capabilities: ["read", "sync"], availability: "coming_soon", logoUrl: logo("confluence") },
   { id: "rubrik", name: "Rubrik", category: "Data Protection", description: "Backup, recovery, protection policies and cyber resilience.", auth: "API Key", scopes: ["provider-managed"], capabilities: ["read", "sync"], availability: "coming_soon", logoUrl: logo("rubrik") },
