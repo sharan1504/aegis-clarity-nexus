@@ -1,21 +1,204 @@
 import crypto from "node:crypto";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const state = vi.hoisted(() => ({ entities: [] as Array<Record<string, unknown>>, runs: [] as Array<Record<string, unknown>>, statuses: [] as Array<Record<string, unknown>>, credentials: "" }));
-vi.mock("@/integrations/supabase/client.server", () => ({ supabaseAdmin: { from(table: string) { const chain: any = { select: () => chain, eq: () => chain, in: () => chain, order: () => chain, limit: () => chain, maybeSingle: async () => { if (table === "provider_connections") return { data: { id: "connection-1", tenant_id: "tenant-1", provider: "github", status: "connected", encrypted_credentials: state.credentials }, error: null }; if (table === "provider_sync_runs") return { data: state.runs[0] ?? null, error: null }; if (table === "github_sync_status") return { data: state.statuses[0] ?? null, error: null }; if (table === "audit_log") return { data: { id: "audit-1" }, error: null }; return { data: null, error: null }; }, single: async () => ({ data: { id: "run-1" }, error: null }), upsert: async (row: Record<string, unknown>) => { if (table === "github_synced_entities") state.entities.push(row); if (table === "github_sync_status") state.statuses = [row]; return { data: null, error: null }; }, update: () => chain, insert: () => chain, then: (resolve: (value: unknown) => unknown) => { if (table === "github_synced_entities") return Promise.resolve({ data: state.entities.map((row) => ({ entity_type: row.entity_type, entity_key: row.entity_key })), error: null }).then(resolve); return Promise.resolve({ data: null, error: null }).then(resolve); } }; return chain; } } }));
-const encrypted = (token: string) => { const key = Buffer.alloc(32, 7); process.env.AEGIS_CREDENTIAL_ENCRYPTION_KEY = key.toString("hex"); const iv = crypto.randomBytes(12); const cipher = crypto.createCipheriv("aes-256-gcm", key, iv); const body = Buffer.concat([cipher.update(JSON.stringify({ accessToken: token }), "utf8"), cipher.final()]); const tag = cipher.getAuthTag(); return [iv.toString("base64url"), tag.toString("base64url"), body.toString("base64url")].join("."); };
-beforeEach(() => { state.entities.length = 0; state.runs.length = 0; state.statuses.length = 0; state.credentials = encrypted("github-test-token"); vi.restoreAllMocks(); });
+const state = vi.hoisted(() => ({
+  entities: [] as Array<Record<string, unknown>>,
+  runs: [] as Array<Record<string, unknown>>,
+  statuses: [] as Array<Record<string, unknown>>,
+  credentials: "",
+}));
+
+vi.mock("@/integrations/supabase/client.server", () => ({
+  supabaseAdmin: {
+    from(table: string) {
+      const chain: any = {
+        select: () => chain,
+        eq: () => chain,
+        in: () => chain,
+        order: () => chain,
+        limit: () => chain,
+        maybeSingle: async () => {
+          if (table === "provider_connections") {
+            return {
+              data: {
+                id: "connection-1",
+                tenant_id: "tenant-1",
+                provider: "github",
+                status: "connected",
+                encrypted_credentials: state.credentials,
+              },
+              error: null,
+            };
+          }
+          if (table === "provider_sync_runs") return { data: state.runs[0] ?? null, error: null };
+          if (table === "github_sync_status") return { data: state.statuses[0] ?? null, error: null };
+          if (table === "audit_log") return { data: { id: "audit-1" }, error: null };
+          return { data: null, error: null };
+        },
+        single: async () => ({ data: { id: "run-1" }, error: null }),
+        upsert: async (row: Record<string, unknown>) => {
+          if (table === "github_synced_entities") state.entities.push(row);
+          if (table === "github_sync_status") state.statuses = [row];
+          return { data: null, error: null };
+        },
+        update: () => chain,
+        insert: () => chain,
+        then: (resolve: (value: unknown) => unknown) => {
+          if (table === "github_synced_entities") {
+            return Promise.resolve({
+              data: state.entities.map((row) => ({ entity_type: row.entity_type, entity_key: row.entity_key })),
+              error: null,
+            }).then(resolve);
+          }
+          return Promise.resolve({ data: null, error: null }).then(resolve);
+        },
+      };
+      return chain;
+    },
+  },
+}));
+
+vi.mock("./github-app.server", () => ({
+  GITHUB_INSTALLATION_REPOSITORIES_PATH: "/installation/repositories",
+  GITHUB_INSTALLATION_REPOSITORIES_KEY: "repositories",
+  installationTokenForCredentials: vi.fn(async (credentials: { authType?: string; installationId?: string }) => {
+    if (credentials?.authType !== "github_app" || !credentials.installationId) {
+      throw new Error("invalid GitHub App test credentials");
+    }
+    return "github-app-test-token";
+  }),
+}));
+
+const encrypted = () => {
+  const key = Buffer.alloc(32, 7);
+  process.env.AEGIS_CREDENTIAL_ENCRYPTION_KEY = key.toString("hex");
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+  const payload = {
+    authType: "github_app",
+    installationId: "123456789",
+    accountId: "42",
+    accountLogin: "acme",
+    accountType: "Organization",
+  };
+  const body = Buffer.concat([cipher.update(JSON.stringify(payload), "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return [iv.toString("base64url"), tag.toString("base64url"), body.toString("base64url")].join(".");
+};
+
+beforeEach(() => {
+  state.entities.length = 0;
+  state.runs.length = 0;
+  state.statuses.length = 0;
+  state.credentials = encrypted();
+  vi.clearAllMocks();
+});
 
 describe("GitHub sync end-to-end persistence", () => {
   it("stores repository, workflow and security records from a successful provider snapshot", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response(JSON.stringify([{ id: 1, full_name: "acme/app", name: "app", html_url: "https://github.com/acme/app", private: true, archived: false, default_branch: "main", pushed_at: "2026-09-06T10:00:00Z", updated_at: "2026-09-06T10:00:00Z" }]), { status: 200, headers: { link: "" } })).mockResolvedValueOnce(new Response(JSON.stringify({ total_count: 1, workflow_runs: [{ id: 2, name: "CI", status: "completed", conclusion: "success", html_url: "https://github.com/acme/app/actions/runs/2", created_at: "2026-09-06T10:00:00Z", updated_at: "2026-09-06T10:01:00Z", run_started_at: "2026-09-06T10:00:10Z" }] }), { status: 200, headers: { link: "" } })).mockResolvedValueOnce(new Response(JSON.stringify([{ number: 3, state: "open", rule: { description: "SQL injection", security_severity_level: "high" }, html_url: "https://github.com/acme/app/security/code-scanning/3", updated_at: "2026-09-06T10:02:00Z" }]), { status: 200, headers: { link: "" } })).mockResolvedValueOnce(new Response(JSON.stringify([{ number: 4, state: "open", security_advisory: { summary: "Vulnerable package", severity: "moderate" }, html_url: "https://github.com/acme/app/security/dependabot/4", updated_at: "2026-09-06T10:03:00Z" }]), { status: 200, headers: { link: "" } })));
-    const { syncGitHub } = await import("./github-connector.server"); const result = await syncGitHub("tenant-1", "connection-1", "all", "run-1", "sync-1");
-    expect(result.status).toBe("success"); expect(result.repositoriesCount).toBe(1); expect(result.workflowRunsCount).toBe(1); expect(result.securityAlertsCount).toBe(2); expect(state.entities).toHaveLength(4);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn()
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify([
+              {
+                id: 1,
+                full_name: "acme/app",
+                name: "app",
+                html_url: "https://github.com/acme/app",
+                private: true,
+                archived: false,
+                default_branch: "main",
+                pushed_at: "2026-09-06T10:00:00Z",
+                updated_at: "2026-09-06T10:00:00Z",
+              },
+            ]),
+            { status: 200, headers: { link: "" } },
+          ),
+        )
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              total_count: 1,
+              workflow_runs: [
+                {
+                  id: 2,
+                  name: "CI",
+                  status: "completed",
+                  conclusion: "success",
+                  html_url: "https://github.com/acme/app/actions/runs/2",
+                  created_at: "2026-09-06T10:00:00Z",
+                  updated_at: "2026-09-06T10:01:00Z",
+                  run_started_at: "2026-09-06T10:00:10Z",
+                },
+              ],
+            }),
+            { status: 200, headers: { link: "" } },
+          ),
+        )
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify([
+              {
+                number: 3,
+                state: "open",
+                rule: { description: "SQL injection", security_severity_level: "high" },
+                html_url: "https://github.com/acme/app/security/code-scanning/3",
+                updated_at: "2026-09-06T10:02:00Z",
+              },
+            ]),
+            { status: 200, headers: { link: "" } },
+          ),
+        )
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify([
+              {
+                number: 4,
+                state: "open",
+                security_advisory: { summary: "Vulnerable package", severity: "moderate" },
+                html_url: "https://github.com/acme/app/security/dependabot/4",
+                updated_at: "2026-09-06T10:03:00Z",
+              },
+            ]),
+            { status: 200, headers: { link: "" } },
+          ),
+        ),
+    );
+
+    const { syncGitHub } = await import("./github-connector.server");
+    const result = await syncGitHub("tenant-1", "connection-1", "all", "run-1", "sync-1");
+
+    expect(result.status).toBe("success");
+    expect(result.repositoriesCount).toBe(1);
+    expect(result.workflowRunsCount).toBe(1);
+    expect(result.securityAlertsCount).toBe(2);
+    expect(state.entities).toHaveLength(4);
   });
 
   it("returns the persisted successful status for a duplicate idempotency key without calling GitHub again", async () => {
-    state.runs.push({ id: "run-1", status: "success" }); state.statuses.push({ connection_id: "connection-1", status: "success", last_attempted_at: "2026-09-06T10:00:00Z", last_successful_at: "2026-09-06T10:01:00Z", repositories_count: 2, workflow_runs_count: 4, security_alerts_count: 1, error_message: null });
-    const fetchMock = vi.fn(); vi.stubGlobal("fetch", fetchMock); const { syncGitHub } = await import("./github-connector.server"); const result = await syncGitHub("tenant-1", "connection-1", "all", "run-1", "sync-1");
-    expect(result.status).toBe("success"); expect(result.repositoriesCount).toBe(2); expect(result.workflowRunsCount).toBe(4); expect(fetchMock).not.toHaveBeenCalled();
+    state.runs.push({ id: "run-1", status: "success" });
+    state.statuses.push({
+      connection_id: "connection-1",
+      status: "success",
+      last_attempted_at: "2026-09-06T10:00:00Z",
+      last_successful_at: "2026-09-06T10:01:00Z",
+      repositories_count: 2,
+      workflow_runs_count: 4,
+      security_alerts_count: 1,
+      error_message: null,
+    });
+
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { syncGitHub } = await import("./github-connector.server");
+    const result = await syncGitHub("tenant-1", "connection-1", "all", "run-1", "sync-1");
+
+    expect(result.status).toBe("success");
+    expect(result.repositoriesCount).toBe(2);
+    expect(result.workflowRunsCount).toBe(4);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
