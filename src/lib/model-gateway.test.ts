@@ -7,7 +7,7 @@ describe("LovableModelGateway", () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(
         JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model: "openai/gpt-6-astra",
           choices: [{ message: { content: '{"steps":[]}' } }],
           usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
         }),
@@ -28,9 +28,15 @@ describe("LovableModelGateway", () => {
     });
 
     expect(result.provider).toBe("lovable-ai");
-    expect(result.model).toBe("google/gemini-3-flash-preview");
+    expect(result.model).toBe("openai/gpt-6-astra");
     expect(result.usage?.totalTokens).toBe(15);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "https://example.test/v1/chat/completions",
+      expect.objectContaining({
+        body: expect.stringContaining('"model":"openai/gpt-6-astra"'),
+      }),
+    );
   });
 
   it("fails closed when AI access is not configured", async () => {
