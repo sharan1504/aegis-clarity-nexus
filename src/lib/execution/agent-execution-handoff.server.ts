@@ -2,7 +2,7 @@ import type { UserClient } from "@/lib/execution/gateway.server";
 import { runGovernedOperation, type ActorContext, type GovernedResult } from "@/lib/execution/gateway.server";
 
 export interface AgentExecutionRequest { runId: string; changeRecordId: string; }
-export interface ApprovedChangeContext { rowId: string; changeId: string; stage: string; agent: string | null; provider: string | null; executionMode: string | null; rollbackSteps: unknown; validations: unknown; }
+export interface ApprovedChangeContext { rowId: string; changeId: string; stage: string; agent: string | null; provider: string | null; integrationId: string | null; executionMode: string | null; rollbackSteps: unknown; validations: unknown; }
 export interface AgentExecutionReceipt { status: "executed"; runId: string; changeRecordId: string; changeId: string; provider: string | null; capability: string | null; startedAt: string; completedAt: string; verificationRequired: true; result: unknown; }
 export type AgentCapabilityExecutor = (input: { supabase: UserClient; actor: ActorContext; runId: string; change: ApprovedChangeContext; run: Record<string, unknown> }) => Promise<unknown>;
 
@@ -14,16 +14,17 @@ function approvalDenial(approvals: Array<{ status: string }>): string | null {
 }
 
 async function loadApprovedChange(supabase: UserClient, tenantId: string, changeRecordId: string): Promise<ApprovedChangeContext> {
-  const { data: change, error: changeError } = await (supabase as any).from("change_records").select("id, change_id, tenant_id, stage, agent, owner_team, execution_mode, rollback_steps, validations").eq("id", changeRecordId).eq("tenant_id", tenantId).single();
+  const { data: change, error: changeError } = await (supabase as any).from("change_records").select("id, change_id, tenant_id, stage, agent, owner_team, integration_id, execution_mode, rollback_steps, validations").eq("id", changeRecordId).eq("tenant_id", tenantId).single();
   if (changeError || !change) throw new Error(changeError?.message ?? "Linked change record was not found.");
   const { data: approvals, error: approvalError } = await (supabase as any).from("change_approvals").select("status").eq("change_record_id", change.id).eq("tenant_id", tenantId).order("position", { ascending: true });
   if (approvalError) throw new Error(approvalError.message);
   const denial = approvalDenial((approvals ?? []) as Array<{ status: string }>);
   if (denial) throw new Error(denial);
   if (change.stage !== "Ready to Execute") throw new Error(`Change ${change.change_id} is not ready to execute; current stage is ${change.stage}.`);
+  if (change.provider === "github" && !change.integration_id) throw new Error("The approved GitHub change is not bound to a specific integration.");
   const ownerTeam = typeof change.owner_team === "string" ? change.owner_team : "";
   const provider = ownerTeam.endsWith(" Operations") ? ownerTeam.slice(0, -" Operations".length).toLowerCase() : null;
-  return { rowId: change.id, changeId: change.change_id, stage: change.stage, agent: change.agent ?? null, provider, executionMode: change.execution_mode ?? null, rollbackSteps: change.rollback_steps ?? [], validations: change.validations ?? [] };
+  return { rowId: change.id, changeId: change.change_id, stage: change.stage, agent: change.agent ?? null, provider, integrationId: change.integration_id ?? null, executionMode: change.execution_mode ?? null, rollbackSteps: change.rollback_steps ?? [], validations: change.validations ?? [] };
 }
 
 /** Execute only after the existing Approval Center has produced a Ready to Execute change. */
