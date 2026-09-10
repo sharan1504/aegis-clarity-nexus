@@ -1,23 +1,7 @@
 import crypto from "node:crypto";
 
 export type ProviderId = "aws" | "azure" | "m365" | "jira" | "servicenow" | "salesforce" | "slack" | "github";
-
-export interface ProviderConnectionInput {
-  provider: ProviderId;
-  tenantId: string;
-  baseUrl?: string;
-  tenant?: string;
-  clientId?: string;
-  clientSecret?: string;
-  accessToken?: string;
-  refreshToken?: string;
-  apiToken?: string;
-  accessKeyId?: string;
-  secretAccessKey?: string;
-  sessionToken?: string;
-  region?: string;
-}
-
+export interface ProviderConnectionInput { provider: ProviderId; tenantId: string; baseUrl?: string; tenant?: string; clientId?: string; clientSecret?: string; accessToken?: string; refreshToken?: string; apiToken?: string; accessKeyId?: string; secretAccessKey?: string; sessionToken?: string; region?: string; }
 export interface ProviderConnectionResult { ok: boolean; provider: ProviderId; status: "connected" | "failed"; externalId?: string; displayName?: string; accessToken?: string; refreshToken?: string; expiresAt?: string; error?: string; }
 function required(value: string | undefined, name: string): string { if (!value?.trim()) throw new Error(`${name} is required.`); return value.trim(); }
 async function jsonRequest(url: string, init: RequestInit = {}) { const response = await fetch(url, init); const text = await response.text(); let body: unknown; try { body = text ? JSON.parse(text) : {}; } catch { body = { raw: text }; } if (!response.ok) throw new Error(`Provider request failed (${response.status}): ${typeof body === "object" ? JSON.stringify(body) : String(body)}`); return body as Record<string, unknown>; }
