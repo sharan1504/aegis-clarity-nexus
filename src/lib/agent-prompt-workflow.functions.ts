@@ -3,7 +3,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { loadAgentDetail } from "@/lib/agent-detail.server";
 
 const ENDPOINT = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "google/gemini-3-flash-preview";
+const MODEL = "openai/gpt-6-astra";
 
 export type GeneratedAgentWorkflowStep = {
   id: string;
