@@ -43,13 +43,14 @@ export const removeProviderIntegration = createServerFn({ method: "POST" }).midd
   const { data: connection, error: lookupError } = await supabaseAdmin.from("provider_connections").select("id,provider,display_name").eq("id", data.connectionId).eq("tenant_id", tenantId).maybeSingle();
   if (lookupError) return { ok: false as const, errorMessage: lookupError.message };
   if (!connection) return { ok: false as const, errorMessage: "Integration connection was not found for this tenant." };
+  const optionalTableMissing = (error: { message: string } | null) => !!error && /relation .* does not exist|could not find the table .* in the schema cache|schema cache.*table/i.test(error.message);
   const { error: syncEntitiesError } = await supabaseAdmin.from("github_synced_entities").delete().eq("tenant_id", tenantId).eq("connection_id", data.connectionId);
-  if (syncEntitiesError && !/relation .* does not exist/i.test(syncEntitiesError.message)) return { ok: false as const, errorMessage: syncEntitiesError.message };
+  if (syncEntitiesError && !optionalTableMissing(syncEntitiesError)) return { ok: false as const, errorMessage: syncEntitiesError.message };
   const { error: syncStatusError } = await supabaseAdmin.from("github_sync_status").delete().eq("tenant_id", tenantId).eq("connection_id", data.connectionId);
-  if (syncStatusError && !/relation .* does not exist/i.test(syncStatusError.message)) return { ok: false as const, errorMessage: syncStatusError.message };
+  if (syncStatusError && !optionalTableMissing(syncStatusError)) return { ok: false as const, errorMessage: syncStatusError.message };
   const { error: deleteError } = await supabaseAdmin.from("provider_connections").delete().eq("id", data.connectionId).eq("tenant_id", tenantId);
   if (deleteError) return { ok: false as const, errorMessage: deleteError.message };
   const { error: auditError } = await supabaseAdmin.from("audit_log").insert({ tenant_id: tenantId, action: "integration.removed", entity_type: "integration", entity_id: data.connectionId, detail: `Removed ${connection.provider} integration ${connection.display_name || data.connectionId}.`, payload: { provider: connection.provider, connectionId: data.connectionId, actorUserId: context.userId } });
-  if (auditError) return { ok: false as const, errorMessage: auditError.message };
+  if (auditError) console.error("GitHub integration removal audit failed after successful deletion:", auditError.message);
   return { ok: true as const, connectionId: data.connectionId };
 });
