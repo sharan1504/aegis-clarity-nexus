@@ -39,7 +39,7 @@ export interface LovableModelGatewayOptions {
 }
 
 const DEFAULT_ENDPOINT = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const DEFAULT_MODEL = "google/gemini-3-flash-preview";
+const DEFAULT_MODEL = "openai/gpt-6-astra";
 
 /** Provider-specific AI access lives behind this server-side adapter. */
 export class LovableModelGateway implements ModelGateway {
