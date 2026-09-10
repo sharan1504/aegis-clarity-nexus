@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const state = vi.hoisted(() => ({
@@ -68,13 +69,22 @@ vi.mock("./github-app.server", () => ({
   }),
 }));
 
-const encrypted = () => JSON.stringify({
-  authType: "github_app",
-  installationId: "123456789",
-  accountId: "42",
-  accountLogin: "acme",
-  accountType: "Organization",
-});
+const encrypted = () => {
+  const key = Buffer.alloc(32, 7);
+  process.env.AEGIS_CREDENTIAL_ENCRYPTION_KEY = key.toString("hex");
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+  const payload = {
+    authType: "github_app",
+    installationId: "123456789",
+    accountId: "42",
+    accountLogin: "acme",
+    accountType: "Organization",
+  };
+  const body = Buffer.concat([cipher.update(JSON.stringify(payload), "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return [iv.toString("base64url"), tag.toString("base64url"), body.toString("base64url")].join(".");
+};
 
 beforeEach(() => {
   state.entities.length = 0;
