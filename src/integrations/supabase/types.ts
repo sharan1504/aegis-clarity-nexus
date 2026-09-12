@@ -14,6 +14,62 @@ export type Database = {
   }
   public: {
     Tables: {
+      access_requests: {
+        Row: {
+          company: string
+          created_at: string
+          full_name: string
+          id: string
+          job_title: string | null
+          requested_tenant_id: string | null
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+          use_case: string
+          work_email: string
+        }
+        Insert: {
+          company: string
+          created_at?: string
+          full_name: string
+          id?: string
+          job_title?: string | null
+          requested_tenant_id?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          use_case: string
+          work_email: string
+        }
+        Update: {
+          company?: string
+          created_at?: string
+          full_name?: string
+          id?: string
+          job_title?: string | null
+          requested_tenant_id?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          use_case?: string
+          work_email?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "access_requests_requested_tenant_id_fkey"
+            columns: ["requested_tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_capabilities: {
         Row: {
           agent_key: string
@@ -79,6 +135,57 @@ export type Database = {
           id?: string
         }
         Relationships: []
+      }
+      agent_evaluation_runs: {
+        Row: {
+          created_at: string
+          evaluated_by: string | null
+          failed: number
+          id: string
+          passed: number
+          results: Json
+          run_id: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          evaluated_by?: string | null
+          failed?: number
+          id?: string
+          passed?: number
+          results?: Json
+          run_id: string
+          status: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          evaluated_by?: string | null
+          failed?: number
+          id?: string
+          passed?: number
+          results?: Json
+          run_id?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_evaluation_runs_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "agent_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_evaluation_runs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       agent_integration_bindings: {
         Row: {
@@ -228,6 +335,170 @@ export type Database = {
           },
           {
             foreignKeyName: "agent_policy_revisions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_run_events: {
+        Row: {
+          actor_id: string | null
+          capability_key: string | null
+          event_type: string
+          id: string
+          occurred_at: string
+          outcome: string | null
+          payload: Json
+          provider: string | null
+          run_id: string
+          sequence: number
+          step: string | null
+          tenant_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          capability_key?: string | null
+          event_type: string
+          id?: string
+          occurred_at?: string
+          outcome?: string | null
+          payload?: Json
+          provider?: string | null
+          run_id: string
+          sequence: number
+          step?: string | null
+          tenant_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          capability_key?: string | null
+          event_type?: string
+          id?: string
+          occurred_at?: string
+          outcome?: string | null
+          payload?: Json
+          provider?: string | null
+          run_id?: string
+          sequence?: number
+          step?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_run_events_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "agent_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_run_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_run_evidence: {
+        Row: {
+          created_at: string
+          evidence: Json
+          id: string
+          run_id: string
+          step: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          evidence?: Json
+          id?: string
+          run_id: string
+          step: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          evidence?: Json
+          id?: string
+          run_id?: string
+          step?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_run_evidence_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "agent_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_run_evidence_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_runs: {
+        Row: {
+          agent_key: string
+          approval: Json | null
+          created_at: string
+          created_by: string | null
+          current_step: string
+          error: string | null
+          execution: Json | null
+          id: string
+          input: string
+          plan: Json | null
+          policy_verdict: Json | null
+          status: string
+          tenant_id: string
+          updated_at: string
+          verification: Json | null
+        }
+        Insert: {
+          agent_key: string
+          approval?: Json | null
+          created_at?: string
+          created_by?: string | null
+          current_step?: string
+          error?: string | null
+          execution?: Json | null
+          id?: string
+          input: string
+          plan?: Json | null
+          policy_verdict?: Json | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          verification?: Json | null
+        }
+        Update: {
+          agent_key?: string
+          approval?: Json | null
+          created_at?: string
+          created_by?: string | null
+          current_step?: string
+          error?: string | null
+          execution?: Json | null
+          id?: string
+          input?: string
+          plan?: Json | null
+          policy_verdict?: Json | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          verification?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_runs_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -1064,6 +1335,132 @@ export type Database = {
           },
           {
             foreignKeyName: "genesys_users_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      github_sync_status: {
+        Row: {
+          connection_id: string
+          error_message: string | null
+          last_attempted_at: string | null
+          last_successful_at: string | null
+          repositories_count: number
+          security_alerts_count: number
+          status: string
+          tenant_id: string
+          updated_at: string
+          workflow_runs_count: number
+        }
+        Insert: {
+          connection_id: string
+          error_message?: string | null
+          last_attempted_at?: string | null
+          last_successful_at?: string | null
+          repositories_count?: number
+          security_alerts_count?: number
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          workflow_runs_count?: number
+        }
+        Update: {
+          connection_id?: string
+          error_message?: string | null
+          last_attempted_at?: string | null
+          last_successful_at?: string | null
+          repositories_count?: number
+          security_alerts_count?: number
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          workflow_runs_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "github_sync_status_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "provider_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "github_sync_status_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      github_synced_entities: {
+        Row: {
+          alert_severity: string | null
+          alert_state: string | null
+          alert_title: string | null
+          connection_id: string
+          entity_key: string
+          entity_type: string
+          html_url: string | null
+          id: string
+          payload: Json
+          provider_updated_at: string | null
+          repository_name: string | null
+          stale: boolean
+          synced_at: string
+          tenant_id: string
+          workflow_conclusion: string | null
+          workflow_status: string | null
+        }
+        Insert: {
+          alert_severity?: string | null
+          alert_state?: string | null
+          alert_title?: string | null
+          connection_id: string
+          entity_key: string
+          entity_type: string
+          html_url?: string | null
+          id?: string
+          payload?: Json
+          provider_updated_at?: string | null
+          repository_name?: string | null
+          stale?: boolean
+          synced_at?: string
+          tenant_id: string
+          workflow_conclusion?: string | null
+          workflow_status?: string | null
+        }
+        Update: {
+          alert_severity?: string | null
+          alert_state?: string | null
+          alert_title?: string | null
+          connection_id?: string
+          entity_key?: string
+          entity_type?: string
+          html_url?: string | null
+          id?: string
+          payload?: Json
+          provider_updated_at?: string | null
+          repository_name?: string | null
+          stale?: boolean
+          synced_at?: string
+          tenant_id?: string
+          workflow_conclusion?: string | null
+          workflow_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "github_synced_entities_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "provider_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "github_synced_entities_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"

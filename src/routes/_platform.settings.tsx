@@ -32,7 +32,7 @@ const DEFAULT_TIMEZONES = [
   "America/Vancouver", "America/Sao_Paulo",
 ];
 
-export const Route = createFileRoute("/_app/settings")({ head: () => pageHead({ path: "/settings", title: "Workspace Settings — Aegis AI", description: "Manage organization, security, appearance, AI safety and workspace preferences." }), component: SettingsPage });
+export const Route = createFileRoute("/_platform/settings")({ head: () => pageHead({ path: "/platform/settings", title: "Workspace Settings — Aegis AI", description: "Manage organization, security, appearance, AI safety and workspace preferences." }), component: SettingsPage });
 
 function SettingsPage() {
   const { theme, toggle } = useTheme();

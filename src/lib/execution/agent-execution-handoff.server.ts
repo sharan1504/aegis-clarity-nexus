@@ -1,9 +1,10 @@
 import type { UserClient } from "@/lib/execution/gateway.server";
 import { runGovernedOperation, type ActorContext, type GovernedResult } from "@/lib/execution/gateway.server";
+import { toJsonValue, type JsonValue } from "@/lib/json";
 
 export interface AgentExecutionRequest { runId: string; changeRecordId: string; }
 export interface ApprovedChangeContext { rowId: string; changeId: string; stage: string; agent: string | null; provider: string | null; executionMode: string | null; rollbackSteps: unknown; validations: unknown; }
-export interface AgentExecutionReceipt { status: "executed"; runId: string; changeRecordId: string; changeId: string; provider: string | null; capability: string | null; startedAt: string; completedAt: string; verificationRequired: true; result: unknown; }
+export interface AgentExecutionReceipt { status: "executed"; runId: string; changeRecordId: string; changeId: string; provider: string | null; capability: string | null; startedAt: string; completedAt: string; verificationRequired: true; result: JsonValue; }
 export type AgentCapabilityExecutor = (input: { supabase: UserClient; actor: ActorContext; runId: string; change: ApprovedChangeContext; run: Record<string, unknown> }) => Promise<unknown>;
 
 function approvalDenial(approvals: Array<{ status: string }>): string | null {
@@ -37,7 +38,7 @@ export async function executeApprovedAgentRun(supabase: UserClient, actor: Actor
   catch (error) { return { ok: false, decision: "block", reasons: [error instanceof Error ? error.message : "The approval boundary could not be verified."], requiredActions: ["Resolve the linked change record approvals and retry."] }; }
   if (change.agent && change.agent !== run.agent_key) return { ok: false, decision: "block", reasons: ["The approved change record is bound to a different agent."], requiredActions: ["Use the change record created for this agent run."] };
   const startedAt = new Date().toISOString();
-  return runGovernedOperation(supabase, actor, { origin: "agent", actionKey: `agent.${run.agent_key}.execute`, executionClass: "write", agentKey: run.agent_key, provider: change.provider, capability: "agent.execute", hasChangeTicket: true, hasApproval: true, hasRollbackPlan: Array.isArray(change.rollbackSteps) && change.rollbackSteps.length > 0, changeRecordId: change.rowId }, async () => ({ status: "executed" as const, runId: request.runId, changeRecordId: change.rowId, changeId: change.changeId, provider: change.provider, capability: "agent.execute", startedAt, completedAt: new Date().toISOString(), verificationRequired: true as const, result: await executor({ supabase, actor, runId: request.runId, change, run: run as Record<string, unknown> }) }));
+  return runGovernedOperation(supabase, actor, { origin: "agent", actionKey: `agent.${run.agent_key}.execute`, executionClass: "high_risk", agentKey: run.agent_key, provider: change.provider, capability: "agent.execute", hasChangeTicket: true, hasApproval: true, hasRollbackPlan: Array.isArray(change.rollbackSteps) && change.rollbackSteps.length > 0, changeRecordId: change.rowId }, async () => ({ status: "executed" as const, runId: request.runId, changeRecordId: change.rowId, changeId: change.changeId, provider: change.provider, capability: "agent.execute", startedAt, completedAt: new Date().toISOString(), verificationRequired: true as const, result: toJsonValue(await executor({ supabase, actor, runId: request.runId, change, run: run as Record<string, unknown> })) }));
 }
 
 export function unsupportedProviderExecutor(provider: string | null): AgentCapabilityExecutor { return async () => { throw new Error(`Provider mutation is not implemented for ${provider ?? "this provider"}; execution was denied rather than simulated.`); }; }

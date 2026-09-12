@@ -15,15 +15,15 @@ export const Route = createFileRoute("/sitemap.xml")({
       GET: async () => {
         const entries: SitemapEntry[] = [
           { path: "/", changefreq: "daily", priority: "1.0" },
-          { path: "/agents", changefreq: "weekly", priority: "0.8" },
-          { path: "/chat", changefreq: "weekly", priority: "0.7" },
-          { path: "/approvals", changefreq: "daily", priority: "0.8" },
-          { path: "/integrations", changefreq: "weekly", priority: "0.7" },
-          { path: "/marketplace", changefreq: "weekly", priority: "0.7" },
-          { path: "/reports", changefreq: "weekly", priority: "0.7" },
+          { path: "/platform/agents", changefreq: "weekly", priority: "0.8" },
+          { path: "/platform/chat", changefreq: "weekly", priority: "0.7" },
+          { path: "/platform/approvals", changefreq: "daily", priority: "0.8" },
+          { path: "/platform/integrations", changefreq: "weekly", priority: "0.7" },
+          { path: "/platform/marketplace", changefreq: "weekly", priority: "0.7" },
+          { path: "/platform/reports", changefreq: "weekly", priority: "0.7" },
           { path: "/resources/what-is-aiops", changefreq: "monthly", priority: "0.8" },
-          { path: "/users", changefreq: "monthly", priority: "0.5" },
-          { path: "/settings", changefreq: "monthly", priority: "0.4" },
+          { path: "/platform/users", changefreq: "monthly", priority: "0.5" },
+          { path: "/platform/settings", changefreq: "monthly", priority: "0.4" },
         ];
 
         const urls = entries.map((e) =>

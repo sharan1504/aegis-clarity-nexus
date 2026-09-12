@@ -44,10 +44,10 @@ import {
 } from "@/lib/guardrails/types";
 import { pageHead } from "@/lib/seo";
 
-export const Route = createFileRoute("/_app/governance")({
+export const Route = createFileRoute("/_platform/governance")({
   head: () =>
     pageHead({
-      path: "/governance",
+      path: "/platform/governance",
       title: "Governance — Guardrails & Instructions | Aegis AI",
       description:
         "Author, simulate, and audit the guardrails that constrain every Aegis AI agent, capability, connector, and tool — and the organization instructions that guide how they work.",

@@ -9,41 +9,41 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as AppRouteImport } from './routes/_app'
+import { Route as PlatformRouteImport } from './routes/_platform'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
-import { Route as AppIndexRouteImport } from './routes/_app.index'
-import { Route as AppAgenticStudioRouteImport } from './routes/_app.agentic-studio'
-import { Route as AppAgentsRouteImport } from './routes/_app.agents'
-import { Route as AppAnalyticsRouteImport } from './routes/_app.analytics'
-import { Route as AppAuditRouteImport } from './routes/_app.audit'
-import { Route as AppChatRouteImport } from './routes/_app.chat'
-import { Route as AppGovernanceRouteImport } from './routes/_app.governance'
-import { Route as AppIntegrationsRouteImport } from './routes/_app.integrations'
-import { Route as AppInvestigationsRouteImport } from './routes/_app.investigations'
-import { Route as AppMarketplaceRouteImport } from './routes/_app.marketplace'
-import { Route as AppOperationalConsoleRouteImport } from './routes/_app.operational-console'
-import { Route as AppReportsRouteImport } from './routes/_app.reports'
-import { Route as AppSettingsRouteImport } from './routes/_app.settings'
-import { Route as AppUsersRouteImport } from './routes/_app.users'
+import { Route as PlatformIndexRouteImport } from './routes/_platform.index'
+import { Route as PlatformAgenticStudioRouteImport } from './routes/_platform.agentic-studio'
+import { Route as PlatformAgentsRouteImport } from './routes/_platform.agents'
+import { Route as PlatformAnalyticsRouteImport } from './routes/_platform.analytics'
+import { Route as PlatformAuditRouteImport } from './routes/_platform.audit'
+import { Route as PlatformChatRouteImport } from './routes/_platform.chat'
+import { Route as PlatformGovernanceRouteImport } from './routes/_platform.governance'
+import { Route as PlatformIntegrationsRouteImport } from './routes/_platform.integrations'
+import { Route as PlatformInvestigationsRouteImport } from './routes/_platform.investigations'
+import { Route as PlatformMarketplaceRouteImport } from './routes/_platform.marketplace'
+import { Route as PlatformOperationalConsoleRouteImport } from './routes/_platform.operational-console'
+import { Route as PlatformReportsRouteImport } from './routes/_platform.reports'
+import { Route as PlatformSettingsRouteImport } from './routes/_platform.settings'
+import { Route as PlatformUsersRouteImport } from './routes/_platform.users'
 import { Route as AuthChangePasswordRouteImport } from './routes/auth.change-password'
 import { Route as ResourcesWhatIsAiopsRouteImport } from './routes/resources.what-is-aiops'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
-import { Route as AppAgentEvaluationRunIdRouteImport } from './routes/_app.agent-evaluation.$runId'
-import { Route as AppAgentRunRunIdRouteImport } from './routes/_app.agent-run.$runId'
-import { Route as AppAgentAgentKeyRouteImport } from './routes/_app.agent.$agentKey'
-import { Route as AppApprovalsIndexRouteImport } from './routes/_app.approvals.index'
-import { Route as AppApprovalsIdRouteImport } from './routes/_app.approvals.$id'
+import { Route as PlatformAgentEvaluationRunIdRouteImport } from './routes/_platform.agent-evaluation.$runId'
+import { Route as PlatformAgentRunRunIdRouteImport } from './routes/_platform.agent-run.$runId'
+import { Route as PlatformAgentAgentKeyRouteImport } from './routes/_platform.agent.$agentKey'
+import { Route as PlatformApprovalsIndexRouteImport } from './routes/_platform.approvals.index'
+import { Route as PlatformApprovalsIdRouteImport } from './routes/_platform.approvals.$id'
 import { Route as ApiInternalProviderSyncRouteImport } from './routes/api.internal.provider-sync'
 import { Route as IntegrationsGenesysCallbackRouteImport } from './routes/integrations.genesys.callback'
 import { Route as IntegrationsGithubSetupRouteImport } from './routes/integrations.github.setup'
 
-const AppRoute = AppRouteImport.update({
-  id: '/_app',
+const PlatformRoute = PlatformRouteImport.update({
+  id: '/_platform',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -73,75 +73,76 @@ const Char91DotwellKnownChar93OauthProtectedResourceRoute =
     path: '/.well-known/oauth-protected-resource',
     getParentRoute: () => rootRouteImport,
   } as any)
-const AppIndexRoute = AppIndexRouteImport.update({
+const PlatformIndexRoute = PlatformIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => PlatformRoute,
 } as any)
-const AppAgenticStudioRoute = AppAgenticStudioRouteImport.update({
+const PlatformAgenticStudioRoute = PlatformAgenticStudioRouteImport.update({
   id: '/agentic-studio',
   path: '/agentic-studio',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => PlatformRoute,
 } as any)
-const AppAgentsRoute = AppAgentsRouteImport.update({
+const PlatformAgentsRoute = PlatformAgentsRouteImport.update({
   id: '/agents',
   path: '/agents',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => PlatformRoute,
 } as any)
-const AppAnalyticsRoute = AppAnalyticsRouteImport.update({
+const PlatformAnalyticsRoute = PlatformAnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => PlatformRoute,
 } as any)
-const AppAuditRoute = AppAuditRouteImport.update({
+const PlatformAuditRoute = PlatformAuditRouteImport.update({
   id: '/audit',
   path: '/audit',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => PlatformRoute,
 } as any)
-const AppChatRoute = AppChatRouteImport.update({
+const PlatformChatRoute = PlatformChatRouteImport.update({
   id: '/chat',
   path: '/chat',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => PlatformRoute,
 } as any)
-const AppGovernanceRoute = AppGovernanceRouteImport.update({
+const PlatformGovernanceRoute = PlatformGovernanceRouteImport.update({
   id: '/governance',
   path: '/governance',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => PlatformRoute,
 } as any)
-const AppIntegrationsRoute = AppIntegrationsRouteImport.update({
+const PlatformIntegrationsRoute = PlatformIntegrationsRouteImport.update({
   id: '/integrations',
   path: '/integrations',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => PlatformRoute,
 } as any)
-const AppInvestigationsRoute = AppInvestigationsRouteImport.update({
+const PlatformInvestigationsRoute = PlatformInvestigationsRouteImport.update({
   id: '/investigations',
   path: '/investigations',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => PlatformRoute,
 } as any)
-const AppMarketplaceRoute = AppMarketplaceRouteImport.update({
+const PlatformMarketplaceRoute = PlatformMarketplaceRouteImport.update({
   id: '/marketplace',
   path: '/marketplace',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => PlatformRoute,
 } as any)
-const AppOperationalConsoleRoute = AppOperationalConsoleRouteImport.update({
-  id: '/operational-console',
-  path: '/operational-console',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppReportsRoute = AppReportsRouteImport.update({
+const PlatformOperationalConsoleRoute =
+  PlatformOperationalConsoleRouteImport.update({
+    id: '/operational-console',
+    path: '/operational-console',
+    getParentRoute: () => PlatformRoute,
+  } as any)
+const PlatformReportsRoute = PlatformReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => PlatformRoute,
 } as any)
-const AppSettingsRoute = AppSettingsRouteImport.update({
+const PlatformSettingsRoute = PlatformSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => PlatformRoute,
 } as any)
-const AppUsersRoute = AppUsersRouteImport.update({
+const PlatformUsersRoute = PlatformUsersRouteImport.update({
   id: '/users',
   path: '/users',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => PlatformRoute,
 } as any)
 const AuthChangePasswordRoute = AuthChangePasswordRouteImport.update({
   id: '/change-password',
@@ -164,30 +165,31 @@ const Char91DotmcpChar93InvokeToolToolRoute =
     path: '/.mcp/invoke-tool/$tool',
     getParentRoute: () => rootRouteImport,
   } as any)
-const AppAgentEvaluationRunIdRoute = AppAgentEvaluationRunIdRouteImport.update({
-  id: '/agent-evaluation/$runId',
-  path: '/agent-evaluation/$runId',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppAgentRunRunIdRoute = AppAgentRunRunIdRouteImport.update({
+const PlatformAgentEvaluationRunIdRoute =
+  PlatformAgentEvaluationRunIdRouteImport.update({
+    id: '/agent-evaluation/$runId',
+    path: '/agent-evaluation/$runId',
+    getParentRoute: () => PlatformRoute,
+  } as any)
+const PlatformAgentRunRunIdRoute = PlatformAgentRunRunIdRouteImport.update({
   id: '/agent-run/$runId',
   path: '/agent-run/$runId',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => PlatformRoute,
 } as any)
-const AppAgentAgentKeyRoute = AppAgentAgentKeyRouteImport.update({
+const PlatformAgentAgentKeyRoute = PlatformAgentAgentKeyRouteImport.update({
   id: '/agent/$agentKey',
   path: '/agent/$agentKey',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => PlatformRoute,
 } as any)
-const AppApprovalsIndexRoute = AppApprovalsIndexRouteImport.update({
+const PlatformApprovalsIndexRoute = PlatformApprovalsIndexRouteImport.update({
   id: '/approvals/',
   path: '/approvals/',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => PlatformRoute,
 } as any)
-const AppApprovalsIdRoute = AppApprovalsIdRouteImport.update({
+const PlatformApprovalsIdRoute = PlatformApprovalsIdRouteImport.update({
   id: '/approvals/$id',
   path: '/approvals/$id',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => PlatformRoute,
 } as any)
 const ApiInternalProviderSyncRoute = ApiInternalProviderSyncRouteImport.update({
   id: '/api/internal/provider-sync',
@@ -207,37 +209,37 @@ const IntegrationsGithubSetupRoute = IntegrationsGithubSetupRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof AppIndexRoute
+  '/': typeof PlatformIndexRoute
   '/auth': typeof AuthRouteWithChildren
   '/mcp': typeof McpRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
-  '/agentic-studio': typeof AppAgenticStudioRoute
-  '/agents': typeof AppAgentsRoute
-  '/analytics': typeof AppAnalyticsRoute
-  '/audit': typeof AppAuditRoute
-  '/chat': typeof AppChatRoute
-  '/governance': typeof AppGovernanceRoute
-  '/integrations': typeof AppIntegrationsRoute
-  '/investigations': typeof AppInvestigationsRoute
-  '/marketplace': typeof AppMarketplaceRoute
-  '/operational-console': typeof AppOperationalConsoleRoute
-  '/reports': typeof AppReportsRoute
-  '/settings': typeof AppSettingsRoute
-  '/users': typeof AppUsersRoute
+  '/agentic-studio': typeof PlatformAgenticStudioRoute
+  '/agents': typeof PlatformAgentsRoute
+  '/analytics': typeof PlatformAnalyticsRoute
+  '/audit': typeof PlatformAuditRoute
+  '/chat': typeof PlatformChatRoute
+  '/governance': typeof PlatformGovernanceRoute
+  '/integrations': typeof PlatformIntegrationsRoute
+  '/investigations': typeof PlatformInvestigationsRoute
+  '/marketplace': typeof PlatformMarketplaceRoute
+  '/operational-console': typeof PlatformOperationalConsoleRoute
+  '/reports': typeof PlatformReportsRoute
+  '/settings': typeof PlatformSettingsRoute
+  '/users': typeof PlatformUsersRoute
   '/auth/change-password': typeof AuthChangePasswordRoute
   '/resources/what-is-aiops': typeof ResourcesWhatIsAiopsRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
-  '/agent-evaluation/$runId': typeof AppAgentEvaluationRunIdRoute
-  '/agent-run/$runId': typeof AppAgentRunRunIdRoute
-  '/agent/$agentKey': typeof AppAgentAgentKeyRoute
-  '/approvals/$id': typeof AppApprovalsIdRoute
+  '/agent-evaluation/$runId': typeof PlatformAgentEvaluationRunIdRoute
+  '/agent-run/$runId': typeof PlatformAgentRunRunIdRoute
+  '/agent/$agentKey': typeof PlatformAgentAgentKeyRoute
+  '/approvals/$id': typeof PlatformApprovalsIdRoute
   '/api/internal/provider-sync': typeof ApiInternalProviderSyncRoute
   '/integrations/genesys/callback': typeof IntegrationsGenesysCallbackRoute
   '/integrations/github/setup': typeof IntegrationsGithubSetupRoute
-  '/approvals/': typeof AppApprovalsIndexRoute
+  '/approvals/': typeof PlatformApprovalsIndexRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRouteWithChildren
@@ -245,67 +247,67 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
-  '/agentic-studio': typeof AppAgenticStudioRoute
-  '/agents': typeof AppAgentsRoute
-  '/analytics': typeof AppAnalyticsRoute
-  '/audit': typeof AppAuditRoute
-  '/chat': typeof AppChatRoute
-  '/governance': typeof AppGovernanceRoute
-  '/integrations': typeof AppIntegrationsRoute
-  '/investigations': typeof AppInvestigationsRoute
-  '/marketplace': typeof AppMarketplaceRoute
-  '/operational-console': typeof AppOperationalConsoleRoute
-  '/reports': typeof AppReportsRoute
-  '/settings': typeof AppSettingsRoute
-  '/users': typeof AppUsersRoute
+  '/agentic-studio': typeof PlatformAgenticStudioRoute
+  '/agents': typeof PlatformAgentsRoute
+  '/analytics': typeof PlatformAnalyticsRoute
+  '/audit': typeof PlatformAuditRoute
+  '/chat': typeof PlatformChatRoute
+  '/governance': typeof PlatformGovernanceRoute
+  '/integrations': typeof PlatformIntegrationsRoute
+  '/investigations': typeof PlatformInvestigationsRoute
+  '/marketplace': typeof PlatformMarketplaceRoute
+  '/operational-console': typeof PlatformOperationalConsoleRoute
+  '/reports': typeof PlatformReportsRoute
+  '/settings': typeof PlatformSettingsRoute
+  '/users': typeof PlatformUsersRoute
   '/auth/change-password': typeof AuthChangePasswordRoute
   '/resources/what-is-aiops': typeof ResourcesWhatIsAiopsRoute
-  '/': typeof AppIndexRoute
+  '/': typeof PlatformIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
-  '/agent-evaluation/$runId': typeof AppAgentEvaluationRunIdRoute
-  '/agent-run/$runId': typeof AppAgentRunRunIdRoute
-  '/agent/$agentKey': typeof AppAgentAgentKeyRoute
-  '/approvals/$id': typeof AppApprovalsIdRoute
+  '/agent-evaluation/$runId': typeof PlatformAgentEvaluationRunIdRoute
+  '/agent-run/$runId': typeof PlatformAgentRunRunIdRoute
+  '/agent/$agentKey': typeof PlatformAgentAgentKeyRoute
+  '/approvals/$id': typeof PlatformApprovalsIdRoute
   '/api/internal/provider-sync': typeof ApiInternalProviderSyncRoute
   '/integrations/genesys/callback': typeof IntegrationsGenesysCallbackRoute
   '/integrations/github/setup': typeof IntegrationsGithubSetupRoute
-  '/approvals': typeof AppApprovalsIndexRoute
+  '/approvals': typeof PlatformApprovalsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/_app': typeof AppRouteWithChildren
+  '/_platform': typeof PlatformRouteWithChildren
   '/auth': typeof AuthRouteWithChildren
   '/mcp': typeof McpRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
-  '/_app/agentic-studio': typeof AppAgenticStudioRoute
-  '/_app/agents': typeof AppAgentsRoute
-  '/_app/analytics': typeof AppAnalyticsRoute
-  '/_app/audit': typeof AppAuditRoute
-  '/_app/chat': typeof AppChatRoute
-  '/_app/governance': typeof AppGovernanceRoute
-  '/_app/integrations': typeof AppIntegrationsRoute
-  '/_app/investigations': typeof AppInvestigationsRoute
-  '/_app/marketplace': typeof AppMarketplaceRoute
-  '/_app/operational-console': typeof AppOperationalConsoleRoute
-  '/_app/reports': typeof AppReportsRoute
-  '/_app/settings': typeof AppSettingsRoute
-  '/_app/users': typeof AppUsersRoute
+  '/_platform/agentic-studio': typeof PlatformAgenticStudioRoute
+  '/_platform/agents': typeof PlatformAgentsRoute
+  '/_platform/analytics': typeof PlatformAnalyticsRoute
+  '/_platform/audit': typeof PlatformAuditRoute
+  '/_platform/chat': typeof PlatformChatRoute
+  '/_platform/governance': typeof PlatformGovernanceRoute
+  '/_platform/integrations': typeof PlatformIntegrationsRoute
+  '/_platform/investigations': typeof PlatformInvestigationsRoute
+  '/_platform/marketplace': typeof PlatformMarketplaceRoute
+  '/_platform/operational-console': typeof PlatformOperationalConsoleRoute
+  '/_platform/reports': typeof PlatformReportsRoute
+  '/_platform/settings': typeof PlatformSettingsRoute
+  '/_platform/users': typeof PlatformUsersRoute
   '/auth/change-password': typeof AuthChangePasswordRoute
   '/resources/what-is-aiops': typeof ResourcesWhatIsAiopsRoute
-  '/_app/': typeof AppIndexRoute
+  '/_platform/': typeof PlatformIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
-  '/_app/agent-evaluation/$runId': typeof AppAgentEvaluationRunIdRoute
-  '/_app/agent-run/$runId': typeof AppAgentRunRunIdRoute
-  '/_app/agent/$agentKey': typeof AppAgentAgentKeyRoute
-  '/_app/approvals/$id': typeof AppApprovalsIdRoute
+  '/_platform/agent-evaluation/$runId': typeof PlatformAgentEvaluationRunIdRoute
+  '/_platform/agent-run/$runId': typeof PlatformAgentRunRunIdRoute
+  '/_platform/agent/$agentKey': typeof PlatformAgentAgentKeyRoute
+  '/_platform/approvals/$id': typeof PlatformApprovalsIdRoute
   '/api/internal/provider-sync': typeof ApiInternalProviderSyncRoute
   '/integrations/genesys/callback': typeof IntegrationsGenesysCallbackRoute
   '/integrations/github/setup': typeof IntegrationsGithubSetupRoute
-  '/_app/approvals/': typeof AppApprovalsIndexRoute
+  '/_platform/approvals/': typeof PlatformApprovalsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -376,42 +378,42 @@ export interface FileRouteTypes {
     | '/approvals'
   id:
     | '__root__'
-    | '/_app'
+    | '/_platform'
     | '/auth'
     | '/mcp'
     | '/sitemap.xml'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
-    | '/_app/agentic-studio'
-    | '/_app/agents'
-    | '/_app/analytics'
-    | '/_app/audit'
-    | '/_app/chat'
-    | '/_app/governance'
-    | '/_app/integrations'
-    | '/_app/investigations'
-    | '/_app/marketplace'
-    | '/_app/operational-console'
-    | '/_app/reports'
-    | '/_app/settings'
-    | '/_app/users'
+    | '/_platform/agentic-studio'
+    | '/_platform/agents'
+    | '/_platform/analytics'
+    | '/_platform/audit'
+    | '/_platform/chat'
+    | '/_platform/governance'
+    | '/_platform/integrations'
+    | '/_platform/investigations'
+    | '/_platform/marketplace'
+    | '/_platform/operational-console'
+    | '/_platform/reports'
+    | '/_platform/settings'
+    | '/_platform/users'
     | '/auth/change-password'
     | '/resources/what-is-aiops'
-    | '/_app/'
+    | '/_platform/'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
-    | '/_app/agent-evaluation/$runId'
-    | '/_app/agent-run/$runId'
-    | '/_app/agent/$agentKey'
-    | '/_app/approvals/$id'
+    | '/_platform/agent-evaluation/$runId'
+    | '/_platform/agent-run/$runId'
+    | '/_platform/agent/$agentKey'
+    | '/_platform/approvals/$id'
     | '/api/internal/provider-sync'
     | '/integrations/genesys/callback'
     | '/integrations/github/setup'
-    | '/_app/approvals/'
+    | '/_platform/approvals/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  AppRoute: typeof AppRouteWithChildren
+  PlatformRoute: typeof PlatformRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
   McpRoute: typeof McpRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
@@ -427,11 +429,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/_app': {
-      id: '/_app'
+    '/_platform': {
+      id: '/_platform'
       path: ''
       fullPath: '/'
-      preLoaderRoute: typeof AppRouteImport
+      preLoaderRoute: typeof PlatformRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -469,103 +471,103 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_app/': {
-      id: '/_app/'
+    '/_platform/': {
+      id: '/_platform/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof AppIndexRouteImport
-      parentRoute: typeof AppRoute
+      preLoaderRoute: typeof PlatformIndexRouteImport
+      parentRoute: typeof PlatformRoute
     }
-    '/_app/agentic-studio': {
-      id: '/_app/agentic-studio'
+    '/_platform/agentic-studio': {
+      id: '/_platform/agentic-studio'
       path: '/agentic-studio'
       fullPath: '/agentic-studio'
-      preLoaderRoute: typeof AppAgenticStudioRouteImport
-      parentRoute: typeof AppRoute
+      preLoaderRoute: typeof PlatformAgenticStudioRouteImport
+      parentRoute: typeof PlatformRoute
     }
-    '/_app/agents': {
-      id: '/_app/agents'
+    '/_platform/agents': {
+      id: '/_platform/agents'
       path: '/agents'
       fullPath: '/agents'
-      preLoaderRoute: typeof AppAgentsRouteImport
-      parentRoute: typeof AppRoute
+      preLoaderRoute: typeof PlatformAgentsRouteImport
+      parentRoute: typeof PlatformRoute
     }
-    '/_app/analytics': {
-      id: '/_app/analytics'
+    '/_platform/analytics': {
+      id: '/_platform/analytics'
       path: '/analytics'
       fullPath: '/analytics'
-      preLoaderRoute: typeof AppAnalyticsRouteImport
-      parentRoute: typeof AppRoute
+      preLoaderRoute: typeof PlatformAnalyticsRouteImport
+      parentRoute: typeof PlatformRoute
     }
-    '/_app/audit': {
-      id: '/_app/audit'
+    '/_platform/audit': {
+      id: '/_platform/audit'
       path: '/audit'
       fullPath: '/audit'
-      preLoaderRoute: typeof AppAuditRouteImport
-      parentRoute: typeof AppRoute
+      preLoaderRoute: typeof PlatformAuditRouteImport
+      parentRoute: typeof PlatformRoute
     }
-    '/_app/chat': {
-      id: '/_app/chat'
+    '/_platform/chat': {
+      id: '/_platform/chat'
       path: '/chat'
       fullPath: '/chat'
-      preLoaderRoute: typeof AppChatRouteImport
-      parentRoute: typeof AppRoute
+      preLoaderRoute: typeof PlatformChatRouteImport
+      parentRoute: typeof PlatformRoute
     }
-    '/_app/governance': {
-      id: '/_app/governance'
+    '/_platform/governance': {
+      id: '/_platform/governance'
       path: '/governance'
       fullPath: '/governance'
-      preLoaderRoute: typeof AppGovernanceRouteImport
-      parentRoute: typeof AppRoute
+      preLoaderRoute: typeof PlatformGovernanceRouteImport
+      parentRoute: typeof PlatformRoute
     }
-    '/_app/integrations': {
-      id: '/_app/integrations'
+    '/_platform/integrations': {
+      id: '/_platform/integrations'
       path: '/integrations'
       fullPath: '/integrations'
-      preLoaderRoute: typeof AppIntegrationsRouteImport
-      parentRoute: typeof AppRoute
+      preLoaderRoute: typeof PlatformIntegrationsRouteImport
+      parentRoute: typeof PlatformRoute
     }
-    '/_app/investigations': {
-      id: '/_app/investigations'
+    '/_platform/investigations': {
+      id: '/_platform/investigations'
       path: '/investigations'
       fullPath: '/investigations'
-      preLoaderRoute: typeof AppInvestigationsRouteImport
-      parentRoute: typeof AppRoute
+      preLoaderRoute: typeof PlatformInvestigationsRouteImport
+      parentRoute: typeof PlatformRoute
     }
-    '/_app/marketplace': {
-      id: '/_app/marketplace'
+    '/_platform/marketplace': {
+      id: '/_platform/marketplace'
       path: '/marketplace'
       fullPath: '/marketplace'
-      preLoaderRoute: typeof AppMarketplaceRouteImport
-      parentRoute: typeof AppRoute
+      preLoaderRoute: typeof PlatformMarketplaceRouteImport
+      parentRoute: typeof PlatformRoute
     }
-    '/_app/operational-console': {
-      id: '/_app/operational-console'
+    '/_platform/operational-console': {
+      id: '/_platform/operational-console'
       path: '/operational-console'
       fullPath: '/operational-console'
-      preLoaderRoute: typeof AppOperationalConsoleRouteImport
-      parentRoute: typeof AppRoute
+      preLoaderRoute: typeof PlatformOperationalConsoleRouteImport
+      parentRoute: typeof PlatformRoute
     }
-    '/_app/reports': {
-      id: '/_app/reports'
+    '/_platform/reports': {
+      id: '/_platform/reports'
       path: '/reports'
       fullPath: '/reports'
-      preLoaderRoute: typeof AppReportsRouteImport
-      parentRoute: typeof AppRoute
+      preLoaderRoute: typeof PlatformReportsRouteImport
+      parentRoute: typeof PlatformRoute
     }
-    '/_app/settings': {
-      id: '/_app/settings'
+    '/_platform/settings': {
+      id: '/_platform/settings'
       path: '/settings'
       fullPath: '/settings'
-      preLoaderRoute: typeof AppSettingsRouteImport
-      parentRoute: typeof AppRoute
+      preLoaderRoute: typeof PlatformSettingsRouteImport
+      parentRoute: typeof PlatformRoute
     }
-    '/_app/users': {
-      id: '/_app/users'
+    '/_platform/users': {
+      id: '/_platform/users'
       path: '/users'
       fullPath: '/users'
-      preLoaderRoute: typeof AppUsersRouteImport
-      parentRoute: typeof AppRoute
+      preLoaderRoute: typeof PlatformUsersRouteImport
+      parentRoute: typeof PlatformRoute
     }
     '/auth/change-password': {
       id: '/auth/change-password'
@@ -595,40 +597,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char91DotmcpChar93InvokeToolToolRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_app/agent-evaluation/$runId': {
-      id: '/_app/agent-evaluation/$runId'
+    '/_platform/agent-evaluation/$runId': {
+      id: '/_platform/agent-evaluation/$runId'
       path: '/agent-evaluation/$runId'
       fullPath: '/agent-evaluation/$runId'
-      preLoaderRoute: typeof AppAgentEvaluationRunIdRouteImport
-      parentRoute: typeof AppRoute
+      preLoaderRoute: typeof PlatformAgentEvaluationRunIdRouteImport
+      parentRoute: typeof PlatformRoute
     }
-    '/_app/agent-run/$runId': {
-      id: '/_app/agent-run/$runId'
+    '/_platform/agent-run/$runId': {
+      id: '/_platform/agent-run/$runId'
       path: '/agent-run/$runId'
       fullPath: '/agent-run/$runId'
-      preLoaderRoute: typeof AppAgentRunRunIdRouteImport
-      parentRoute: typeof AppRoute
+      preLoaderRoute: typeof PlatformAgentRunRunIdRouteImport
+      parentRoute: typeof PlatformRoute
     }
-    '/_app/agent/$agentKey': {
-      id: '/_app/agent/$agentKey'
+    '/_platform/agent/$agentKey': {
+      id: '/_platform/agent/$agentKey'
       path: '/agent/$agentKey'
       fullPath: '/agent/$agentKey'
-      preLoaderRoute: typeof AppAgentAgentKeyRouteImport
-      parentRoute: typeof AppRoute
+      preLoaderRoute: typeof PlatformAgentAgentKeyRouteImport
+      parentRoute: typeof PlatformRoute
     }
-    '/_app/approvals/': {
-      id: '/_app/approvals/'
+    '/_platform/approvals/': {
+      id: '/_platform/approvals/'
       path: '/approvals'
       fullPath: '/approvals/'
-      preLoaderRoute: typeof AppApprovalsIndexRouteImport
-      parentRoute: typeof AppRoute
+      preLoaderRoute: typeof PlatformApprovalsIndexRouteImport
+      parentRoute: typeof PlatformRoute
     }
-    '/_app/approvals/$id': {
-      id: '/_app/approvals/$id'
+    '/_platform/approvals/$id': {
+      id: '/_platform/approvals/$id'
       path: '/approvals/$id'
       fullPath: '/approvals/$id'
-      preLoaderRoute: typeof AppApprovalsIdRouteImport
-      parentRoute: typeof AppRoute
+      preLoaderRoute: typeof PlatformApprovalsIdRouteImport
+      parentRoute: typeof PlatformRoute
     }
     '/api/internal/provider-sync': {
       id: '/api/internal/provider-sync'
@@ -654,51 +656,53 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface AppRouteChildren {
-  AppAgenticStudioRoute: typeof AppAgenticStudioRoute
-  AppAgentsRoute: typeof AppAgentsRoute
-  AppAnalyticsRoute: typeof AppAnalyticsRoute
-  AppAuditRoute: typeof AppAuditRoute
-  AppChatRoute: typeof AppChatRoute
-  AppGovernanceRoute: typeof AppGovernanceRoute
-  AppIntegrationsRoute: typeof AppIntegrationsRoute
-  AppInvestigationsRoute: typeof AppInvestigationsRoute
-  AppMarketplaceRoute: typeof AppMarketplaceRoute
-  AppOperationalConsoleRoute: typeof AppOperationalConsoleRoute
-  AppReportsRoute: typeof AppReportsRoute
-  AppSettingsRoute: typeof AppSettingsRoute
-  AppUsersRoute: typeof AppUsersRoute
-  AppIndexRoute: typeof AppIndexRoute
-  AppAgentEvaluationRunIdRoute: typeof AppAgentEvaluationRunIdRoute
-  AppAgentRunRunIdRoute: typeof AppAgentRunRunIdRoute
-  AppAgentAgentKeyRoute: typeof AppAgentAgentKeyRoute
-  AppApprovalsIdRoute: typeof AppApprovalsIdRoute
-  AppApprovalsIndexRoute: typeof AppApprovalsIndexRoute
+interface PlatformRouteChildren {
+  PlatformAgenticStudioRoute: typeof PlatformAgenticStudioRoute
+  PlatformAgentsRoute: typeof PlatformAgentsRoute
+  PlatformAnalyticsRoute: typeof PlatformAnalyticsRoute
+  PlatformAuditRoute: typeof PlatformAuditRoute
+  PlatformChatRoute: typeof PlatformChatRoute
+  PlatformGovernanceRoute: typeof PlatformGovernanceRoute
+  PlatformIntegrationsRoute: typeof PlatformIntegrationsRoute
+  PlatformInvestigationsRoute: typeof PlatformInvestigationsRoute
+  PlatformMarketplaceRoute: typeof PlatformMarketplaceRoute
+  PlatformOperationalConsoleRoute: typeof PlatformOperationalConsoleRoute
+  PlatformReportsRoute: typeof PlatformReportsRoute
+  PlatformSettingsRoute: typeof PlatformSettingsRoute
+  PlatformUsersRoute: typeof PlatformUsersRoute
+  PlatformIndexRoute: typeof PlatformIndexRoute
+  PlatformAgentEvaluationRunIdRoute: typeof PlatformAgentEvaluationRunIdRoute
+  PlatformAgentRunRunIdRoute: typeof PlatformAgentRunRunIdRoute
+  PlatformAgentAgentKeyRoute: typeof PlatformAgentAgentKeyRoute
+  PlatformApprovalsIdRoute: typeof PlatformApprovalsIdRoute
+  PlatformApprovalsIndexRoute: typeof PlatformApprovalsIndexRoute
 }
 
-const AppRouteChildren: AppRouteChildren = {
-  AppAgenticStudioRoute: AppAgenticStudioRoute,
-  AppAgentsRoute: AppAgentsRoute,
-  AppAnalyticsRoute: AppAnalyticsRoute,
-  AppAuditRoute: AppAuditRoute,
-  AppChatRoute: AppChatRoute,
-  AppGovernanceRoute: AppGovernanceRoute,
-  AppIntegrationsRoute: AppIntegrationsRoute,
-  AppInvestigationsRoute: AppInvestigationsRoute,
-  AppMarketplaceRoute: AppMarketplaceRoute,
-  AppOperationalConsoleRoute: AppOperationalConsoleRoute,
-  AppReportsRoute: AppReportsRoute,
-  AppSettingsRoute: AppSettingsRoute,
-  AppUsersRoute: AppUsersRoute,
-  AppIndexRoute: AppIndexRoute,
-  AppAgentEvaluationRunIdRoute: AppAgentEvaluationRunIdRoute,
-  AppAgentRunRunIdRoute: AppAgentRunRunIdRoute,
-  AppAgentAgentKeyRoute: AppAgentAgentKeyRoute,
-  AppApprovalsIdRoute: AppApprovalsIdRoute,
-  AppApprovalsIndexRoute: AppApprovalsIndexRoute,
+const PlatformRouteChildren: PlatformRouteChildren = {
+  PlatformAgenticStudioRoute: PlatformAgenticStudioRoute,
+  PlatformAgentsRoute: PlatformAgentsRoute,
+  PlatformAnalyticsRoute: PlatformAnalyticsRoute,
+  PlatformAuditRoute: PlatformAuditRoute,
+  PlatformChatRoute: PlatformChatRoute,
+  PlatformGovernanceRoute: PlatformGovernanceRoute,
+  PlatformIntegrationsRoute: PlatformIntegrationsRoute,
+  PlatformInvestigationsRoute: PlatformInvestigationsRoute,
+  PlatformMarketplaceRoute: PlatformMarketplaceRoute,
+  PlatformOperationalConsoleRoute: PlatformOperationalConsoleRoute,
+  PlatformReportsRoute: PlatformReportsRoute,
+  PlatformSettingsRoute: PlatformSettingsRoute,
+  PlatformUsersRoute: PlatformUsersRoute,
+  PlatformIndexRoute: PlatformIndexRoute,
+  PlatformAgentEvaluationRunIdRoute: PlatformAgentEvaluationRunIdRoute,
+  PlatformAgentRunRunIdRoute: PlatformAgentRunRunIdRoute,
+  PlatformAgentAgentKeyRoute: PlatformAgentAgentKeyRoute,
+  PlatformApprovalsIdRoute: PlatformApprovalsIdRoute,
+  PlatformApprovalsIndexRoute: PlatformApprovalsIndexRoute,
 }
 
-const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+const PlatformRouteWithChildren = PlatformRoute._addFileChildren(
+  PlatformRouteChildren,
+)
 
 interface AuthRouteChildren {
   AuthChangePasswordRoute: typeof AuthChangePasswordRoute
@@ -711,7 +715,7 @@ const AuthRouteChildren: AuthRouteChildren = {
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
-  AppRoute: AppRouteWithChildren,
+  PlatformRoute: PlatformRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
   McpRoute: McpRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,

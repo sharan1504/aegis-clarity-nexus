@@ -32,7 +32,7 @@ function WhatIsAIOpsPage() {
             <Link to="/" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
               Platform
             </Link>
-            <Link to="/marketplace" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+            <Link to="/platform/marketplace" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
               Agent Marketplace
             </Link>
             <Link to="/auth">
@@ -59,7 +59,7 @@ function WhatIsAIOpsPage() {
                 Start with Aegis AI <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
-            <Link to="/marketplace">
+            <Link to="/platform/marketplace">
               <Button variant="outline" size="lg">
                 Explore AI Agents
               </Button>
@@ -275,7 +275,7 @@ function WhatIsAIOpsPage() {
                 Get started <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
-            <Link to="/marketplace">
+            <Link to="/platform/marketplace">
               <Button variant="outline" size="lg">
                 Browse agents
               </Button>

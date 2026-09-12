@@ -4,8 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export function SetupChecklist({ providers, agents, guardrails }: { providers:number; agents:number; guardrails:number }) {
   const steps = [
-    { done:providers > 0, label:'Connect a provider', href:'/integrations', icon:Plug },
-    { done:agents > 0, label:'Deploy an agent', href:'/marketplace', icon:Bot },
+    { done:providers > 0, label:'Connect a provider', href:'/platform/integrations', icon:Plug },
+    { done:agents > 0, label:'Deploy an agent', href:'/platform/marketplace', icon:Bot },
     { done:guardrails > 0, label:'Configure a guardrail', href:'/guardrails', icon:ShieldCheck },
   ];
   if (steps.every(s => s.done)) return null;

@@ -21,7 +21,7 @@ export function EmptyIntegrationsState({
           <p className="mt-1 text-sm text-muted-foreground">{description}</p>
         </div>
         <Button asChild>
-          <Link to="/integrations">
+          <Link to="/platform/integrations">
             Go to Integrations <ArrowRight className="ml-1.5 h-4 w-4" />
           </Link>
         </Button>
