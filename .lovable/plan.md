@@ -1,47 +1,52 @@
-# Live License Analysis denial — traced root cause
+# Aegis AI public website and controlled platform access
 
-## Runtime path
+## Goal
+Create a public, static-first Aegis AI marketing website at `/`, move the existing secured product under `/platform`, and replace public self-service platform entry with an administrator-reviewed access request.
 
-```text
-LicenseAgentLiveAnalysis (button click)
-  -> executeLicenseAgent (server fn, authenticated)
-       runs BOTH operations in parallel:
-         get_license_summary            -> license_inventory + user_inventory
-         get_unused_license_candidates  -> license_inventory + user_inventory + queue_inventory
-  -> capabilityRouter.getLicenseInventory / getUsers / getQueues
-  -> authorizeCapabilityAccess (fail-closed, per capability)
-  -> DENIAL_MESSAGES[reason] surfaced verbatim in the red "Analysis failed" alert
-```
+Confirmed choices:
+- Public website: `cenops.in/`
+- Secured product: `cenops.in/platform`
+- Access requests: administrator review before access
+- Follow-up: store each request and notify the administrator by email
+- Existing administrator: `sshrinivasan97@gmail.com` remains an Admin with full product access
 
-The component sets the error from whichever operation fails first (summary checked first, then candidates), so a single denied capability blanks the whole panel.
+## Public website
+- Build a responsive homepage with alternating near-black/navy and white sections, authoritative serif display typography, clean sans-serif body typography, and one restrained teal trust accent.
+- Include the requested sections: positioning-led hero, provider-category trust bar, governance problems, six-stage operating pipeline, shipped capability grid, market context, fair differentiation, security architecture, design-partner CTA, and footer.
+- Use only technically supported claims from the existing Aegis product and documentation. Do not invent customers, testimonials, statistics, press, or roadmap capabilities.
+- Use accessible semantic structure, keyboard-friendly controls, WCAG-conscious contrast, reduced-motion support, and static content for fast first render.
+- Add unique homepage metadata, canonical URL, social metadata, and a public-only sitemap.
 
-## Where the exact message comes from
+## Platform separation
+- Move the existing authenticated route tree from `/` and sibling product paths to `/platform` and `/platform/*` without redesigning product screens.
+- Update product navigation, deep links, redirects, callbacks, breadcrumbs, metadata, and notification links to the new paths.
+- Keep `/auth` as the dedicated administrator/approved-user sign-in page, reached from a clear “Platform sign in” link rather than shown as the public first screen.
+- After successful sign-in or password change, send approved users to `/platform`.
+- Keep every product page protected by the existing session and role checks.
 
-`src/lib/capabilities/authorization.server.ts` maps `binding_disabled` to the literal string "The data source is disabled for this agent." It is returned in step 5 when bindings exist for tenant + agent + capability but **none of them is enabled** (`enabled.length === 0` and at least one disabled row).
+## Access request and approval
+- Add a public request-access form with name, work email, company, role/title, and a short use-case field.
+- Store requests with a review status and timestamps. Public visitors may submit only; they cannot read or edit requests.
+- Add an Admin-only review surface inside the platform where administrators can review, approve, or reject requests.
+- Approval will not silently grant an arbitrary tenant or role. It will create/invite access through the existing controlled user-management path and default new users to the least-privileged Viewer role unless an administrator explicitly selects another permitted role.
+- Show clear submitted, duplicate, validation, rate-limit, approved, and rejected states.
 
-## Why it disagreed with the DB state you checked
+## Email notification
+- Use Lovable’s managed app email service to notify `sshrinivasan97@gmail.com` after a request is stored, with an idempotent one-recipient notification.
+- Do not add an email queue or expose recipient selection to the browser.
+- Email sending requires a sender domain owned by the project. No sender domain is configured yet; the website and stored request flow can be completed, but notifications begin only after the sender domain is configured and verified.
 
-Two separate capability gaps, not one:
+## Security hardening
+- Correct the two active access-control findings before completion:
+  - Prevent users from moving their profile into another tenant except through a verified invite/claim path.
+  - Prevent self-service assignment of Admin or arbitrary tenant roles; permit only controlled first-tenant bootstrap and administrator-managed role changes.
+- Preserve tenant isolation, server-side role verification, separate role storage, auditability, and deny-by-default access.
+- Record access-request review actions in the existing audit trail.
 
-1. `user_inventory` — before the binding added earlier today, `agent-license` had exactly one `user_inventory` binding: the AWS mock integration, `enabled = false`. That produced `binding_disabled` — the exact message. The verified "enabled non-mock Genesys license_inventory binding" satisfied only the first of the two capabilities `get_license_summary` needs. This is now fixed in the database (Genesys `user_inventory` binding enabled), so this specific message should no longer appear after a fresh click of "Analyze live data" (results are held in component state, so the old error persists until the button is pressed again).
-2. `queue_inventory` — still blocking, and it is not a binding problem. `agent_capabilities` has only 2 rows for `agent-license` (`license_inventory`, `user_inventory`); there is no `queue_inventory` row for any agent, and no `queue_inventory` binding exists at all. `get_unused_license_candidates` calls `capabilityRouter.getQueues`, so `authorizeCapabilityAccess` fails at step 4 with `capability_not_assigned_to_agent` -> "This agent does not support that capability." Genesys does implement `queue_inventory` (`provider_capabilities.implemented = true`), so nothing at the connector level is missing.
+## Verification
+- Test public and secured routing, sign-in redirects, deep links, mobile/desktop layouts, form validation, administrator-only review, approval/rejection behavior, and the retained Admin access for `sshrinivasan97@gmail.com`.
+- Run focused tests plus the project lint, full test suite, and production build; report any unrelated existing failures separately.
+- Verify the rendered public homepage and secured `/platform` flow in the browser at desktop and mobile sizes.
 
-No stale hard-coded ids, no tenant mismatch, no caching layer, and no guardrail is involved: tenant, integration and provider are all resolved per request from the session.
-
-## Recommended minimal fix
-
-Data-only, no application-code change:
-
-1. Add the missing agent↔capability assignment: `agent_capabilities` row for `agent-license` + `queue_inventory` with `required = false` (it is a supporting exclusion signal, not a hard requirement).
-2. Add and enable the `agent-license` -> `queue_inventory` -> Genesys binding in the current tenant (non-mock), matching the two existing Genesys bindings.
-3. Verify by querying `agent_capabilities` and `agent_integration_bindings`, then re-run "Analyze live data" in the preview and confirm both cards render.
-
-Note on behaviour after the fix: the normalized queue capability exposes queue-level facts, not per-user membership, so `activeQueueMemberUserIds` stays empty and any policy that requires the active-queue-member exclusion will still report those candidates as inconclusive. That is the intended fail-closed behaviour, not an error.
-
-### Alternative (if you prefer no new capability grant)
-
-Change `get_unused_license_candidates` to treat `queue_inventory` as optional — degrade with a warning instead of denying when the queue capability is unauthorized. This is a code change to `src/lib/agents/license/functions.ts` and weakens the current strict all-or-nothing contract, so it is offered only as a fallback.
-
-## Pre-existing build error to fix in the same change
-
-`src/lib/agents/license/functions.ts:140` — TS2345: `FilterIssue[]` is not assignable to `never[]`. The `invalidRequest` helper's `issues` field is inferred as `never[]`; type it as `FilterIssue[]`. This is unrelated to the denial, but it must be fixed for the app to build.
+## Deployment boundary
+This work will prepare `cenops.in/` and `/platform`, but will not publish or change domain wiring until you explicitly ask to deploy.
