@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as PlatformRouteImport } from './routes/platform'
@@ -42,6 +43,11 @@ import { Route as PlatformAgentAgentKeyRouteImport } from './routes/platform.age
 import { Route as PlatformApprovalsIndexRouteImport } from './routes/platform.approvals.index'
 import { Route as PlatformApprovalsIdRouteImport } from './routes/platform.approvals.$id'
 
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -210,6 +216,7 @@ const PlatformApprovalsIdRoute = PlatformApprovalsIdRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
+  '/': typeof IndexRoute
   '/auth': typeof AuthRouteWithChildren
   '/mcp': typeof McpRoute
   '/platform': typeof PlatformRouteWithChildren
@@ -244,6 +251,7 @@ export interface FileRoutesByFullPath {
   '/platform/approvals/': typeof PlatformApprovalsIndexRoute
 }
 export interface FileRoutesByTo {
+  '/': typeof IndexRoute
   '/auth': typeof AuthRouteWithChildren
   '/mcp': typeof McpRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -278,6 +286,7 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
   '/auth': typeof AuthRouteWithChildren
   '/mcp': typeof McpRoute
   '/platform': typeof PlatformRouteWithChildren
@@ -314,6 +323,7 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/'
     | '/auth'
     | '/mcp'
     | '/platform'
@@ -348,6 +358,7 @@ export interface FileRouteTypes {
     | '/platform/approvals/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/'
     | '/auth'
     | '/mcp'
     | '/sitemap.xml'
@@ -381,6 +392,7 @@ export interface FileRouteTypes {
     | '/platform/approvals'
   id:
     | '__root__'
+    | '/'
     | '/auth'
     | '/mcp'
     | '/platform'
@@ -416,6 +428,7 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRouteWithChildren
   McpRoute: typeof McpRoute
   PlatformRoute: typeof PlatformRouteWithChildren
@@ -432,6 +445,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -718,6 +738,7 @@ const PlatformRouteWithChildren = PlatformRoute._addFileChildren(
 )
 
 const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
   AuthRoute: AuthRouteWithChildren,
   McpRoute: McpRoute,
   PlatformRoute: PlatformRouteWithChildren,
