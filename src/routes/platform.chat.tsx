@@ -15,7 +15,7 @@ import { createChangeFromRecommendation } from "@/lib/change-recommendation.func
 import { pageHead } from "@/lib/seo";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_platform/chat")({ head: () => pageHead({ path: "/platform/chat", title: "Cenops Enterprise AI", description: "Enterprise analysis, recommendations and evidence from connected systems." }), component: ChatPage });
+export const Route = createFileRoute("/platform/chat")({ head: () => pageHead({ path: "/platform/chat", title: "Cenops Enterprise AI", description: "Enterprise analysis, recommendations and evidence from connected systems." }), component: ChatPage });
 type Recommendation = { title?: string; rationale?: string; impact?: string; risk?: string; nextStep?: string };
 type Result = { demo?: boolean; answer?: string; analysis?: string; recommendations?: Recommendation[]; sources?: string[]; confidence?: number; actionRequired?: boolean; investigationId?: string };
 type Message = EnterpriseChatMessage & { result?: Result; id?: string; createdAt?: string };

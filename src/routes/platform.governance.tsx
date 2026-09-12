@@ -44,7 +44,7 @@ import {
 } from "@/lib/guardrails/types";
 import { pageHead } from "@/lib/seo";
 
-export const Route = createFileRoute("/_platform/governance")({
+export const Route = createFileRoute("/platform/governance")({
   head: () =>
     pageHead({
       path: "/platform/governance",

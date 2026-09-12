@@ -15,7 +15,7 @@ import { deployAgent } from "@/lib/agent-deployment.functions";
 import { useTenantContext } from "@/lib/tenant";
 import { pageHead } from "@/lib/seo";
 
-export const Route = createFileRoute("/_platform/agents")({ head: () => pageHead({ path: "/platform/agents", title: "AI Agents — Cenops", description: "Operate deployed agents and deploy verified agent definitions from one workspace." }), component: AgentsPage });
+export const Route = createFileRoute("/platform/agents")({ head: () => pageHead({ path: "/platform/agents", title: "AI Agents — Cenops", description: "Operate deployed agents and deploy verified agent definitions from one workspace." }), component: AgentsPage });
 type Agent = { agent_key: string; display_name: string; description: string | null; category: string | null };
 type Binding = { id: string; agent_key: string; enabled: boolean; is_mock: boolean; integration_id: string; capability_id: string };
 

@@ -13,7 +13,7 @@ import { AgentPurposeEditor } from "@/components/agents/AgentPurposeEditor";
 import { getAgentDetail, type AgentDetail } from "@/lib/agent-detail.functions";
 import { pageHead } from "@/lib/seo";
 
-export const Route = createFileRoute("/_platform/agent/$agentKey")({
+export const Route = createFileRoute("/platform/agent/$agentKey")({
   head: ({ params }) => pageHead({ path: `/platform/agent/${params.agentKey}`, title: "Agent Configuration — Cenops", description: "Configure an agent's purpose, capabilities, policies and instructions." }),
   component: AgentDetailPage,
 });

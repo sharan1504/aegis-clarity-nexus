@@ -14,7 +14,7 @@ import { listAgentRuntimeTools } from "@/lib/mcp/agent-runtime-tools.functions";
 import type { AgentToolAvailability } from "@/lib/mcp/agent-tool-availability.server";
 import { PageHeader } from "@/components/layout/AppLayout";
 
-export const Route = createFileRoute("/_platform/agentic-studio")({ component: AgenticStudioPage });
+export const Route = createFileRoute("/platform/agentic-studio")({ component: AgenticStudioPage });
 type StudioMode = "architect" | "investigate" | "simulate" | "execute";
 const agents = [
   { key: "agent-license", name: "License Agent", description: "Optimize unused licenses and reclaimable capacity." },

@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { listTenantUsers, inviteTenantUser, removeTenantUser } from "@/lib/users.functions";
 import { pageHead } from "@/lib/seo";
 
-export const Route = createFileRoute("/_platform/users")({ head: () => pageHead({ path: "/platform/users", title: "Team & Roles — Cenops", description: "Manage members and role-based access for your Cenops workspace." }), component: UsersPage });
+export const Route = createFileRoute("/platform/users")({ head: () => pageHead({ path: "/platform/users", title: "Team & Roles — Cenops", description: "Manage members and role-based access for your Cenops workspace." }), component: UsersPage });
 const roleColor: Record<string, string> = { admin: "bg-primary/15 text-primary border-primary/30", manager: "bg-info/15 text-info border-info/30", analyst: "bg-accent/15 text-accent-foreground border-accent/30", viewer: "bg-muted text-muted-foreground border-border" };
 type Member = Awaited<ReturnType<typeof listTenantUsers>>["members"][number];
 

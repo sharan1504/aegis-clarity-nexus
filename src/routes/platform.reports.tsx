@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 
-export const Route = createFileRoute("/_platform/reports")({ component: ReportsRedirect });
+export const Route = createFileRoute("/platform/reports")({ component: ReportsRedirect });
 
 function ReportsRedirect() {
   const navigate = useNavigate();

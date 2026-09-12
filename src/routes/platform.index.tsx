@@ -15,7 +15,7 @@ import { getOnboardingStatus } from "@/lib/onboarding.functions";
 import { createCustomDashboard, deleteCustomDashboard, listCustomDashboards, toggleCustomDashboardStar, type DashboardConfig } from "@/lib/custom-dashboards.functions";
 import { pageHead } from "@/lib/seo";
 
-export const Route = createFileRoute("/_platform/")({ head: () => pageHead({ path: "/", title: "Command Center — Cenops", description: "Evidence-first operational control plane for enterprise AI." }), component: DashboardPage });
+export const Route = createFileRoute("/platform/")({ head: () => pageHead({ path: "/", title: "Command Center — Cenops", description: "Evidence-first operational control plane for enterprise AI." }), component: DashboardPage });
 
 type Dashboard = { id: string; name: string; starred: boolean; config: DashboardConfig };
 type Finding = { id: string; name: string; status: "Active" | "Attention" | "Closed"; category: string; impact: string; severity: "Critical" | "High" | "Medium" | "Low"; affected: number; started: string; href: string };

@@ -20,7 +20,7 @@ import { DEFAULT_REPORT_PARAMS, generateReport, listReports, refreshReportLink, 
 import { ANALYTICS_REPORT_TEMPLATES, rowsForAnalyticsReport, type AnalyticsWorkspaceData } from "@/lib/analytics-reporting";
 import { getReportRetentionDays, setReportRetentionDays } from "@/lib/reports-retention.functions";
 import { pageHead } from "@/lib/seo";
-export const Route = createFileRoute("/_platform/analytics")({ head: () => pageHead({ path: "/platform/analytics", title: "Analytics — Cenops", description: "Operational analytics, findings, trends and evidence across the Cenops workspace." }), component: AnalyticsPage });
+export const Route = createFileRoute("/platform/analytics")({ head: () => pageHead({ path: "/platform/analytics", title: "Analytics — Cenops", description: "Operational analytics, findings, trends and evidence across the Cenops workspace." }), component: AnalyticsPage });
 type Analytics = Awaited<ReturnType<typeof getAnalytics>>; type EventRow = Analytics["recentEvents"][number];
 type Finding = { id: string; name: string; status: "Active" | "Attention" | "Closed"; category: string; impact: string; severity: string; affected: number; started: string; detail: string };
 const PRESETS = [7, 30, 60, 90];
