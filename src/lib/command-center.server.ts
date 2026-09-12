@@ -35,15 +35,37 @@ function buildDemoCommandCenterData(): CommandCenterData {
   };
 }
 
+function buildEmptyLiveCommandCenterData(): CommandCenterData {
+  const generatedAt = new Date().toISOString();
+  return {
+    live: { connected: false, provider: null, orgName: null, region: null, lastSyncAt: null, healthStatus: null, users: 0, activeUsers: 0, licensedUsers: 0, licenseAssignments: 0, licenseTypes: 0, queues: 0, emptyQueues: 0, multipleLicenseUsers: 0, inactiveLicensedUsers: 0, recommendations: [], fetchedAt: generatedAt, readOnly: true },
+    attention: { pendingChanges: 0, proposedChanges: 0, blockingGuardrailEvaluations: 0, integrationsNeedingAttention: 0, unreadNotifications: 0 },
+    changed: [],
+    risk: { bySeverity: {}, criticalOrHighOpen: 0, guardrailsEnabled: 0, guardrailsMonitoringOnly: 0 },
+    posture: { integrations: [], agentsWithRealBindings: 0, agentsConfigured: 0, lastSyncRunAt: null, lastSyncRunStatus: null },
+    signals: [],
+    generatedAt,
+  };
+}
+
 export async function loadCommandCenterData(supabase: UserClientLike, userId: string): Promise<CommandCenterData> {
   const { tenantId, environmentMode } = await resolveTenantContext(supabase, userId); const usingDemo = environmentMode === "demo";
   if (usingDemo) return buildDemoCommandCenterData();
+
+  const { data: integrationSeed, error: integrationSeedError } = await supabase
+    .from("integrations")
+    .select("id,provider,status,health_status,last_sync_at,last_sync_status,is_mock,external_org_name,region,updated_at")
+    .eq("tenant_id", tenantId)
+    .order("updated_at", { ascending: false });
+
+  if (integrationSeedError) throw integrationSeedError;
+  if (!integrationSeed?.length) return buildEmptyLiveCommandCenterData();
+
   const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
-  const [changes, guardrails, guardrailEvaluations, integrations, bindings, syncRuns, notifications, auditRows, genesysUsers, genesysLicenses, genesysUserLicenses, genesysQueues] = await Promise.all([
+  const [changes, guardrails, guardrailEvaluations, bindings, syncRuns, notifications, auditRows, genesysUsers, genesysLicenses, genesysUserLicenses, genesysQueues] = await Promise.all([
     supabase.from("change_records").select("id,change_id,title,stage,severity,owner_team,created_at,updated_at").eq("tenant_id", tenantId).order("updated_at", { ascending: false }).limit(200),
     supabase.from("guardrails").select("id,enabled,enforcement_mode").or(`tenant_id.eq.${tenantId},tenant_id.is.null`),
     supabase.from("guardrail_evaluations").select("id,decision,created_at").eq("tenant_id", tenantId).gte("created_at", since).limit(1000),
-    supabase.from("integrations").select("id,provider,status,health_status,last_sync_at,last_sync_status,is_mock,external_org_name,region,updated_at").eq("tenant_id", tenantId).order("updated_at", { ascending: false }),
     supabase.from("agent_integration_bindings").select("agent_key,enabled,is_mock").eq("tenant_id", tenantId),
     supabase.from("integration_sync_runs").select("started_at,finished_at,status").eq("tenant_id", tenantId).order("started_at", { ascending: false }).limit(1),
     supabase.from("notifications").select("id,unread").eq("tenant_id", tenantId).eq("unread", true).limit(200),
@@ -54,7 +76,7 @@ export async function loadCommandCenterData(supabase: UserClientLike, userId: st
     supabase.from("genesys_queues").select("id,member_count", { count: "exact" }).eq("tenant_id", tenantId),
   ]);
   const changeRows = changes.data ?? [];
-  const integrationRows = integrations.data ?? [];
+  const integrationRows = integrationSeed;
   const signalRows = auditRows.data ?? [];
   const bySeverity: Record<string, number> = {};
   for (const row of changeRows) { const key = String(row.severity ?? "unspecified").toLowerCase(); bySeverity[key] = (bySeverity[key] ?? 0) + 1; }
