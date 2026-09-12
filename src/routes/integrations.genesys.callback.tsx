@@ -22,9 +22,9 @@ export const Route = createFileRoute("/integrations/genesys/callback")({
   head: () =>
     pageHead({
       path: "/platform/integrations/genesys/callback",
-      title: "Connecting Genesys Cloud — Aegis AI",
+      title: "Connecting Genesys Cloud — Cenops",
       description:
-        "Completing the Genesys Cloud read-only OAuth authorization for your Aegis AI workspace.",
+        "Completing the Genesys Cloud read-only OAuth authorization for your Cenops workspace.",
     }),
   validateSearch: (search: Record<string, unknown>): CallbackSearch => ({
     code: typeof search.code === "string" ? search.code : undefined,
