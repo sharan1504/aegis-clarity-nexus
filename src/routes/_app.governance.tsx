@@ -44,13 +44,13 @@ import {
 } from "@/lib/guardrails/types";
 import { pageHead } from "@/lib/seo";
 
-export const Route = createFileRoute("/platform/governance")({
+export const Route = createFileRoute("/_app/governance")({
   head: () =>
     pageHead({
-      path: "/platform/governance",
-      title: "Governance — Guardrails & Instructions | Cenops",
+      path: "/governance",
+      title: "Governance — Guardrails & Instructions | Aegis AI",
       description:
-        "Author, simulate, and audit the guardrails that constrain every Cenops agent, capability, connector, and tool — and the organization instructions that guide how they work.",
+        "Author, simulate, and audit the guardrails that constrain every Aegis AI agent, capability, connector, and tool — and the organization instructions that guide how they work.",
     }),
   component: GovernancePage,
 });
@@ -180,7 +180,7 @@ function GovernancePage() {
             <>
               <GuardrailGroup
                 title="Platform baseline"
-                description="Managed by Cenops. Always evaluated first and cannot be edited or removed."
+                description="Managed by Aegis. Always evaluated first and cannot be edited or removed."
                 items={platform}
                 canManage={false}
                 onEdit={() => {}}

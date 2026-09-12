@@ -21,10 +21,10 @@ export const Route = createFileRoute("/integrations/genesys/callback")({
   ssr: false,
   head: () =>
     pageHead({
-      path: "/platform/integrations/genesys/callback",
-      title: "Connecting Genesys Cloud — Cenops",
+      path: "/integrations/genesys/callback",
+      title: "Connecting Genesys Cloud — Aegis AI",
       description:
-        "Completing the Genesys Cloud read-only OAuth authorization for your Cenops workspace.",
+        "Completing the Genesys Cloud read-only OAuth authorization for your Aegis AI workspace.",
     }),
   validateSearch: (search: Record<string, unknown>): CallbackSearch => ({
     code: typeof search.code === "string" ? search.code : undefined,
@@ -60,7 +60,7 @@ function GenesysCallbackPage() {
         if (res.ok) {
           setState({ phase: "done", org: res.orgName });
           router.invalidate();
-          setTimeout(() => navigate({ to: "/platform/integrations" }), 1200);
+          setTimeout(() => navigate({ to: "/integrations" }), 1200);
         } else {
           setState({ phase: "error", message: res.errorMessage });
         }
@@ -94,7 +94,7 @@ function GenesysCallbackPage() {
         </CardHeader>
         {state.phase === "error" && (
           <CardContent>
-            <Button size="sm" onClick={() => navigate({ to: "/platform/integrations" })}>
+            <Button size="sm" onClick={() => navigate({ to: "/integrations" })}>
               Back to Integrations
             </Button>
           </CardContent>

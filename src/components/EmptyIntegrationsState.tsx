@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 
 export function EmptyIntegrationsState({
   title = "Connect your first integration",
-  description = "Cenops needs at least one connected system to surface insights, agents, and reports.",
+  description = "Aegis needs at least one connected system to surface insights, agents, and reports.",
 }: {
   title?: string;
   description?: string;
@@ -21,7 +21,7 @@ export function EmptyIntegrationsState({
           <p className="mt-1 text-sm text-muted-foreground">{description}</p>
         </div>
         <Button asChild>
-          <Link to="/platform/integrations">
+          <Link to="/integrations">
             Go to Integrations <ArrowRight className="ml-1.5 h-4 w-4" />
           </Link>
         </Button>

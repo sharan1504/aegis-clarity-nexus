@@ -4,7 +4,6 @@ import { resolveTenantContext } from "@/lib/tenant-context.server";
 import { evaluateAgentRun } from "./agent-evaluation";
 import type { AgentRunEvent } from "./agent-run-events";
 import type { AgentRunState } from "./agent-runtime";
-import { toJsonValue } from "./json";
 
 const errorResult = (error: unknown) => ({
   ok: false as const,
@@ -73,7 +72,7 @@ export const evaluateAgentRunFn = createServerFn({ method: "POST" })
           status: result.status,
           passed: result.passed,
           failed: result.failed,
-          results: toJsonValue(result.results),
+          results: result.results,
           evaluated_by: context.userId,
         })
         .select("id, created_at")

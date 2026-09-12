@@ -1,11 +1,10 @@
 import { guardedTool, type ToolGovernance } from "./guarded";
-import type { ToolContext, ToolHandlerResult } from "@lovable.dev/mcp-js";
 
 type McpTool = {
   name: string;
   title: string;
-  description: string;
-  handler: (args: any, context: ToolContext) => ToolHandlerResult | Promise<ToolHandlerResult>;
+  description?: string;
+  handler: (...args: never[]) => unknown;
 };
 
 export interface McpToolDescriptor {
@@ -69,7 +68,7 @@ export function createMcpToolRegistry<const T extends readonly McpToolRegistrati
     async invoke(name: string, input: unknown, ctx: unknown) {
       const tool = tools.find((candidate) => candidate.name === name);
       if (!tool) throw new Error(`Unknown MCP tool: ${name}`);
-      return tool.handler(input, ctx as ToolContext);
+      return tool.handler(input, ctx);
     },
   };
 }

@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import type { ToolDefinition, ToolHandlerResult } from "@lovable.dev/mcp-js";
 
 import { createMcpToolRegistry, getMcpToolCatalog, mcpCatalogText } from "./gateway.server";
 
@@ -7,15 +6,15 @@ const readTool = {
   name: "read_example",
   title: "Read example",
   description: "Reads example facts.",
-  handler: async (): Promise<ToolHandlerResult> => ({ content: [{ type: "text", text: "ok" }] }),
-} satisfies ToolDefinition;
+  handler: async () => ({ content: [{ type: "text", text: "ok" }] }),
+};
 
 const proposalTool = {
   name: "propose_example",
   title: "Propose example",
   description: "Creates a governed proposal.",
-  handler: async (): Promise<ToolHandlerResult> => ({ content: [{ type: "text", text: "proposal" }] }),
-} satisfies ToolDefinition;
+  handler: async () => ({ content: [{ type: "text", text: "proposal" }] }),
+};
 
 describe("MCP Tool Fabric", () => {
   it("centralizes governance metadata and exposes a matching tool surface", () => {

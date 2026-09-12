@@ -4,7 +4,6 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveTenantContext } from "@/lib/tenant-context.server";
 import { getAgentMcpToolAvailability } from "./agent-tool-availability.server";
 import { MCP_TOOL_REGISTRY } from "./gateway-catalog";
-import { toJsonValue } from "@/lib/json";
 
 function runtimeToolError(error: unknown) {
   return { ok: false as const, error: error instanceof Error ? error.message : "Agent tool invocation failed." };
@@ -86,7 +85,7 @@ export const invokeAgentRuntimeTool = createServerFn({ method: "POST" })
       });
       if (eventError) console.error("[agent-runtime-tools] event log failed", eventError.message);
 
-      return { ok: true as const, tool: selected, result: toJsonValue(result) };
+      return { ok: true as const, tool: selected, result };
     } catch (error) {
       return runtimeToolError(error);
     }

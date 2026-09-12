@@ -279,7 +279,7 @@ export async function generateReport(opts: {
     title: `${opts.name} exported (${opts.format.toUpperCase()})`,
     body: `${opts.rows.length} row(s) for ${describeParams(params)}. Open the download page to mint a fresh signed link — files are removed after ${retentionDays} days.`,
     // Deep link straight to this export row on the download page.
-    href: `/platform/reports?export=${row.id}`,
+    href: `/reports?export=${row.id}`,
   });
 
   await auditReportDownload(

@@ -1,8 +1,8 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/platform/marketplace")({
+export const Route = createFileRoute("/_app/marketplace")({
   beforeLoad: () => {
-    throw redirect({ to: "/platform/agents" });
+    throw redirect({ to: "/agents" });
   },
   component: () => null,
 });

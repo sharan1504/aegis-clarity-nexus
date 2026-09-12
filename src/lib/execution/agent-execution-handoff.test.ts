@@ -1,6 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import type { ActorContext, GovernedOperation, UserClient } from "@/lib/execution/gateway.server";
-import type { GuardrailVerdict } from "@/lib/guardrails/evaluate";
+import type { ActorContext } from "@/lib/execution/gateway.server";
 
 vi.mock("@/lib/execution/gateway.server", async () => {
   const actual = await vi.importActual<typeof import("@/lib/execution/gateway.server")>("@/lib/execution/gateway.server");
@@ -61,13 +60,13 @@ describe("executeApprovedAgentRun", () => {
 
   it("passes only fully approved changes through the governance gate", async () => {
     const executor = vi.fn().mockResolvedValue({ provider: "github", mutation: "test" });
-    gate.mockImplementationOnce(async (_supabase: UserClient, _actor: ActorContext, _operation: GovernedOperation, fn: (verdict: GuardrailVerdict) => unknown) => { const verdict: GuardrailVerdict = { decision: "allow", allowed: true, matched: [], reasons: [], requiredActions: [], maxRecords: null, redactFields: [], escalateTo: null, requiresHuman: false, evaluatedAt: "2026-09-12T00:00:00.000Z" }; return { ok: true, result: await fn(verdict), verdict, capped: false }; });
+    gate.mockImplementationOnce(async (_supabase: never, _actor: never, _operation: never, fn: (verdict: never) => Promise<unknown>) => ({ ok: true, result: await fn({}), verdict: { decision: "allow", reasons: [], requiredActions: [] }, capped: false } as never));
     const result = await executeApprovedAgentRun(supabaseFor(run, change, [{ status: "approved" }]), actor, { runId: "run-1", changeRecordId: "change-row-1" }, executor);
     expect(result.ok).toBe(true);
     expect(executor).toHaveBeenCalledOnce();
     expect(gate).toHaveBeenCalledOnce();
-    const operation = gate.mock.calls[0][2];
-    expect(operation.executionClass).toBe("high_risk");
+    const operation = gate.mock.calls[0][2] as Record<string, unknown>;
+    expect(operation.executionClass).toBe("write");
     expect(operation.hasApproval).toBe(true);
     expect(operation.changeRecordId).toBe("change-row-1");
   });

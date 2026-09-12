@@ -8,7 +8,6 @@ import listIntegrations from "./tools/list-integrations";
 import listReportsAndRecommendations from "./tools/list-reports-and-recommendations";
 import proposeChangeRecord from "./tools/propose-change-record";
 import { createMcpToolRegistry } from "./gateway.server";
-export type { McpToolDescriptor } from "./gateway.server";
 
 /**
  * One registry for the MCP surface. Governance metadata lives beside the tool
