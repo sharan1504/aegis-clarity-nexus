@@ -1,0 +1,108 @@
+name: Cenops Finalize
+
+on:
+  push:
+    branches:
+      - fix/cenops-final-polish
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply final customer-facing branding
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          root = Path("src")
+          extensions = {".ts", ".tsx", ".js", ".jsx", ".css", ".md"}
+          changed = []
+
+          for path in root.rglob("*"):
+              if not path.is_file() or path.suffix not in extensions:
+                  continue
+              text = path.read_text(encoding="utf-8")
+              original = text
+
+              # Product/customer-visible branding only.
+              text = text.replace("Aegis AI", "Cenops")
+              text = re.sub(r"(?<![A-Za-z0-9_])Aegis(?![A-Za-z0-9_])", "Cenops", text)
+
+              # Never rename stable compatibility identifiers or infrastructure env names.
+              text = text.replace("aegis-operations-hub", "aegis-operations-hub")
+              text = text.replace('localStorage.getItem("Cenops-theme")', 'localStorage.getItem("aegis-theme")')
+              text = text.replace('localStorage.setItem("Cenops-theme"', 'localStorage.setItem("aegis-theme"')
+              text = text.replace('localStorage.removeItem("Cenops-theme")', 'localStorage.removeItem("aegis-theme")')
+
+              if text != original:
+                  path.write_text(text, encoding="utf-8")
+                  changed.append(str(path))
+
+          print(f"Branded {len(changed)} source files")
+          for item in changed:
+              print(item)
+
+      - name: Validate protected identifiers
+        shell: bash
+        run: |
+          grep -Rni --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.output 'AEGIS_[A-Z0-9_]*' src || true
+          grep -Rni --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.output 'aegis-theme' src >/tmp/theme-keys.txt || true
+          grep -Rni --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.output 'aegis-operations-hub' src >/tmp/mcp-id.txt || true
+          test -s /tmp/theme-keys.txt
+          test -s /tmp/mcp-id.txt
+
+      - name: Validate Command Center empty state
+        shell: bash
+        run: |
+          grep -q 'buildEmptyLiveCommandCenterData' src/lib/command-center.server.ts
+          grep -q 'if (!integrationSeed?.length) return buildEmptyLiveCommandCenterData();' src/lib/command-center.server.ts
+
+      - name: Validate no customer-facing Aegis remains in src
+        shell: bash
+        run: |
+          if grep -Rni --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.output -E 'Aegis( AI)?' src | grep -vE '^[^:]+:[^:]*AEGIS_[A-Z0-9_]*|^[^:]+:[^:]*aegis-theme|^[^:]+:[^:]*aegis-operations-hub'; then
+            echo 'Customer-facing Aegis branding remains in src'
+            exit 1
+          fi
+
+      - name: Validate no app-controlled Lovable badge
+        shell: bash
+        run: |
+          if grep -Rni --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.output -E 'Built with Lovable|Built\s+with\s+Lovable' src; then
+            echo 'Lovable badge text remains in src'
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests
+        run: npm test -- --run
+
+      - name: Build
+        run: npm run build
+
+      - name: Commit final source branding
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src
+          if git diff --cached --quiet; then
+            echo "No additional branding changes required."
+          else
+            git commit -m "feat: finalize Cenops customer-facing branding [skip ci]"
+            git push
+          fi
