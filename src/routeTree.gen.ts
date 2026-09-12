@@ -40,6 +40,7 @@ import { Route as AppApprovalsIndexRouteImport } from './routes/_app.approvals.i
 import { Route as AppApprovalsIdRouteImport } from './routes/_app.approvals.$id'
 import { Route as ApiInternalProviderSyncRouteImport } from './routes/api.internal.provider-sync'
 import { Route as IntegrationsGenesysCallbackRouteImport } from './routes/integrations.genesys.callback'
+import { Route as IntegrationsGithubSetupRouteImport } from './routes/integrations.github.setup'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -199,6 +200,11 @@ const IntegrationsGenesysCallbackRoute =
     path: '/integrations/genesys/callback',
     getParentRoute: () => rootRouteImport,
   } as any)
+const IntegrationsGithubSetupRoute = IntegrationsGithubSetupRouteImport.update({
+  id: '/integrations/github/setup',
+  path: '/integrations/github/setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -230,6 +236,7 @@ export interface FileRoutesByFullPath {
   '/approvals/$id': typeof AppApprovalsIdRoute
   '/api/internal/provider-sync': typeof ApiInternalProviderSyncRoute
   '/integrations/genesys/callback': typeof IntegrationsGenesysCallbackRoute
+  '/integrations/github/setup': typeof IntegrationsGithubSetupRoute
   '/approvals/': typeof AppApprovalsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -262,6 +269,7 @@ export interface FileRoutesByTo {
   '/approvals/$id': typeof AppApprovalsIdRoute
   '/api/internal/provider-sync': typeof ApiInternalProviderSyncRoute
   '/integrations/genesys/callback': typeof IntegrationsGenesysCallbackRoute
+  '/integrations/github/setup': typeof IntegrationsGithubSetupRoute
   '/approvals': typeof AppApprovalsIndexRoute
 }
 export interface FileRoutesById {
@@ -296,6 +304,7 @@ export interface FileRoutesById {
   '/_app/approvals/$id': typeof AppApprovalsIdRoute
   '/api/internal/provider-sync': typeof ApiInternalProviderSyncRoute
   '/integrations/genesys/callback': typeof IntegrationsGenesysCallbackRoute
+  '/integrations/github/setup': typeof IntegrationsGithubSetupRoute
   '/_app/approvals/': typeof AppApprovalsIndexRoute
 }
 export interface FileRouteTypes {
@@ -330,6 +339,7 @@ export interface FileRouteTypes {
     | '/approvals/$id'
     | '/api/internal/provider-sync'
     | '/integrations/genesys/callback'
+    | '/integrations/github/setup'
     | '/approvals/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -362,6 +372,7 @@ export interface FileRouteTypes {
     | '/approvals/$id'
     | '/api/internal/provider-sync'
     | '/integrations/genesys/callback'
+    | '/integrations/github/setup'
     | '/approvals'
   id:
     | '__root__'
@@ -395,6 +406,7 @@ export interface FileRouteTypes {
     | '/_app/approvals/$id'
     | '/api/internal/provider-sync'
     | '/integrations/genesys/callback'
+    | '/integrations/github/setup'
     | '/_app/approvals/'
   fileRoutesById: FileRoutesById
 }
@@ -410,6 +422,7 @@ export interface RootRouteChildren {
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiInternalProviderSyncRoute: typeof ApiInternalProviderSyncRoute
   IntegrationsGenesysCallbackRoute: typeof IntegrationsGenesysCallbackRoute
+  IntegrationsGithubSetupRoute: typeof IntegrationsGithubSetupRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -631,6 +644,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IntegrationsGenesysCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/integrations/github/setup': {
+      id: '/integrations/github/setup'
+      path: '/integrations/github/setup'
+      fullPath: '/integrations/github/setup'
+      preLoaderRoute: typeof IntegrationsGithubSetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -703,6 +723,7 @@ const rootRouteChildren: RootRouteChildren = {
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiInternalProviderSyncRoute: ApiInternalProviderSyncRoute,
   IntegrationsGenesysCallbackRoute: IntegrationsGenesysCallbackRoute,
+  IntegrationsGithubSetupRoute: IntegrationsGithubSetupRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
