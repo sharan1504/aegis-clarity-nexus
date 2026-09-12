@@ -27,7 +27,6 @@ function oauthApi(): OAuthNamespace {
 }
 
 export const Route = createFileRoute("/.lovable/oauth/consent")({
-  // Browser-only: the Supabase client reads its session from localStorage.
   ssr: false,
   validateSearch: (s: Record<string, unknown>) => ({
     authorization_id: typeof s.authorization_id === "string" ? s.authorization_id : "",
@@ -73,7 +72,7 @@ function Shell({ children }: { children: React.ReactNode }) {
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
             <Sparkles className="h-5 w-5 text-primary" />
           </div>
-          <span className="text-lg font-semibold tracking-tight">Aegis AI</span>
+          <span className="text-lg font-semibold tracking-tight">Cenops</span>
         </div>
         {children}
       </div>
@@ -122,7 +121,7 @@ function ConsentPage() {
     <Shell>
       <Card className="w-full">
         <CardHeader>
-          <CardTitle className="text-xl">Connect {clientName} to Aegis AI</CardTitle>
+          <CardTitle className="text-xl">Connect {clientName} to Cenops</CardTitle>
           <CardDescription>
             {clientName} will be able to call this app's enabled tools while you are signed in.
           </CardDescription>
@@ -146,7 +145,7 @@ function ConsentPage() {
           <div className="space-y-1.5 text-sm">
             <div className="font-medium">This grants access to</div>
             <ul className="space-y-1 text-muted-foreground">
-              <li>• Read Aegis change records, approvals, and audit history</li>
+              <li>• Read Cenops change records, approvals, and audit history</li>
               <li>• Read agent findings, integrations, incidents, and security alerts</li>
               <li>• Read executive report datasets and AI recommendations</li>
               {scopes
@@ -159,7 +158,7 @@ function ConsentPage() {
 
           <p className="flex items-start gap-2 text-xs text-muted-foreground">
             <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            This does not bypass Aegis permissions or backend policies.
+            This does not bypass Cenops permissions or backend policies.
           </p>
 
           {error && (
@@ -227,7 +226,7 @@ function SignInCard({ onSignedIn }: { onSignedIn: () => void }) {
         <CardHeader>
           <CardTitle className="text-xl">Sign in to continue</CardTitle>
           <CardDescription>
-            Authorize an external client to use Aegis AI as you.
+            Authorize an external client to use Cenops as you.
           </CardDescription>
         </CardHeader>
         <CardContent>
