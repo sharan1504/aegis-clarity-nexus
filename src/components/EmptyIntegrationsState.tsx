@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 
 export function EmptyIntegrationsState({
   title = "Connect your first integration",
-  description = "Aegis needs at least one connected system to surface insights, agents, and reports.",
+  description = "Cenops needs at least one connected system to surface insights, agents, and reports.",
 }: {
   title?: string;
   description?: string;

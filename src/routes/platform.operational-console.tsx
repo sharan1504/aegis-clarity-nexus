@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { listOperationalIssues, updateOperationalIssue } from "@/lib/operational-console.functions";
 
-export const Route = createFileRoute("/_platform/operational-console")({ component: OperationalConsolePage });
+export const Route = createFileRoute("/platform/operational-console")({ component: OperationalConsolePage });
 const sources = ["all", "sync", "agent_run", "integration_health", "guardrail_evaluation", "webhook_delivery", "command_center", "other"];
 const severities = ["all", "critical", "high", "medium", "low"];
 const statuses = ["all", "open", "acknowledged", "resolved"];

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { evaluateAgentRunFn, getAgentEvaluations } from "@/lib/agent-evaluation.functions";
 
-export const Route = createFileRoute("/_platform/agent-evaluation/$runId")({ component: AgentEvaluationPage });
+export const Route = createFileRoute("/platform/agent-evaluation/$runId")({ component: AgentEvaluationPage });
 
 function AgentEvaluationPage() {
   const { runId } = Route.useParams();

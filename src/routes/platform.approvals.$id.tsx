@@ -35,16 +35,16 @@ import {
   type ChangeApproval,
   type ChangeStage,
 } from "@/lib/change-data";
-import { RiskChip, ModeChip } from "./_app.approvals.index";
+import { RiskChip, ModeChip } from "./platform.approvals.index";
 import { pageHead } from "@/lib/seo";
 
-export const Route = createFileRoute("/_platform/approvals/$id")({
-  head: ({ params }) => pageHead({ path: `/platform/approvals/${params.id}`, title: "Change Record Detail — Aegis AI", description: "Inspect AI reasoning, risk factors, approvals, rollback plans, validation, and immutable audit history for a single change record." }),
+export const Route = createFileRoute("/platform/approvals/$id")({
+  head: ({ params }) => pageHead({ path: `/platform/approvals/${params.id}`, title: "Change Record Detail — Cenops", description: "Inspect AI reasoning, risk factors, approvals, rollback plans, validation, and immutable audit history for a single change record." }),
   component: ChangeDetailPage,
 });
 
 function ChangeDetailPage() {
-  const { id } = useParams({ from: "/_platform/approvals/$id" });
+  const { id } = useParams({ from: "/platform/approvals/$id" });
   const { role, can } = useRole();
   const { records, loading } = useRealtime();
   const { tenantId, user } = useTenantContext();

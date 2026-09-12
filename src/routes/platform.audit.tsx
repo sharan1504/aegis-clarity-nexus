@@ -16,7 +16,7 @@ import { useRole } from "@/lib/rbac";
 import { auditRepository } from "@/lib/audit/repository";
 import { ACTION_LABELS, RESOURCE_LABELS, type AuditAction, type AuditEvent, type AuditFilters, type AuditResourceType, type AuditResult, type AuditRisk } from "@/lib/audit/types";
 
-export const Route = createFileRoute("/_platform/audit")({ component: AuditViewerPage });
+export const Route = createFileRoute("/platform/audit")({ component: AuditViewerPage });
 const all = "all";
 
 function formatTime(value: string) { return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)); }
@@ -52,7 +52,7 @@ function AuditViewerPage() {
     const rows = await auditRepository.list(filters, { canSeeSensitiveMetadata: role === "Admin" });
     const header = ["Timestamp", "Actor", "Role", "Action", "Resource", "Integration", "Agent", "Result", "Risk", "Approval", "Event ID", "Correlation ID"];
     const csv = [header, ...rows.map((e) => [e.timestamp, e.actor.email, e.actor.role, ACTION_LABELS[e.action], e.resourceName, e.integration ?? "", e.agent ?? "", e.result, e.risk, e.approvalId ?? "", e.id, e.correlationId]).map((row) => row.map((v) => `"${String(v).replaceAll('"', '""')}"`).join(","))].join("\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); const a = document.createElement("a"); a.href = url; a.download = `aegis-audit-${new Date().toISOString().slice(0, 10)}.csv`; a.click(); URL.revokeObjectURL(url);
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); const a = document.createElement("a"); a.href = url; a.download = `cenops-audit-${new Date().toISOString().slice(0, 10)}.csv`; a.click(); URL.revokeObjectURL(url);
   };
 
   return <div className="space-y-6">

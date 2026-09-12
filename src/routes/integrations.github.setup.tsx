@@ -16,7 +16,7 @@ interface SetupSearch {
 
 export const Route = createFileRoute("/integrations/github/setup")({
   ssr: false,
-  head: () => pageHead({ path: "/platform/integrations/github/setup", title: "Connecting GitHub — Aegis AI", description: "Completing the GitHub App installation for your Aegis AI workspace." }),
+  head: () => pageHead({ path: "/platform/integrations/github/setup", title: "Connecting GitHub — Cenops", description: "Completing the GitHub App installation for your Cenops workspace." }),
   validateSearch: (search: Record<string, unknown>): SetupSearch => ({
     installation_id: typeof search.installation_id === "string" ? search.installation_id : undefined,
     state: typeof search.state === "string" ? search.state : undefined,

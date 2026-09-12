@@ -20,7 +20,7 @@ const steps: Step[] = [
   {
     id: "connect",
     title: "Connect your first integration",
-    description: "Aegis needs at least one system (AWS, M365, Genesys…) to start generating insights.",
+    description: "Cenops needs at least one system (AWS, M365, Genesys…) to start generating insights.",
     to: "/platform/integrations",
     cta: "Go to Integrations",
     icon: Plug,
@@ -75,7 +75,7 @@ export function WelcomeChecklist() {
       <CardHeader className="flex-row items-start justify-between space-y-0">
         <div>
           <CardTitle className="text-base flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-primary" /> Welcome to Aegis AI
+            <Sparkles className="h-4 w-4 text-primary" /> Welcome to Cenops
           </CardTitle>
           <CardDescription>
             {completedCount} of {steps.length} setup steps complete — finish these to unlock the full platform.

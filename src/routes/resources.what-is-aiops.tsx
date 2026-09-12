@@ -10,7 +10,7 @@ export const Route = createFileRoute("/resources/what-is-aiops")({
   head: () =>
     pageHead({
       path: "/resources/what-is-aiops",
-      title: "What is AIOps? | Aegis AI Guide to AI Operations",
+      title: "What is AIOps? | Cenops Guide to AI Operations",
       description:
         "AIOps combines AI, machine learning, and automation with enterprise tools like AWS, Azure, and ServiceNow to reduce incidents, cut cloud costs, and accelerate IT operations.",
     }),
@@ -26,7 +26,7 @@ function WhatIsAIOpsPage() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent shadow-sm">
               <Sparkles className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="text-lg font-semibold tracking-tight text-foreground">Aegis AI</span>
+            <span className="text-lg font-semibold tracking-tight text-foreground">Cenops</span>
           </Link>
           <nav className="hidden items-center gap-4 sm:flex">
             <Link to="/" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
@@ -56,7 +56,7 @@ function WhatIsAIOpsPage() {
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link to="/auth">
               <Button size="lg" className="gap-2">
-                Start with Aegis AI <ArrowRight className="h-4 w-4" />
+                Start with Cenops <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
             <Link to="/platform/marketplace">
@@ -267,7 +267,7 @@ function WhatIsAIOpsPage() {
             Put AIOps to work in your enterprise
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
-            Aegis AI gives you an enterprise-grade AIOps platform with AI agents, change-control workflows, report generation, and multi-tenant security. Start free and connect your first integration in minutes.
+            Cenops gives you an enterprise-grade AIOps platform with AI agents, change-control workflows, report generation, and multi-tenant security. Start free and connect your first integration in minutes.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link to="/auth">
@@ -286,7 +286,7 @@ function WhatIsAIOpsPage() {
 
       <footer className="border-t border-border bg-card/50">
         <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-4 px-6 py-6 sm:flex-row">
-          <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} Aegis AI. All rights reserved.</p>
+          <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} Cenops. All rights reserved.</p>
           <div className="flex items-center gap-4">
             <Link to="/" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
               Platform

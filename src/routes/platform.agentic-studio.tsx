@@ -14,7 +14,7 @@ import { listAgentRuntimeTools } from "@/lib/mcp/agent-runtime-tools.functions";
 import type { AgentToolAvailability } from "@/lib/mcp/agent-tool-availability.server";
 import { PageHeader } from "@/components/layout/AppLayout";
 
-export const Route = createFileRoute("/_platform/agentic-studio")({ component: AgenticStudioPage });
+export const Route = createFileRoute("/platform/agentic-studio")({ component: AgenticStudioPage });
 type StudioMode = "architect" | "investigate" | "simulate" | "execute";
 const agents = [
   { key: "agent-license", name: "License Agent", description: "Optimize unused licenses and reclaimable capacity." },
@@ -70,7 +70,7 @@ function AgenticStudioPage() {
       const result = await generate({ data: { agentKey, prompt: prompt.trim() } });
       if (!result.ok) throw new Error("Workflow generation failed.");
       setGenerated(result);
-      toast.success("Aegis built an agentic plan", { description: "Review the plan, then create a durable governed run." });
+      toast.success("Cenops built an agentic plan", { description: "Review the plan, then create a durable governed run." });
     } catch (error) {
       toast.error("Could not build the plan", { description: error instanceof Error ? error.message : "Try a different request." });
     } finally {
@@ -105,7 +105,7 @@ function AgenticStudioPage() {
   const blockedTools = tools.filter((tool) => !tool.available);
 
   return <div className="space-y-6">
-    <PageHeader title="Agentic Studio" description="Describe an operational outcome once. Aegis plans it using the selected agent's capabilities and policies, then persists a governed run for investigation and approval." actions={<Badge variant="outline" className="gap-1.5"><Sparkles className="h-3.5 w-3.5" />Governed planning</Badge>} />
+    <PageHeader title="Agentic Studio" description="Describe an operational outcome once. Cenops plans it using the selected agent's capabilities and policies, then persists a governed run for investigation and approval." actions={<Badge variant="outline" className="gap-1.5"><Sparkles className="h-3.5 w-3.5" />Governed planning</Badge>} />
     <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
       <Card className="h-fit">
         <CardHeader><CardTitle className="text-sm">Planning context</CardTitle><CardDescription>The agent defines responsibility. Capabilities, MCP tools and policies define what the plan may use.</CardDescription></CardHeader>
@@ -126,7 +126,7 @@ function AgenticStudioPage() {
               {loadingTools ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" /> : <Badge variant="secondary" className="text-[10px]">{availableTools.length} available</Badge>}
             </div>
             <div className="mt-3 space-y-2">
-              {availableTools.slice(0, 8).map((tool) => <div key={tool.name} className="rounded-md border p-2"><div className="text-[11px] font-medium">{tool.title}</div><div className="mt-0.5 text-[10px] text-muted-foreground">{tool.capability ?? "Aegis"} · {tool.readOnly ? "read-only" : "approval-gated"}</div></div>)}
+              {availableTools.slice(0, 8).map((tool) => <div key={tool.name} className="rounded-md border p-2"><div className="text-[11px] font-medium">{tool.title}</div><div className="mt-0.5 text-[10px] text-muted-foreground">{tool.capability ?? "Cenops"} · {tool.readOnly ? "read-only" : "approval-gated"}</div></div>)}
               {blockedTools.slice(0, 3).map((tool) => <div key={tool.name} className="rounded-md border border-dashed p-2 opacity-75"><div className="flex items-center gap-1 text-[11px] font-medium"><CircleAlert className="h-3 w-3" />{tool.title}</div><div className="mt-0.5 text-[10px] text-muted-foreground">Blocked: {tool.reasons[0]}</div></div>)}
               {!loadingTools && tools.length === 0 && <div className="rounded-md border border-dashed p-3 text-[10px] text-muted-foreground">No governed MCP tool metadata is currently available for this agent.</div>}
             </div>
@@ -163,7 +163,7 @@ function ArchitectView({ prompt, setPrompt, generating, buildPlan, generated, cr
     </div>
     {generated ? <div className="space-y-3">
       <div className="rounded-xl border bg-muted/20 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div><div className="text-sm font-semibold">{generated.summary}</div><div className="mt-1 text-xs text-muted-foreground">Trigger: {generated.trigger}</div></div><Badge variant="outline">{generated.steps.length} steps</Badge></div></div>
-      {generated.steps.map((step, index) => <div key={step.id} className="flex gap-3 rounded-xl border bg-background p-4"><div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-semibold">{index + 1}</div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><div className="text-sm font-semibold">{step.name}</div>{step.requiresApproval && <Badge variant="secondary" className="text-[10px]">Approval required</Badge>}</div><div className="mt-1 text-[11px] text-muted-foreground">{step.provider ?? "Aegis"} · {step.capability ?? step.type}</div><div className="mt-2 text-sm">{step.action}</div>{step.verification && <div className="mt-2 rounded-md bg-muted p-2 text-xs text-muted-foreground">Verification: {step.verification}</div>}<div className="mt-2 flex flex-wrap gap-1.5">{mappedTools[index] ? <Badge variant="outline" className="gap-1 text-[10px]"><Wrench className="h-3 w-3" />{mappedTools[index].title}</Badge> : <Badge variant="outline" className="gap-1 text-[10px]"><CircleAlert className="h-3 w-3" />No exact MCP mapping</Badge>}{step.capability && availableNames.has(step.capability) && <Badge variant="outline" className="gap-1 text-[10px]"><ShieldCheck className="h-3 w-3" />Capability available</Badge>}</div></div></div>)}
+      {generated.steps.map((step, index) => <div key={step.id} className="flex gap-3 rounded-xl border bg-background p-4"><div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-semibold">{index + 1}</div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><div className="text-sm font-semibold">{step.name}</div>{step.requiresApproval && <Badge variant="secondary" className="text-[10px]">Approval required</Badge>}</div><div className="mt-1 text-[11px] text-muted-foreground">{step.provider ?? "Cenops"} · {step.capability ?? step.type}</div><div className="mt-2 text-sm">{step.action}</div>{step.verification && <div className="mt-2 rounded-md bg-muted p-2 text-xs text-muted-foreground">Verification: {step.verification}</div>}<div className="mt-2 flex flex-wrap gap-1.5">{mappedTools[index] ? <Badge variant="outline" className="gap-1 text-[10px]"><Wrench className="h-3 w-3" />{mappedTools[index].title}</Badge> : <Badge variant="outline" className="gap-1 text-[10px]"><CircleAlert className="h-3 w-3" />No exact MCP mapping</Badge>}{step.capability && availableNames.has(step.capability) && <Badge variant="outline" className="gap-1 text-[10px]"><ShieldCheck className="h-3 w-3" />Capability available</Badge>}</div></div></div>)}
       <div className="grid gap-3 md:grid-cols-2"><ToolPlanSummary tools={tools} /> <PolicySummary /></div>
       <div className="flex flex-wrap gap-2"><Button onClick={() => void createRun()} disabled={creatingRun}>{creatingRun && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}Create governed run <ArrowRight className="ml-1.5 h-4 w-4" /></Button><Button variant="outline" asChild><Link to="/platform/agent/$agentKey" params={{ agentKey }}>Review agent configuration</Link></Button></div>
       {runId && <div className="rounded-lg border border-success/30 bg-success/5 p-3 text-xs"><div className="flex items-center gap-2 font-medium"><CheckCircle2 className="h-4 w-4 text-success" />Durable run created: <span className="font-mono">{runId}</span></div><div className="mt-1 text-muted-foreground">No provider mutation occurs when a run is created.</div></div>}
@@ -173,7 +173,7 @@ function ArchitectView({ prompt, setPrompt, generating, buildPlan, generated, cr
 
 function ToolPlanSummary({ tools }: { tools: AgentToolAvailability[] }) {
   const available = tools.filter((tool) => tool.available);
-  return <div className="rounded-xl border p-4"><div className="flex items-center gap-2 text-sm font-semibold"><Wrench className="h-4 w-4" />MCP plan surface</div><div className="mt-1 text-xs text-muted-foreground">Only tools already exposed through Aegis governance can be used by the runtime.</div><div className="mt-3 space-y-2">{available.slice(0, 5).map((tool) => <div key={tool.name} className="flex items-center justify-between gap-2 text-xs"><span>{tool.title}</span><Badge variant="outline" className="text-[9px]">{tool.readOnly ? "read" : "approval"}</Badge></div>)}{!available.length && <div className="text-xs text-muted-foreground">No tool is currently available for this agent.</div>}</div></div>;
+  return <div className="rounded-xl border p-4"><div className="flex items-center gap-2 text-sm font-semibold"><Wrench className="h-4 w-4" />MCP plan surface</div><div className="mt-1 text-xs text-muted-foreground">Only tools already exposed through Cenops governance can be used by the runtime.</div><div className="mt-3 space-y-2">{available.slice(0, 5).map((tool) => <div key={tool.name} className="flex items-center justify-between gap-2 text-xs"><span>{tool.title}</span><Badge variant="outline" className="text-[9px]">{tool.readOnly ? "read" : "approval"}</Badge></div>)}{!available.length && <div className="text-xs text-muted-foreground">No tool is currently available for this agent.</div>}</div></div>;
 }
 
 function PolicySummary() {

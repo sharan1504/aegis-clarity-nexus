@@ -10,7 +10,7 @@ export function SetupChecklist({ providers, agents, guardrails }: { providers:nu
   ];
   if (steps.every(s => s.done)) return null;
   return <Card className="border-primary/20 bg-primary/[0.03]">
-    <CardHeader><CardTitle className="text-base">Get Aegis ready</CardTitle><p className="text-sm text-muted-foreground">Your workspace is empty because no live providers or agents are configured yet.</p></CardHeader>
+    <CardHeader><CardTitle className="text-base">Get Cenops ready</CardTitle><p className="text-sm text-muted-foreground">Your workspace is empty because no live providers or agents are configured yet.</p></CardHeader>
     <CardContent className="space-y-2">{steps.map(({done,label,href,icon:Icon}) => <Link key={label} to={href as never} className="flex items-center gap-3 rounded-lg border bg-background p-3 hover:border-primary/40">
       {done ? <CheckCircle2 className="h-4 w-4 text-success"/> : <Circle className="h-4 w-4 text-muted-foreground"/>}<Icon className="h-4 w-4 text-muted-foreground"/><span className="text-sm">{label}</span>
     </Link>)}</CardContent>
