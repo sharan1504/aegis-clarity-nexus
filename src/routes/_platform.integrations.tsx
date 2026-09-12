@@ -15,8 +15,8 @@ import { startGitHubAppInstall } from "@/lib/integrations/github-app.functions";
 import { deleteGenesysIntegration, startGenesysOAuth } from "@/lib/integrations-genesys.functions";
 import { GENESYS_REGIONS, DEFAULT_GENESYS_REGION } from "@/lib/genesys/errors";
 
-export const Route = createFileRoute("/_app/integrations")({
-  head: () => pageHead({ path: "/integrations", title: "Integrations — Aegis AI", description: "Manage enterprise integration instances and their health." }),
+export const Route = createFileRoute("/_platform/integrations")({
+  head: () => pageHead({ path: "/platform/integrations", title: "Integrations — Aegis AI", description: "Manage enterprise integration instances and their health." }),
   component: IntegrationsPage,
 });
 

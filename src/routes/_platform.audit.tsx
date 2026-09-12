@@ -16,7 +16,7 @@ import { useRole } from "@/lib/rbac";
 import { auditRepository } from "@/lib/audit/repository";
 import { ACTION_LABELS, RESOURCE_LABELS, type AuditAction, type AuditEvent, type AuditFilters, type AuditResourceType, type AuditResult, type AuditRisk } from "@/lib/audit/types";
 
-export const Route = createFileRoute("/_app/audit")({ component: AuditViewerPage });
+export const Route = createFileRoute("/_platform/audit")({ component: AuditViewerPage });
 const all = "all";
 
 function formatTime(value: string) { return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)); }

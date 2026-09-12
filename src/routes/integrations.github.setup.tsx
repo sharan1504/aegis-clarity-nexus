@@ -16,7 +16,7 @@ interface SetupSearch {
 
 export const Route = createFileRoute("/integrations/github/setup")({
   ssr: false,
-  head: () => pageHead({ path: "/integrations/github/setup", title: "Connecting GitHub — Aegis AI", description: "Completing the GitHub App installation for your Aegis AI workspace." }),
+  head: () => pageHead({ path: "/platform/integrations/github/setup", title: "Connecting GitHub — Aegis AI", description: "Completing the GitHub App installation for your Aegis AI workspace." }),
   validateSearch: (search: Record<string, unknown>): SetupSearch => ({
     installation_id: typeof search.installation_id === "string" ? search.installation_id : undefined,
     state: typeof search.state === "string" ? search.state : undefined,
@@ -39,7 +39,7 @@ function GitHubSetupPage() {
         if (!active) return;
         if (result.ok) {
           setState({ phase: "done", account: result.accountLogin, repositories: result.repositoriesVisible });
-          setTimeout(() => navigate({ to: "/integrations" }), 1400);
+          setTimeout(() => navigate({ to: "/platform/integrations" }), 1400);
         } else {
           setState({ phase: "error", message: result.errorMessage });
         }
@@ -67,7 +67,7 @@ function GitHubSetupPage() {
             {state.phase === "error" && state.message}
           </CardDescription>
         </CardHeader>
-        {state.phase === "error" && <CardContent><Button size="sm" onClick={() => navigate({ to: "/integrations" })}>Back to Integrations</Button></CardContent>}
+        {state.phase === "error" && <CardContent><Button size="sm" onClick={() => navigate({ to: "/platform/integrations" })}>Back to Integrations</Button></CardContent>}
       </Card>
     </main>
   );

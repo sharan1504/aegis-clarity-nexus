@@ -413,7 +413,7 @@ export const notifications: Notification[] = [
     body: "CHG0012345 — Reclaim 142 M365 E5 licenses. Awaiting Information Security sign-off.",
     ts: "8m ago",
     unread: true,
-    href: "/approvals/CHG0012345",
+    href: "/platform/approvals/CHG0012345",
   },
   {
     id: "N-402",
@@ -438,7 +438,7 @@ export const notifications: Notification[] = [
     body: "CHG0012346 — Right-size 38 EC2 instances awaiting owner review.",
     ts: "2h ago",
     unread: false,
-    href: "/approvals/CHG0012346",
+    href: "/platform/approvals/CHG0012346",
   },
   {
     id: "N-405",
@@ -447,6 +447,6 @@ export const notifications: Notification[] = [
     body: "CHG0012340 auto-closed 27 stale ServiceNow incidents.",
     ts: "3d ago",
     unread: false,
-    href: "/approvals/CHG0012340",
+    href: "/platform/approvals/CHG0012340",
   },
 ];
