@@ -24,11 +24,11 @@ function AuthPage() {
         const { error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${window.location.origin}/` } }); if (error) throw error;
         toast.success("Workspace created", { description: "Your tenant is being provisioned with reference data." });
       }
-      navigate({ to: "/" });
+      navigate({ to: "/platform" });
     } catch (err) { toast.error("Could not sign in", { description: err instanceof Error ? err.message : "Please try again." }); } finally { setLoading(false); }
   };
   const google = async () => {
-    try { const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin }); if (result.error) throw result.error instanceof Error ? result.error : new Error(String(result.error)); if (result.redirected) return; navigate({ to: "/" }); }
+    try { const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin }); if (result.error) throw result.error instanceof Error ? result.error : new Error(String(result.error)); if (result.redirected) return; navigate({ to: "/platform" }); }
     catch (err) { toast.error("Google sign-in unavailable", { description: err instanceof Error ? err.message : "Please try email sign-in." }); }
   };
   return <div className="grid min-h-screen grid-cols-1 lg:grid-cols-2">

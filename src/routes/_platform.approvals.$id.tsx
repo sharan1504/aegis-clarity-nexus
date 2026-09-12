@@ -35,7 +35,7 @@ import {
   type ChangeApproval,
   type ChangeStage,
 } from "@/lib/change-data";
-import { RiskChip, ModeChip } from "./_app.approvals.index";
+import { RiskChip, ModeChip } from "./_platform.approvals.index";
 import { pageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/_platform/approvals/$id")({

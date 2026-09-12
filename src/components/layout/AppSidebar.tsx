@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { listOperationalIssues } from "@/lib/operational-console.functions";
 
 const nav = [
-  { section: "Overview", items: [{ title: "Command Center", url: "/", icon: Sparkles }, { title: "Analytics", url: "/platform/analytics", icon: BarChart3 }, { title: "Vulnerabilities", url: "/platform/investigations", icon: SearchCheck }] },
+  { section: "Overview", items: [{ title: "Command Center", url: "/platform", icon: Sparkles }, { title: "Analytics", url: "/platform/analytics", icon: BarChart3 }, { title: "Vulnerabilities", url: "/platform/investigations", icon: SearchCheck }] },
   { section: "AI Operations", items: [{ title: "AI Agents", url: "/platform/agents", icon: Bot }, { title: "Agentic Studio", url: "/platform/agentic-studio", icon: Workflow }, { title: "Approval Center", url: "/platform/approvals", icon: ShieldCheck }] },
   { section: "Data & Systems", items: [{ title: "Integrations", url: "/platform/integrations", icon: Plug }, { title: "Operational Console", url: "/platform/operational-console", icon: Activity }, { title: "Audit Viewer", url: "/platform/audit", icon: History }] },
   { section: "Administration", items: [{ title: "Guardrails", url: "/platform/governance", icon: ShieldAlert }, { title: "User Management", url: "/platform/users", icon: Users }, { title: "Settings", url: "/platform/settings", icon: Settings }] },
