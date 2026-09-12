@@ -27,7 +27,6 @@ function oauthApi(): OAuthNamespace {
 }
 
 export const Route = createFileRoute("/.lovable/oauth/consent")({
-  // Browser-only: the Supabase client reads its session from localStorage.
   ssr: false,
   validateSearch: (s: Record<string, unknown>) => ({
     authorization_id: typeof s.authorization_id === "string" ? s.authorization_id : "",

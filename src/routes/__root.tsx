@@ -80,23 +80,23 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Aegis AI — Enterprise AI Operations Platform" },
+      { title: "Cenops — Enterprise AI Operations Platform" },
       {
         name: "description",
         content:
-          "Aegis AI connects enterprise systems via MCP and APIs to monitor, optimize, and automate operations with specialized AI agents.",
+          "Cenops connects enterprise systems via MCP and APIs to monitor, optimize, and automate operations with specialized AI agents.",
       },
-      { name: "author", content: "Aegis AI" },
-      { property: "og:title", content: "Aegis AI — Enterprise AI Operations Platform" },
+      { name: "author", content: "Cenops" },
+      { property: "og:title", content: "Cenops — Enterprise AI Operations Platform" },
       {
         property: "og:description",
         content:
-          "Aegis AI connects enterprise systems via MCP and APIs to monitor, optimize, and automate operations with specialized AI agents.",
+          "Cenops connects enterprise systems via MCP and APIs to monitor, optimize, and automate operations with specialized AI agents.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "Aegis AI — Enterprise AI Operations Platform" },
-      { name: "twitter:description", content: "Aegis AI connects enterprise systems via MCP and APIs to monitor, optimize, and automate operations with specialized AI agents." },
+      { name: "twitter:title", content: "Cenops — Enterprise AI Operations Platform" },
+      { name: "twitter:description", content: "Cenops connects enterprise systems via MCP and APIs to monitor, optimize, and automate operations with specialized AI agents." },
       { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/52cca386-b975-411b-8362-afaad4384abb/id-preview-01cfccb1--7df68c05-6503-4ce2-9d37-d22e1537495f.lovable.app-1784562537300.png" },
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/52cca386-b975-411b-8362-afaad4384abb/id-preview-01cfccb1--7df68c05-6503-4ce2-9d37-d22e1537495f.lovable.app-1784562537300.png" },
     ],

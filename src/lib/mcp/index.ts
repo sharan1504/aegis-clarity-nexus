@@ -5,6 +5,7 @@ import { MCP_TOOL_REGISTRY } from "./gateway-catalog";
 const projectRef = import.meta.env['VITE_SUPABASE_PROJECT_ID'] ?? "project-ref-unset";
 
 export default defineMcp({
+  // Keep the machine name stable for existing MCP clients; the product-facing title is branded Cenops.
   name: "aegis-operations-hub",
   title: "Cenops Operations Hub",
   version: "0.3.0",
