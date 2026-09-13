@@ -11,7 +11,7 @@ import { listOperationalIssues } from "@/lib/operational-console.functions";
 const nav = [
   { section: "Overview", items: [{ title: "Command Center", url: "/", icon: Sparkles }, { title: "Analytics", url: "/analytics", icon: BarChart3 }, { title: "Vulnerabilities", url: "/investigations", icon: SearchCheck }] },
   { section: "AI Operations", items: [{ title: "AI Agents", url: "/agents", icon: Bot }, { title: "Agentic Studio", url: "/agentic-studio", icon: Workflow }, { title: "Approval Center", url: "/approvals", icon: ShieldCheck }] },
-  { section: "Data & Systems", items: [{ title: "Integrations", url: "/integrations", icon: Plug }, { title: "Operational Console", url: "/operational-console", icon: Activity }, { title: "Audit Viewer", url: "/audit", icon: History }] },
+  { section: "Data & Systems", items: [{ title: "Integrations", url: "/integrations", icon: Plug }, { title: "ITSM Routing", url: "/settings/itsm-routing", icon: Settings }, { title: "Operational Console", url: "/operational-console", icon: Activity }, { title: "Audit Viewer", url: "/audit", icon: History }] },
   { section: "Administration", items: [{ title: "Guardrails", url: "/governance", icon: ShieldAlert }, { title: "User Management", url: "/users", icon: Users }, { title: "Settings", url: "/settings", icon: Settings }] },
 ];
 
