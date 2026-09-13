@@ -1,47 +1,50 @@
-# Live License Analysis denial — traced root cause
+# Aegis AI public website and platform entry
 
-## Runtime path
+## Goal
+Turn `/` into a polished public Aegis AI website while preserving the operational platform as a separate authenticated experience. Visitors can request access; existing authorized users can sign in and open the platform.
 
-```text
-LicenseAgentLiveAnalysis (button click)
-  -> executeLicenseAgent (server fn, authenticated)
-       runs BOTH operations in parallel:
-         get_license_summary            -> license_inventory + user_inventory
-         get_unused_license_candidates  -> license_inventory + user_inventory + queue_inventory
-  -> capabilityRouter.getLicenseInventory / getUsers / getQueues
-  -> authorizeCapabilityAccess (fail-closed, per capability)
-  -> DENIAL_MESSAGES[reason] surfaced verbatim in the red "Analysis failed" alert
-```
+## Assumptions
+- Keep deployment and domain wiring unchanged for now, as requested. The final site will be ready for either `cenops.in` or `www.cenops.in` once confirmed.
+- Use a reviewed access-request flow rather than automatically granting workspace access to every form submission.
+- Keep `sshrinivasan97@gmail.com` as a full Admin. The live backend already confirms this account has the Admin role.
 
-The component sets the error from whichever operation fails first (summary checked first, then candidates), so a single denied capability blanks the whole panel.
+## Public website
+- Move the current authenticated Command Center from `/` to `/dashboard` without changing its functionality.
+- Build a new public homepage at `/` with its own navigation, mobile menu, and distinct light/dark section rhythm.
+- Use authoritative serif display typography, clean sans-serif body typography, near-black/navy/white surfaces, and one restrained teal trust accent.
+- Create a purpose-built product visual showing the evidence-to-audit operating loop; avoid decorative gradients, fake screenshots, and invented customer proof.
+- Add the requested sections:
+  - Vendor-neutral approval and audit positioning
+  - “Governs actions across” provider/category bar
+  - Three governance problems
+  - Six-step connect → sync → recommend → guard → approve → audit pipeline
+  - Shipped platform capabilities
+  - Why-now context
+  - Fair category comparison
+  - Security and architecture detail
+  - Design-partner call to action
+  - Product/company/legal/contact footer
+- Keep every capability statement tied to the shipped Aegis implementation and avoid customer, usage, or market-leadership claims.
 
-## Where the exact message comes from
+## Access and sign-in flow
+- Add a public request-access form with name, work email, organization, role, and optional context.
+- Store requests separately from user accounts; submission shows a confirmation and a clear existing-user sign-in link.
+- Do not automatically create a tenant, user, or privileged role from a public form.
+- Update sign-in and sign-out navigation so authenticated users enter `/dashboard`, while signed-out visitors return to the public website.
+- Keep Admin/Manager/Analyst/Viewer permissions enforced by the existing server and database role system.
 
-`src/lib/capabilities/authorization.server.ts` maps `binding_disabled` to the literal string "The data source is disabled for this agent." It is returned in step 5 when bindings exist for tenant + agent + capability but **none of them is enabled** (`enabled.length === 0` and at least one disabled row).
+## Security
+- Add strict validation and abuse-resistant limits to public access requests; expose no request records publicly.
+- Recheck and harden profile tenant assignment and self-role assignment so users cannot switch tenants or grant themselves Admin.
+- Mark only the two active security findings fixed after verification.
 
-## Why it disagreed with the DB state you checked
+## SEO and accessibility
+- Add unique homepage metadata and structured organization/software information without fabricated proof.
+- Update the sitemap to include only public, indexable pages; authenticated platform pages remain excluded.
+- Preserve semantic headings, keyboard navigation, visible focus states, reduced-motion support, image alt text, and WCAG AA contrast.
 
-Two separate capability gaps, not one:
-
-1. `user_inventory` — before the binding added earlier today, `agent-license` had exactly one `user_inventory` binding: the AWS mock integration, `enabled = false`. That produced `binding_disabled` — the exact message. The verified "enabled non-mock Genesys license_inventory binding" satisfied only the first of the two capabilities `get_license_summary` needs. This is now fixed in the database (Genesys `user_inventory` binding enabled), so this specific message should no longer appear after a fresh click of "Analyze live data" (results are held in component state, so the old error persists until the button is pressed again).
-2. `queue_inventory` — still blocking, and it is not a binding problem. `agent_capabilities` has only 2 rows for `agent-license` (`license_inventory`, `user_inventory`); there is no `queue_inventory` row for any agent, and no `queue_inventory` binding exists at all. `get_unused_license_candidates` calls `capabilityRouter.getQueues`, so `authorizeCapabilityAccess` fails at step 4 with `capability_not_assigned_to_agent` -> "This agent does not support that capability." Genesys does implement `queue_inventory` (`provider_capabilities.implemented = true`), so nothing at the connector level is missing.
-
-No stale hard-coded ids, no tenant mismatch, no caching layer, and no guardrail is involved: tenant, integration and provider are all resolved per request from the session.
-
-## Recommended minimal fix
-
-Data-only, no application-code change:
-
-1. Add the missing agent↔capability assignment: `agent_capabilities` row for `agent-license` + `queue_inventory` with `required = false` (it is a supporting exclusion signal, not a hard requirement).
-2. Add and enable the `agent-license` -> `queue_inventory` -> Genesys binding in the current tenant (non-mock), matching the two existing Genesys bindings.
-3. Verify by querying `agent_capabilities` and `agent_integration_bindings`, then re-run "Analyze live data" in the preview and confirm both cards render.
-
-Note on behaviour after the fix: the normalized queue capability exposes queue-level facts, not per-user membership, so `activeQueueMemberUserIds` stays empty and any policy that requires the active-queue-member exclusion will still report those candidates as inconclusive. That is the intended fail-closed behaviour, not an error.
-
-### Alternative (if you prefer no new capability grant)
-
-Change `get_unused_license_candidates` to treat `queue_inventory` as optional — degrade with a warning instead of denying when the queue capability is unauthorized. This is a code change to `src/lib/agents/license/functions.ts` and weakens the current strict all-or-nothing contract, so it is offered only as a fallback.
-
-## Pre-existing build error to fix in the same change
-
-`src/lib/agents/license/functions.ts:140` — TS2345: `FilterIssue[]` is not assignable to `never[]`. The `invalidRequest` helper's `issues` field is inferred as `never[]`; type it as `FilterIssue[]`. This is unrelated to the denial, but it must be fixed for the app to build.
+## Verification
+- Run focused tests for request validation/access behavior and route protection.
+- Run lint, full tests, and production build.
+- Verify public homepage and authenticated `/dashboard` at desktop and mobile sizes, including form success/error states and navigation.
+- Do not publish or connect a domain in this change.
