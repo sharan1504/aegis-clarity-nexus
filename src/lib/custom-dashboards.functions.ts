@@ -7,10 +7,15 @@ export type DashboardConfig = { widgets: string[] };
 const db = (supabase: any) => supabase as any;
 
 export const listCustomDashboards = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
-  const { tenantId } = await resolveTenant(context.supabase, context.userId);
-  const { data, error } = await db(context.supabase).from("custom_dashboards").select("id,name,starred,config,created_at,updated_at").eq("tenant_id", tenantId).eq("user_id", context.userId).order("starred", { ascending: false }).order("updated_at", { ascending: false });
-  if (error) throw error;
-  return { dashboards: (data ?? []).map((row: any) => ({ id: row.id, name: row.name, starred: Boolean(row.starred), config: (row.config ?? { widgets: [] }) as DashboardConfig, createdAt: row.created_at, updatedAt: row.updated_at })) };
+  try {
+    const { tenantId } = await resolveTenant(context.supabase, context.userId);
+    const { data, error } = await db(context.supabase).from("custom_dashboards").select("id,name,starred,config,created_at,updated_at").eq("tenant_id", tenantId).eq("user_id", context.userId).order("starred", { ascending: false }).order("updated_at", { ascending: false });
+    if (error) throw error;
+    return { dashboards: (data ?? []).map((row: any) => ({ id: row.id, name: row.name, starred: Boolean(row.starred), config: (row.config ?? { widgets: [] }) as DashboardConfig, createdAt: row.created_at, updatedAt: row.updated_at })) };
+  } catch (error) {
+    console.error("[custom-dashboards] list failed; returning empty dashboard list", error);
+    return { dashboards: [] };
+  }
 });
 
 export const createCustomDashboard = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { name: string; widgets: string[] }) => ({ name: input.name.trim().slice(0, 80), widgets: [...new Set(input.widgets)].slice(0, 12) })).handler(async ({ data, context }) => {
