@@ -13,7 +13,7 @@
     "server": {
       "name": "aegis-operations-hub",
       "version": "0.3.0",
-      "title": "Aegis Operations Hub"
+      "title": "Cenops Operations Hub"
     },
     "tools": [
       {
