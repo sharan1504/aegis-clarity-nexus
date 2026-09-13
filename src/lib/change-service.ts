@@ -11,7 +11,15 @@ import { resolveCurrentTenantContext } from "@/lib/tenant-context.server";
 interface ActorContext { tenantId: string; actor: string; role: string; }
 async function appendTimeline(record: ChangeRecord, event: ChangeTimelineEvent, extra: { stage?: ChangeStage; externalTickets?: ExternalTicket[] } = {}) { if (!record.rowId) return; await supabase.from("change_records").update({ timeline: [event, ...record.timeline] as unknown as Json, ...(extra.stage ? { stage: extra.stage } : {}), ...(extra.externalTickets ? { external_tickets: extra.externalTickets as unknown as Json } : {}) }).eq("id", record.rowId); }
 function nextStage(record: ChangeRecord, allApproved: boolean): ChangeStage | undefined { if (!allApproved) return undefined; const idx = CHANGE_STAGES.indexOf(record.stage); return idx >= 0 && idx < CHANGE_STAGES.length - 1 ? CHANGE_STAGES[idx + 1] : undefined; }
-async function advanceLinkedAgentRun(record: ChangeRecord, ctx: ActorContext, decision: "approved" | "rejected", stage: ChangeStage | undefined) { if (!record.rowId || !record.approvals.length) return; const { data: link } = await (supabase as any).from("change_records").select("agent_run_id").eq("id", record.rowId).eq("tenant_id", ctx.tenantId).maybeSingle(); if (!link?.agent_run_id) return; if (decision !== "approved" || stage !== "Ready to Execute") return; const allApproved = record.approvals.every((approval) => approval.status === "approved" || approval.status === "pending"); if (!allApproved) return; await (supabase as any).from("agent_runs").update({ status: "running", current_step: "execute", approval: { status: "approved", changeRecordId: record.rowId, changeId: record.id, approvedAt: new Date().toISOString(), approvedBy: ctx.actor } }).eq("id", link.agent_run_id).eq("tenant_id", ctx.tenantId); }
+async function advanceLinkedAgentRun(record: ChangeRecord, ctx: ActorContext, decision: "approved" | "rejected", stage: ChangeStage | undefined) {
+  if (!record.rowId || !record.approvals.length) return;
+  const { data: link } = await (supabase as any).from("change_records").select("agent_run_id").eq("id", record.rowId).eq("tenant_id", ctx.tenantId).maybeSingle();
+  if (!link?.agent_run_id) return;
+  if (decision !== "approved" || stage !== "Ready to Execute") return;
+  const allApproved = record.approvals.every((approval) => approval.status === "approved" || approval.status === "pending");
+  if (!allApproved) return;
+  await (supabase as any).from("agent_runs").update({ status: "running", current_step: "execute", approval: { status: "approved", changeRecordId: record.rowId, changeId: record.id, approvedAt: new Date().toISOString(), approvedBy: ctx.actor } }).eq("id", link.agent_run_id).eq("tenant_id", ctx.tenantId);
+}
 async function maybeCreateAutomaticExternalTicket(record: ChangeRecord, ctx: ActorContext, stage: ChangeStage | undefined) {
   if (!record.rowId || !stage) return;
   const { data: routing, error } = await (supabase as any).from("itsm_routing_config").select("provider,automatic_trigger_stage,automatic_trigger_severity").eq("tenant_id", ctx.tenantId).eq("is_default", true).eq("automatic_trigger_enabled", true).maybeSingle();
