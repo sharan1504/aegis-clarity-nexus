@@ -1,6 +1,6 @@
 // Sensitive change-control actions. Every one of these writes an immutable
-// audit entry and emits a tenant notification; Realtime pushes the result to
-// every open client.
+audit entry and emits a tenant notification; Realtime pushes the result to
+every open client.
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 import { writeAudit } from "@/lib/audit";
@@ -20,6 +20,21 @@ async function advanceLinkedAgentRun(record: ChangeRecord, ctx: ActorContext, de
   if (!allApproved) return;
   await (supabase as any).from("agent_runs").update({ status: "running", current_step: "execute", approval: { status: "approved", changeRecordId: record.rowId, changeId: record.id, approvedAt: new Date().toISOString(), approvedBy: ctx.actor } }).eq("id", link.agent_run_id).eq("tenant_id", ctx.tenantId);
 }
+async function maybeCreateAutomaticExternalTicket(record: ChangeRecord, ctx: ActorContext, stage: ChangeStage | undefined) {
+  if (!record.rowId || !stage) return;
+  const { data: routing, error } = await (supabase as any).from("itsm_routing_config").select("provider,automatic_trigger_stage,automatic_trigger_severity").eq("tenant_id", ctx.tenantId).eq("is_default", true).eq("automatic_trigger_enabled", true).maybeSingle();
+  if (error || !routing) return;
+  const severityMatches = !routing.automatic_trigger_severity || String(routing.automatic_trigger_severity).toLowerCase() === String(record.severity).toLowerCase();
+  if (routing.automatic_trigger_stage !== stage || !severityMatches) return;
+  const system = routing.provider === "jira" ? "Jira" : routing.provider === "servicenow" ? "ServiceNow" : null;
+  if (!system) return;
+  try {
+    const ticket = await createExternalTicketServer({ data: { changeRecordId: record.rowId, system } });
+    await writeAudit({ tenantId: ctx.tenantId, action: "ticket.auto_created", entityType: "ticket", entityId: record.rowId, actorRole: ctx.role, detail: `Automatic ${system} ticket ${ticket.id} linked to ${record.id}`, payload: { changeId: record.id, system, ticketId: ticket.id, url: ticket.url, triggerStage: stage, triggerSeverity: record.severity } });
+  } catch (error) {
+    await writeAudit({ tenantId: ctx.tenantId, action: "ticket.auto_create_failed", entityType: "change_record", entityId: record.id, actorRole: ctx.role, detail: `Automatic ITSM ticket creation failed: ${error instanceof Error ? error.message : String(error)}`, payload: { changeId: record.id, stage, severity: record.severity } });
+  }
+}
 export async function decideChange(record: ChangeRecord, decision: "approved" | "rejected", ctx: ActorContext, comment?: string) {
   const now = new Date().toISOString();
   const { environmentMode } = await resolveCurrentTenantContext(supabase);
@@ -30,7 +45,8 @@ export async function decideChange(record: ChangeRecord, decision: "approved" | 
   await appendTimeline(record, { ts: now, actor: ctx.actor, kind: "status", text: decision === "approved" ? `Approval recorded by ${ctx.actor} (${ctx.role}).${stage ? ` Stage advanced to ${stage}.` : ""}` : `Change rejected by ${ctx.actor} (${ctx.role}).` }, { stage });
   await advanceLinkedAgentRun(record, ctx, decision, stage);
   await writeAudit({ tenantId: ctx.tenantId, action: decision === "approved" ? "change.approved" : "change.rejected", entityType: "change_record", entityId: record.id, actorRole: ctx.role, detail: `${record.title} — ${decision} (${ids.length} approval row(s))`, payload: { changeId: record.id, risk: record.risk.tier, executionMode: record.executionMode, approvalsDecided: pending.map((a) => a.team), comment: comment ?? null } });
-  await pushNotification({ tenantId: ctx.tenantId, kind: "approval_deadline", title: `${record.id} ${decision}`, body: `${record.title} — ${decision} by ${ctx.actor} (${ctx.role}).`, href: `/approvals/${record.id}` });
+  await pushNotification({ tenantId: ctx.tenantId, kind: "approval_deadline", title: `${record.id} ${decision}`, body: `${record.title} — ${decision} by ${ctx.actor}.`, href: `/approvals/${record.id}` });
+  await maybeCreateAutomaticExternalTicket(record, ctx, stage);
 }
 export async function bulkDecideChanges(records: ChangeRecord[], decision: "approved" | "rejected", ctx: ActorContext) { for (const record of records) await decideChange(record, decision, ctx, `Bulk ${decision} by ${ctx.actor} (${ctx.role})`); const { environmentMode } = await resolveCurrentTenantContext(supabase); if (environmentMode !== "demo") await writeAudit({ tenantId: ctx.tenantId, action: decision === "approved" ? "change.bulk_approved" : "change.bulk_rejected", entityType: "change_record", actorRole: ctx.role, detail: `Bulk ${decision} of ${records.length} change record(s)`, payload: { changeIds: records.map((r) => r.id) } }); }
 export async function initiateRollback(record: ChangeRecord, ctx: ActorContext) { const now = new Date().toISOString(); const { environmentMode } = await resolveCurrentTenantContext(supabase); if (environmentMode === "demo") { updateRecords((records) => records.map((current) => current.id === record.id ? { ...current, timeline: [{ ts: now, actor: ctx.actor, kind: "action", text: `Rollback initiated by ${ctx.actor} (${ctx.role}). ${current.rollbackSteps.length} documented step(s) queued.` }, ...current.timeline] } : current)); await pushNotification({ tenantId: ctx.tenantId, kind: "incident", title: `Rollback initiated — ${record.id}`, body: `${ctx.actor} started the documented rollback plan for "${record.title}".`, href: `/approvals/${record.id}` }); return; } await appendTimeline(record, { ts: now, actor: ctx.actor, kind: "action", text: `Rollback initiated by ${ctx.actor} (${ctx.role}). ${record.rollbackSteps.length} documented step(s) queued.` }); await writeAudit({ tenantId: ctx.tenantId, action: "change.rollback_initiated", entityType: "change_record", entityId: record.id, actorRole: ctx.role, detail: `Rollback initiated for ${record.title}`, payload: { changeId: record.id, steps: record.rollbackSteps } }); await pushNotification({ tenantId: ctx.tenantId, kind: "incident", title: `Rollback initiated — ${record.id}`, body: `${ctx.actor} started the documented rollback plan for "${record.title}".`, href: `/approvals/${record.id}` }); }
