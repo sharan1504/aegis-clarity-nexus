@@ -23,52 +23,36 @@ jobs:
           from pathlib import Path
           import re
 
-          agent = Path('src/routes/_app.agentic-studio.tsx')
-          s = agent.read_text()
-          s = s.replace('import { createFileRoute, Link } from "@tanstack/react-router";', 'import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";', 1)
-          s = re.sub(r'import \{ AgenticGovernancePage \} from "\./_app\.agentic-studio\.governance";\n?', '', s, count=1)
-          s = re.sub(r'\n  const governanceView = .*?;\n', '\n', s, count=1)
-          s = re.sub(r'\n  if \(governanceView\) return <AgenticGovernancePage />;\n', '\n', s, count=1)
-          if 'const pathname = useRouterState' not in s:
-              marker = '  const availableTools = tools.filter((tool) => tool.available); const blockedTools = tools.filter((tool) => !tool.available);\n'
-              if marker not in s: raise SystemExit('agent state marker not found')
-              s = s.replace(marker, marker + '  const pathname = useRouterState({ select: (r) => r.location.pathname });\n', 1)
-          if '<Outlet />' not in s:
-              s = s.replace('  return <div className="space-y-6">', '  return <><Outlet />{pathname === "/agentic-studio" && <div className="space-y-6">', 1)
-              idx = s.find('\nfunction ArchitectView')
-              if idx < 0: raise SystemExit('agent component boundary not found')
-              before = s[:idx]
-              after = s[idx:]
-              if before.rstrip().endswith('</div>;'):
-                  before = before.rstrip()[:-len('</div>;')] + '</div>}\n  </>;'
-              elif before.rstrip().endswith('</div>'):
-                  before = before.rstrip()[:-len('</div>')] + '</div>}\n  </>;'
+          def wrap_parent(path, start, boundary):
+              p = Path(path)
+              s = p.read_text()
+              s = s.replace('import { createFileRoute, Link } from "@tanstack/react-router";', 'import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";', 1)
+              s = re.sub(r'import \{ AgenticGovernancePage \} from "\./_app\.agentic-studio\.governance";\n?', '', s, count=1)
+              s = re.sub(r'\n  const governanceView = .*?;\n', '\n', s, count=1)
+              s = re.sub(r'\n  if \(governanceView\) return <AgenticGovernancePage />;\n', '\n', s, count=1)
+              if 'const pathname = useRouterState' not in s:
+                  marker = '  const availableTools = tools.filter((tool) => tool.available); const blockedTools = tools.filter((tool) => !tool.available);\n'
+                  if marker in s:
+                      s = s.replace(marker, marker + '  const pathname = useRouterState({ select: (r) => r.location.pathname });\n', 1)
+                  else:
+                      marker = '  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("");\n'
+                      if marker not in s: raise SystemExit(f'{path}: state marker not found')
+                      s = s.replace(marker, marker + '  const pathname = useRouterState({ select: (r) => r.location.pathname });\n', 1)
+              if '<Outlet />' not in s:
+                  s = s.replace(start, start.replace('return ', 'return <><Outlet />{pathname === "/agentic-studio" && <div className="space-y-6">' if 'agentic-studio' in start else 'return <><Outlet />{pathname === "/settings" && <div><PageHeader title="Settings"'), 1)
+              if 'agentic-studio' in path:
+                  s = s.replace('  return <div className="space-y-6">', '  return <><Outlet />{pathname === "/agentic-studio" && <div className="space-y-6">', 1)
               else:
-                  raise SystemExit('agent return closing not found')
-              s = before + after
-          agent.write_text(s)
+                  s = s.replace('  return <div><PageHeader title="Settings"', '  return <><Outlet />{pathname === "/settings" && <div><PageHeader title="Settings"', 1)
+              idx = s.find(boundary)
+              if idx < 0: raise SystemExit(f'{path}: component boundary not found')
+              before, after = s[:idx], s[idx:]
+              fixed, count = re.subn(r'\n  </div>;\n}$', '\n  </div>}\n  </>;\n}', before, count=1)
+              if count != 1: raise SystemExit(f'{path}: return closing pattern not found')
+              p.write_text(fixed + after)
 
-          settings = Path('src/routes/_app.settings.tsx')
-          s = settings.read_text()
-          s = s.replace('import { createFileRoute } from "@tanstack/react-router";', 'import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";', 1)
-          if 'const pathname = useRouterState' not in s:
-              marker = '  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("");\n'
-              if marker not in s: raise SystemExit('settings state marker not found')
-              s = s.replace(marker, marker + '  const pathname = useRouterState({ select: (r) => r.location.pathname });\n', 1)
-          if '<Outlet />' not in s:
-              s = s.replace('  return <div><PageHeader title="Settings"', '  return <><Outlet />{pathname === "/settings" && <div><PageHeader title="Settings"', 1)
-              idx = s.find('\nfunction Field')
-              if idx < 0: raise SystemExit('settings component boundary not found')
-              before = s[:idx]
-              after = s[idx:]
-              if before.rstrip().endswith('</div>;'):
-                  before = before.rstrip()[:-len('</div>;')] + '</div>}\n  </>;'
-              elif before.rstrip().endswith('</div>'):
-                  before = before.rstrip()[:-len('</div>')] + '</div>}\n  </>;'
-              else:
-                  raise SystemExit('settings return closing not found')
-              s = before + after
-          settings.write_text(s)
+          wrap_parent('src/routes/_app.agentic-studio.tsx', '  return <div className="space-y-6">', '\nfunction ArchitectView')
+          wrap_parent('src/routes/_app.settings.tsx', '  return <div><PageHeader title="Settings"', '\nfunction Field')
 
           sidebar = Path('src/components/layout/AppSidebar.tsx')
           s = sidebar.read_text()
