@@ -11,7 +11,7 @@ const platformItems: SearchItem[] = [
   { label: "Analytics", description: "Operational analytics and reports", href: "/analytics", group: "Platform", icon: BarChart3 },
   { label: "Vulnerabilities", description: "Operational and security findings", href: "/investigations", group: "Platform", icon: SearchCheck },
   { label: "AI Agents", description: "Deployed agents and available definitions", href: "/agents", group: "Platform", icon: Bot },
-  { label: "Ask Cenops", description: "Ask about your organization, data and recommendations", href: "/chat", group: "Platform", icon: Sparkles },
+  { label: "Ask CenOps", description: "Ask about your organization, data and recommendations", href: "/chat", group: "Platform", icon: Sparkles },
   { label: "Approval Center", description: "Review governed changes", href: "/approvals", group: "Platform", icon: ShieldCheck },
   { label: "Integrations", description: "Connected enterprise systems", href: "/integrations", group: "Platform", icon: Plug },
   { label: "Audit Viewer", description: "Trace platform activity", href: "/audit", group: "Platform", icon: History },
@@ -68,9 +68,9 @@ export function GlobalSearch() {
       <kbd className="hidden rounded border border-border bg-background/70 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground sm:inline">⌘ K</kbd>
     </button>
     <CommandDialog open={open} onOpenChange={setOpen}>
-      <CommandInput placeholder="Search Cenops, features, agents, integrations, changes…" />
+      <CommandInput placeholder="Search CenOps, features, agents, integrations, changes…" />
       <CommandList>
-        <CommandEmpty>No matching Cenops resources found.</CommandEmpty>
+        <CommandEmpty>No matching CenOps resources found.</CommandEmpty>
         {Object.entries(groups).map(([group, groupItems]) => <CommandGroup key={group} heading={group}>{groupItems.map((item) => { const Icon = item.icon; return <CommandItem key={`${group}:${item.label}`} value={`${item.label} ${item.description}`} onSelect={() => { setOpen(false); void navigate({ to: item.href as never }); }}><Icon /><span className="min-w-0"><span className="block truncate">{item.label}</span><span className="block truncate text-xs text-muted-foreground">{item.description}</span></span></CommandItem>; })}</CommandGroup>)}
       </CommandList>
     </CommandDialog>

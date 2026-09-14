@@ -148,3 +148,19 @@
     border-color: var(--color-border);
   }
 }
+
+
+/* Command Center: preserve the operational composition while making light mode native to CenOps. */
+@layer components {
+  html:not(.dark) .command-center-shell { background:linear-gradient(180deg,#f8fafc 0%,#eef3f9 100%) !important; color:#172033 !important; box-shadow:0 18px 50px rgba(33,53,85,.10) !important; }
+  html:not(.dark) .command-center-shell > .pointer-events-none { display:none !important; }
+  html:not(.dark) .command-center-shell [class*="text-white"] { color:#172033 !important; }
+  html:not(.dark) .command-center-shell [class*="text-slate-100"], html:not(.dark) .command-center-shell [class*="text-slate-200"] { color:#25334a !important; }
+  html:not(.dark) .command-center-shell [class*="text-slate-300"] { color:#40516a !important; }
+  html:not(.dark) .command-center-shell [class*="text-slate-400"] { color:#56677f !important; }
+  html:not(.dark) .command-center-shell [class*="text-slate-500"] { color:#64748b !important; }
+  html:not(.dark) .command-center-shell [class*="text-slate-600"], html:not(.dark) .command-center-shell [class*="text-slate-700"] { color:#8290a5 !important; }
+  html:not(.dark) .command-center-shell [class*="border-white"] { border-color:rgba(51,65,85,.14) !important; }
+  html:not(.dark) .command-center-shell [class*="bg-[#07111f]"], html:not(.dark) .command-center-shell [class*="bg-[#091625]"], html:not(.dark) .command-center-shell [class*="bg-[#0b192b]"], html:not(.dark) .command-center-shell [class*="bg-[#102139]"], html:not(.dark) .command-center-shell [class*="bg-[#111f39]"] { background:rgba(255,255,255,.82) !important; }
+  html:not(.dark) .command-center-shell [class*="from-[#111f39]"], html:not(.dark) .command-center-shell [class*="via-[#0c1a2d]"], html:not(.dark) .command-center-shell [class*="to-[#091525]"] { background:linear-gradient(135deg,#fff,#f1f5f9) !important; }
+}
