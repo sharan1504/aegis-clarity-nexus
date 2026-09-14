@@ -1,6 +1,6 @@
 // Sensitive change-control actions. Every one of these writes an immutable
-audit entry and emits a tenant notification; Realtime pushes the result to
-every open client.
+// audit entry and emits a tenant notification; Realtime pushes the result to
+// every open client.
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 import { writeAudit } from "@/lib/audit";
