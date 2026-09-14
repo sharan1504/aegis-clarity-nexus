@@ -30,11 +30,14 @@ jobs:
           s = re.sub(r'\n  const governanceView = .*?;\n', '\n', s, count=1)
           s = re.sub(r'\n  if \(governanceView\) return <AgenticGovernancePage />;\n', '\n', s, count=1)
           marker = '  const availableTools = tools.filter((tool) => tool.available); const blockedTools = tools.filter((tool) => !tool.available);\n'
-          if 'useRouterState({ select: (r) => r.location.pathname })' not in s:
+          if 'const pathname = useRouterState' not in s:
               if marker not in s: raise SystemExit('agent state marker not found')
               s = s.replace(marker, marker + '  const pathname = useRouterState({ select: (r) => r.location.pathname });\n', 1)
           s = s.replace('  return <div className="space-y-6">', '  return <><Outlet />{pathname === "/agentic-studio" && <div className="space-y-6">', 1)
-          s = s.replace('\n  </div>;\n}\n\nfunction ArchitectView', '\n  </div>}\n  </>;\n}\n\nfunction ArchitectView', 1)
+          if '\n  </div>;\n}\n\nfunction ArchitectView' in s:
+              s = s.replace('\n  </div>;\n}\n\nfunction ArchitectView', '\n  </div>}\n  </>;\n}\n\nfunction ArchitectView', 1)
+          elif '\n  </div>;}\n  </>;\n}' not in s:
+              raise SystemExit('agent closing marker not found')
           if '<Outlet />' not in s or 'pathname === "/agentic-studio"' not in s: raise SystemExit('agent outlet fix was not applied')
           agent.write_text(s)
 
@@ -42,11 +45,14 @@ jobs:
           s = settings.read_text()
           s = s.replace('import { createFileRoute } from "@tanstack/react-router";', 'import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";', 1)
           marker = '  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("");\n'
-          if 'useRouterState({ select: (r) => r.location.pathname })' not in s:
+          if 'const pathname = useRouterState' not in s:
               if marker not in s: raise SystemExit('settings state marker not found')
               s = s.replace(marker, marker + '  const pathname = useRouterState({ select: (r) => r.location.pathname });\n', 1)
           s = s.replace('  return <div><PageHeader title="Settings"', '  return <><Outlet />{pathname === "/settings" && <div><PageHeader title="Settings"', 1)
-          s = s.replace('\n  </div>;\n}\nfunction Field', '\n  </div>}\n  </>;\n}\nfunction Field', 1)
+          if '\n  </div>;\n}\nfunction Field' in s:
+              s = s.replace('\n  </div>;\n}\nfunction Field', '\n  </div>}\n  </>;\n}\nfunction Field', 1)
+          elif '\n  </div>}\n  </>;\n}\nfunction Field' not in s:
+              raise SystemExit('settings closing marker not found')
           if '<Outlet />' not in s or 'pathname === "/settings"' not in s: raise SystemExit('settings outlet fix was not applied')
           settings.write_text(s)
 
