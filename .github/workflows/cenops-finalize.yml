@@ -1,15 +1,15 @@
-name: Cenops Finalize
+name: Cenops Visual Follow-up
 
 on:
   push:
     branches:
-      - fix/cenops-final-polish
+      - fix/auth-visuals-light-theme-20260914
 
 permissions:
   contents: write
 
 jobs:
-  finalize:
+  follow-up:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -17,70 +17,111 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Apply final customer-facing branding
+      - name: Apply requested CenOps visual and demo-data corrections
         shell: python
         run: |
           from pathlib import Path
           import re
 
-          root = Path("src")
-          extensions = {".ts", ".tsx", ".js", ".jsx", ".css", ".md"}
-          changed = []
+          def edit(path, fn):
+              p = Path(path)
+              text = p.read_text(encoding="utf-8")
+              updated = fn(text)
+              if updated == text:
+                  print(f"No change: {path}")
+                  return
+              p.write_text(updated, encoding="utf-8")
+              print(f"Updated: {path}")
 
-          for path in root.rglob("*"):
-              if not path.is_file() or path.suffix not in extensions:
-                  continue
-              text = path.read_text(encoding="utf-8")
-              original = text
+          # Standardize customer-facing brand casing while leaving stable lowercase keys/URLs alone.
+          for p in Path("src").rglob("*"):
+              if p.is_file() and p.suffix in {".ts", ".tsx", ".js", ".jsx", ".css"} and p.name != "theme.tsx":
+                  text = p.read_text(encoding="utf-8")
+                  updated = re.sub(r"(?<![A-Za-z0-9_])Cenops(?![A-Za-z0-9_])", "CenOps", text)
+                  if updated != text:
+                      p.write_text(updated, encoding="utf-8")
 
-              # Product/customer-visible branding only.
-              text = text.replace("Aegis AI", "Cenops")
-              text = re.sub(r"(?<![A-Za-z0-9_])Aegis(?![A-Za-z0-9_])", "Cenops", text)
+          edit("src/components/layout/AppSidebar.tsx", lambda s: s
+              .replace('<div className="text-[17px] font-semibold tracking-[-0.02em] text-sidebar-foreground">CenOps</div>', '<div className="text-[17px] font-extrabold tracking-[-0.02em] text-sidebar-foreground">CenOps</div>')
+              .replace('AI for Reliable Operations', 'AI Control Plane for Enterprise Operations')
+              .replace('{ title: "AI Agents", url: "/agents", icon: Bot },', '{ title: "AI Agents", url: "/agents", icon: Bot },\n    { title: "CenOps Copilot", url: "/chat", icon: Sparkles },')
+              .replace('<div className="mt-1 text-[10px] leading-4 text-muted-foreground">Observe · Govern · Optimize · Act · Verify</div>', '')
+          )
 
-              # Never rename stable compatibility identifiers or infrastructure env names.
-              text = text.replace("aegis-operations-hub", "aegis-operations-hub")
-              text = text.replace('localStorage.getItem("Cenops-theme")', 'localStorage.getItem("aegis-theme")')
-              text = text.replace('localStorage.setItem("Cenops-theme"', 'localStorage.setItem("aegis-theme"')
-              text = text.replace('localStorage.removeItem("Cenops-theme")', 'localStorage.removeItem("aegis-theme")')
+          def index_edit(s):
+              s = s.replace('className="relative min-h-full overflow-hidden rounded-2xl bg-[#07111f] text-slate-100 shadow-[0_24px_80px_rgba(0,0,0,0.28)]"', 'className="command-center-shell relative min-h-full overflow-hidden rounded-2xl bg-[#07111f] text-slate-100 shadow-[0_24px_80px_rgba(0,0,0,0.28)]"')
+              s = re.sub(r'\n        <div className="mt-6 flex flex-wrap items-center gap-1 border-b border-white/10 pb-0 text-\[11px\] font-semibold uppercase tracking-\[0\.16em\]">.*?</div>\n      </section>', '\n      </section>', s, flags=re.S)
+              s = s.replace('      <section className="grid grid-cols-2 gap-px border-b border-white/10 bg-white/10 lg:grid-cols-5">', '''      <section className="mx-5 mt-5 rounded-xl border border-violet-400/20 bg-gradient-to-r from-violet-500/[0.12] via-cyan-400/[0.06] to-transparent px-4 py-3 shadow-[0_12px_35px_rgba(76,55,180,0.12)] lg:mx-7">
+        <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-500/15 text-violet-300"><Sparkles className="h-4 w-4" /></div><div><div className="text-sm font-semibold text-white">CenOps Copilot</div><div className="mt-0.5 text-xs text-slate-400">Ask questions across your authorized operational evidence, recommendations and investigations.</div></div></div><Button size="sm" asChild className="bg-violet-500 text-white hover:bg-violet-400"><Link to="/chat">Open Copilot</Link></Button></div>
+      </section>
 
-              if text != original:
-                  path.write_text(text, encoding="utf-8")
-                  changed.append(str(path))
+      <section className="mt-4 grid grid-cols-2 gap-px border-b border-white/10 bg-white/10 lg:grid-cols-5">''')
+              # Remove the duplicate visual control-loop card lower on the page; it is not navigation.
+              s = re.sub(r'<section className="rounded-xl border border-white/10 bg-\[#0b192b\]/90 p-5"><div className="mb-4 flex items-center justify-between"><div><div className="text-sm font-semibold text-white">Control loop</div>.*?</section></section>', '</section></section>', s, flags=re.S)
+              s = s.replace('grid gap-5 lg:grid-cols-2"><section className="rounded-xl', 'grid gap-5 lg:grid-cols-1"><section className="rounded-xl', 1)
+              return s
+          edit("src/routes/_app.index.tsx", index_edit)
 
-          print(f"Branded {len(changed)} source files")
-          for item in changed:
-              print(item)
+          def chat_edit(s):
+              s = s.replace('title: "Aegis Enterprise AI"', 'title: "CenOps Copilot"')
+              s = s.replace('description: "Enterprise analysis, recommendations and evidence from connected systems."', 'description: "Evidence-grounded operational analysis powered by GPT-6 Astra."')
+              s = s.replace('<PageHeader title="Aegis Enterprise AI"', '<PageHeader title="CenOps Copilot"')
+              s = s.replace('placeholder={`Ask Aegis about ${departmentName.toLowerCase()}…`}', 'placeholder={`Ask CenOps Copilot about ${departmentName.toLowerCase()}…`}')
+              s = s.replace('<Badge variant="outline">Human approval required</Badge>', '<Badge variant="outline">GPT-6 Astra</Badge><Badge variant="outline">Human approval required</Badge>')
+              return s
+          edit("src/routes/_app.chat.tsx", chat_edit)
 
-      - name: Validate protected identifiers
-        shell: bash
-        run: |
-          grep -Rni --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.output 'AEGIS_[A-Z0-9_]*' src || true
-          grep -Rni --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.output 'aegis-theme' src >/tmp/theme-keys.txt || true
-          grep -Rni --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.output 'aegis-operations-hub' src >/tmp/mcp-id.txt || true
-          test -s /tmp/theme-keys.txt
-          test -s /tmp/mcp-id.txt
+          edit("src/components/layout/GlobalSearch.tsx", lambda s: s.replace('Ask Cenops', 'CenOps Copilot'))
 
-      - name: Validate Command Center empty state
-        shell: bash
-        run: |
-          grep -q 'buildEmptyLiveCommandCenterData' src/lib/command-center.server.ts
-          grep -q 'if (!integrationSeed?.length) return buildEmptyLiveCommandCenterData();' src/lib/command-center.server.ts
+          # Make the dark Command Center a proper theme-aware console instead of an image-like block in light mode.
+          styles = Path("src/styles.css")
+          css = styles.read_text(encoding="utf-8")
+          light_css = '''\n\n/* Command Center: preserve the operational composition while making light mode feel native to the rest of CenOps. */\n@layer components {\n  html:not(.dark) .command-center-shell {\n    background: linear-gradient(180deg, #f8fafc 0%, #eef3f9 100%) !important;\n    color: #172033 !important;\n    box-shadow: 0 18px 50px rgba(33, 53, 85, 0.10) !important;\n  }\n  html:not(.dark) .command-center-shell > .pointer-events-none { display: none !important; }\n  html:not(.dark) .command-center-shell [class*="text-white"] { color: #172033 !important; }\n  html:not(.dark) .command-center-shell [class*="text-slate-100"],\n  html:not(.dark) .command-center-shell [class*="text-slate-200"] { color: #25334a !important; }\n  html:not(.dark) .command-center-shell [class*="text-slate-300"] { color: #40516a !important; }\n  html:not(.dark) .command-center-shell [class*="text-slate-400"] { color: #56677f !important; }\n  html:not(.dark) .command-center-shell [class*="text-slate-500"] { color: #64748b !important; }\n  html:not(.dark) .command-center-shell [class*="text-slate-600"],\n  html:not(.dark) .command-center-shell [class*="text-slate-700"] { color: #8290a5 !important; }\n  html:not(.dark) .command-center-shell [class*="border-white"] { border-color: rgba(51, 65, 85, 0.14) !important; }\n  html:not(.dark) .command-center-shell [class*="bg-[#07111f]"],\n  html:not(.dark) .command-center-shell [class*="bg-[#091625]"],\n  html:not(.dark) .command-center-shell [class*="bg-[#0b192b]"],\n  html:not(.dark) .command-center-shell [class*="bg-[#102139]"],\n  html:not(.dark) .command-center-shell [class*="bg-[#111f39]"] { background: rgba(255,255,255,0.82) !important; }\n  html:not(.dark) .command-center-shell [class*="from-[#111f39]"],\n  html:not(.dark) .command-center-shell [class*="via-[#0c1a2d]"],\n  html:not(.dark) .command-center-shell [class*="to-[#091525]"] { background: linear-gradient(135deg, #ffffff, #f1f5f9) !important; }\n  html:not(.dark) .command-center-shell [class*="bg-white/[0.0"] { background: rgba(255,255,255,0.65) !important; }\n  html:not(.dark) .command-center-shell input,\n  html:not(.dark) .command-center-shell textarea { color: #172033 !important; }\n}\n'''
+          if 'Command Center: preserve the operational composition' not in css:
+              styles.write_text(css + light_css, encoding="utf-8")
 
-      - name: Validate no customer-facing Aegis remains in src
-        shell: bash
-        run: |
-          if grep -Rni --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.output -E 'Aegis( AI)?' src | grep -vE '^[^:]+:[^:]*AEGIS_[A-Z0-9_]*|^[^:]+:[^:]*aegis-theme|^[^:]+:[^:]*aegis-operations-hub'; then
-            echo 'Customer-facing Aegis branding remains in src'
-            exit 1
-          fi
+          # Add deterministic demo fixtures for the two governance-heavy surfaces that previously had no fixture set.
+          demo = Path("src/lib/demo-data.ts")
+          ds = demo.read_text(encoding="utf-8")
+          fixtures = '''\n\nexport const DEMO_GUARDRAILS = [\n  { id: "demo-guardrail-1", tenantId: "demo-tenant", name: "Production destructive actions require approval", description: "Blocks destructive production mutations until an approved change record exists.", scope: "organization", scopeId: null, guardrailType: "require_approval", enabled: true, priority: 10, severity: "critical", enforcementMode: "enforce", conditions: { environment: "production", is_destructive: true, has_approval: false }, action: { effect: "require_approval", message: "Production destructive actions require an approved change record." }, message: "Production destructive actions require an approved change record.", isSystem: false, version: 1 },\n  { id: "demo-guardrail-2", tenantId: "demo-tenant", name: "Sensitive data protection", description: "Prevents restricted customer data from being exposed through tool results.", scope: "organization", scopeId: null, guardrailType: "deny_sensitive_data", enabled: true, priority: 20, severity: "high", enforcementMode: "enforce", conditions: { data_classification: "restricted" }, action: { effect: "block", redact_fields: ["ssn", "paymentCard", "accessToken"] }, message: "Restricted fields are protected.", isSystem: false, version: 2 },\n  { id: "demo-guardrail-3", tenantId: "demo-tenant", name: "Read operations stay within approved scope", description: "Limits high-volume evidence reads to protect operational scope.", scope: "agent", scopeId: "agent-license", guardrailType: "limit_records", enabled: true, priority: 30, severity: "medium", enforcementMode: "monitor", conditions: { execution_class: "read_only", affected_records_gt: 500 }, action: { effect: "limit", max_records: 500 }, message: "Read scope exceeded the demo limit.", isSystem: false, version: 1 },\n];\n\nexport const DEMO_AGENT_OUTCOMES = [\n  { id: "demo-outcome-1", agent_key: "agent-license", name: "Reclaim inactive licenses", description: "Prepare approval-gated reclamation for users inactive beyond policy threshold.", trigger_config: { schedule: "daily" }, approval_required: true, enabled: true },\n  { id: "demo-outcome-2", agent_key: "agent-license", name: "Detect overlapping entitlements", description: "Identify users with multiple active entitlements for review.", trigger_config: { event: "sync.completed" }, approval_required: false, enabled: true },\n  { id: "demo-outcome-3", agent_key: "agent-security", name: "Prepare critical remediation", description: "Investigate critical findings and prepare a governed remediation proposal.", trigger_config: { severity: "critical" }, approval_required: true, enabled: true },\n];\n\nexport const DEMO_AGENT_CONNECTIONS = [\n  { id: "demo-connection-1", source_agent_key: "agent-security", target_agent_key: "agent-workflow", purpose: "Hand approved remediation proposals to the workflow agent for execution planning.", allowed_capabilities: ["change.proposal"], approval_required: true, enabled: true },\n  { id: "demo-connection-2", source_agent_key: "agent-license", target_agent_key: "agent-workflow", purpose: "Route approved license remediation plans into governed execution.", allowed_capabilities: ["change.proposal", "verification"], approval_required: true, enabled: true },\n];\n\nexport const DEMO_ITSM_INTEGRATIONS = [\n  { id: "demo-jira-itsm", provider: "jira" as const, display_name: "Jira Service Management — Demo" },\n  { id: "demo-servicenow-itsm", provider: "servicenow" as const, display_name: "ServiceNow ITSM — Demo" },\n];\nexport const DEMO_ITSM_DISCOVERY = {\n  jira: { projects: [{ id: "demo-jira-project-1", key: "OPS", name: "Operations" }, { id: "demo-jira-project-2", key: "PLAT", name: "Platform Engineering" }], issueTypes: [{ id: "demo-jira-type-1", name: "Change" }, { id: "demo-jira-type-2", name: "Task" }] },\n  servicenow: { categories: [{ id: "demo-sn-cat-1", name: "Infrastructure" }, { id: "demo-sn-cat-2", name: "Security" }], assignmentGroups: [{ id: "demo-sn-group-1", name: "Platform Operations" }, { id: "demo-sn-group-2", name: "Cloud Security" }] },\n};\nexport const DEMO_ITSM_CONFIGS = [\n  { id: "demo-routing-jira", integration_id: "demo-jira-itsm", provider: "jira", target_config: { projectKey: "OPS" }, issue_type: "Change", notification_emails: ["ops@acme.example", "change-manager@acme.example"], is_default: true, automatic_trigger_enabled: false },\n  { id: "demo-routing-servicenow", integration_id: "demo-servicenow-itsm", provider: "servicenow", target_config: { assignmentGroup: "Platform Operations", category: "Infrastructure" }, issue_type: "Change Request", notification_emails: ["itsm@acme.example"], is_default: false, automatic_trigger_enabled: false },\n];\n'''
+          if 'DEMO_GUARDRAILS' not in ds:
+              demo.write_text(ds + fixtures, encoding="utf-8")
 
-      - name: Validate no app-controlled Lovable badge
-        shell: bash
-        run: |
-          if grep -Rni --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.output -E 'Built with Lovable|Built\s+with\s+Lovable' src; then
-            echo 'Lovable badge text remains in src'
-            exit 1
-          fi
+          # Demo Governance: load fixtures and keep interactions in memory rather than writing fake tenant rows.
+          gov = Path("src/routes/_app.agentic-studio.governance.tsx")
+          gs = gov.read_text(encoding="utf-8")
+          gs = gs.replace('import { useTenantContext } from "@/lib/tenant";', 'import { useTenantContext } from "@/lib/tenant";\nimport { DEMO_AGENT_OUTCOMES, DEMO_AGENT_CONNECTIONS } from "@/lib/demo-data";')
+          gs = gs.replace('const { tenantId } = useTenantContext();', 'const { tenantId, environmentMode } = useTenantContext();')
+          gs = gs.replace('const load = async () => { if (!tenantId) return; setLoading(true); const [o, c] = await Promise.all([supabase.from("agent_outcomes").select("id,agent_key,name,description,trigger_config,approval_required,enabled").eq("tenant_id", tenantId).order("created_at"), supabase.from("agent_connections").select("id,source_agent_key,target_agent_key,purpose,allowed_capabilities,approval_required,enabled").eq("tenant_id", tenantId).order("created_at")]); setOutcomes((o.data ?? []) as Outcome[]); setConnections((c.data ?? []) as Connection[]); setLoading(false); };', 'const load = async () => { if (!tenantId) return; setLoading(true); if (environmentMode === "demo") { setOutcomes(DEMO_AGENT_OUTCOMES as Outcome[]); setConnections(DEMO_AGENT_CONNECTIONS as Connection[]); setLoading(false); return; } const [o, c] = await Promise.all([supabase.from("agent_outcomes").select("id,agent_key,name,description,trigger_config,approval_required,enabled").eq("tenant_id", tenantId).order("created_at"), supabase.from("agent_connections").select("id,source_agent_key,target_agent_key,purpose,allowed_capabilities,approval_required,enabled").eq("tenant_id", tenantId).order("created_at")]); setOutcomes((o.data ?? []) as Outcome[]); setConnections((c.data ?? []) as Connection[]); setLoading(false); };')
+          gs = gs.replace('useEffect(() => { void load(); }, [tenantId]);', 'useEffect(() => { void load(); }, [tenantId, environmentMode]);')
+          gs = gs.replace('const addOutcome = async () => { if (!tenantId || !name.trim() || saving) return; setSaving(true); const { error } = await supabase.from("agent_outcomes").insert({ tenant_id: tenantId, agent_key: agent, name: name.trim(), description: description.trim() || null, trigger_config: {}, approval_required: true, enabled: true }); setSaving(false); if (error) { toast.error("Outcome could not be created", { description: error.message }); return; } setName(""); setDescription(""); await load(); toast.success("Governed outcome created"); };', 'const addOutcome = async () => { if (!tenantId || !name.trim() || saving) return; setSaving(true); if (environmentMode === "demo") { setOutcomes((current) => [...current, { id: `demo-outcome-${Date.now()}`, agent_key: agent, name: name.trim(), description: description.trim() || null, trigger_config: {}, approval_required: true, enabled: true }]); setSaving(false); setName(""); setDescription(""); toast.success("Demo governed outcome created"); return; } const { error } = await supabase.from("agent_outcomes").insert({ tenant_id: tenantId, agent_key: agent, name: name.trim(), description: description.trim() || null, trigger_config: {}, approval_required: true, enabled: true }); setSaving(false); if (error) { toast.error("Outcome could not be created", { description: error.message }); return; } setName(""); setDescription(""); await load(); toast.success("Governed outcome created"); };')
+          gs = gs.replace('const addConnection = async () => { if (!tenantId || source === target || saving) return; setSaving(true); const { error } = await supabase.from("agent_connections").insert({ tenant_id: tenantId, source_agent_key: source, target_agent_key: target, purpose: purpose.trim() || null, allowed_capabilities: [], approval_required: true, enabled: true }); setSaving(false); if (error) { toast.error("Relationship could not be created", { description: error.message }); return; } setPurpose(""); await load(); toast.success("Governed relationship created"); };', 'const addConnection = async () => { if (!tenantId || source === target || saving) return; setSaving(true); if (environmentMode === "demo") { setConnections((current) => [...current, { id: `demo-connection-${Date.now()}`, source_agent_key: source, target_agent_key: target, purpose: purpose.trim() || null, allowed_capabilities: [], approval_required: true, enabled: true }]); setSaving(false); setPurpose(""); toast.success("Demo governed relationship created"); return; } const { error } = await supabase.from("agent_connections").insert({ tenant_id: tenantId, source_agent_key: source, target_agent_key: target, purpose: purpose.trim() || null, allowed_capabilities: [], approval_required: true, enabled: true }); setSaving(false); if (error) { toast.error("Relationship could not be created", { description: error.message }); return; } setPurpose(""); await load(); toast.success("Governed relationship created"); };')
+          gs = gs.replace('const toggle = async (table: "agent_outcomes" | "agent_connections", id: string, field: "enabled" | "approval_required", value: boolean) => { if (!tenantId) return; const { error } = await supabase.from(table).update({ [field]: value }).eq("id", id).eq("tenant_id", tenantId); if (error) toast.error("Policy could not be updated", { description: error.message }); else await load(); };', 'const toggle = async (table: "agent_outcomes" | "agent_connections", id: string, field: "enabled" | "approval_required", value: boolean) => { if (!tenantId) return; if (environmentMode === "demo") { if (table === "agent_outcomes") setOutcomes((current) => current.map((row) => row.id === id ? { ...row, [field]: value } as Outcome : row)); else setConnections((current) => current.map((row) => row.id === id ? { ...row, [field]: value } as Connection : row)); return; } const { error } = await supabase.from(table).update({ [field]: value }).eq("id", id).eq("tenant_id", tenantId); if (error) toast.error("Policy could not be updated", { description: error.message }); else await load(); };')
+          gs = gs.replace('const remove = async (table: "agent_outcomes" | "agent_connections", id: string) => { if (!tenantId) return; const { error } = await supabase.from(table).delete().eq("id", id).eq("tenant_id", tenantId); if (error) toast.error("Object could not be removed", { description: error.message }); else await load(); };', 'const remove = async (table: "agent_outcomes" | "agent_connections", id: string) => { if (!tenantId) return; if (environmentMode === "demo") { if (table === "agent_outcomes") setOutcomes((current) => current.filter((row) => row.id !== id)); else setConnections((current) => current.filter((row) => row.id !== id)); return; } const { error } = await supabase.from(table).delete().eq("id", id).eq("tenant_id", tenantId); if (error) toast.error("Object could not be removed", { description: error.message }); else await load(); };')
+          gov.write_text(gs, encoding="utf-8")
+
+          # Demo ITSM routing: use realistic provider discovery/config fixtures and keep edits local.
+          itsm = Path("src/routes/_app.settings.itsm-routing.tsx")
+          ins = itsm.read_text(encoding="utf-8")
+          ins = ins.replace('import { useTenantContext } from "@/lib/tenant";', 'import { useTenantContext } from "@/lib/tenant";\nimport { DEMO_ITSM_INTEGRATIONS, DEMO_ITSM_CONFIGS, DEMO_ITSM_DISCOVERY } from "@/lib/demo-data";')
+          ins = ins.replace('const { tenantId } = useTenantContext();', 'const { tenantId, environmentMode } = useTenantContext();')
+          ins = ins.replace('const load = async () => { if (!tenantId) return; const [i, c] = await Promise.all([supabase.from("integrations").select("id,provider,display_name").eq("tenant_id", tenantId).in("provider", ["jira", "servicenow"]).eq("status", "connected").eq("is_mock", false), (supabase as any).from("itsm_routing_config").select("id,integration_id,provider,target_config,issue_type,notification_emails,is_default,automatic_trigger_enabled").eq("tenant_id", tenantId)]); setIntegrations((i.data ?? []) as Integration[]); setConfigs((c.data ?? []) as Config[]); };', 'const load = async () => { if (!tenantId) return; if (environmentMode === "demo") { setIntegrations(DEMO_ITSM_INTEGRATIONS); setConfigs(DEMO_ITSM_CONFIGS as Config[]); return; } const [i, c] = await Promise.all([supabase.from("integrations").select("id,provider,display_name").eq("tenant_id", tenantId).in("provider", ["jira", "servicenow"]).eq("status", "connected").eq("is_mock", false), (supabase as any).from("itsm_routing_config").select("id,integration_id,provider,target_config,issue_type,notification_emails,is_default,automatic_trigger_enabled").eq("tenant_id", tenantId)]); setIntegrations((i.data ?? []) as Integration[]); setConfigs((c.data ?? []) as Config[]); };')
+          ins = ins.replace('useEffect(() => { void load(); }, [tenantId]);', 'useEffect(() => { void load(); }, [tenantId, environmentMode]);')
+          ins = ins.replace('if (selected) { setLoadingDiscovery(true); void discover({ data: { integrationId: selected.id, provider: selected.provider } }).then(setDiscovery).catch((e) => setError(e instanceof Error ? e.message : "Could not load provider options.")).finally(() => setLoadingDiscovery(false)); }', 'if (selected) { setLoadingDiscovery(true); if (environmentMode === "demo") { setDiscovery(DEMO_ITSM_DISCOVERY[selected.provider]); setLoadingDiscovery(false); } else void discover({ data: { integrationId: selected.id, provider: selected.provider } }).then(setDiscovery).catch((e) => setError(e instanceof Error ? e.message : "Could not load provider options.")).finally(() => setLoadingDiscovery(false)); }')
+          ins = ins.replace('const result = old ? await (supabase as any).from("itsm_routing_config").update(payload).eq("id", old.id).eq("tenant_id", tenantId) : await (supabase as any).from("itsm_routing_config").insert(payload); setSaving(false); if (result.error) { setError(result.error.message); return; } await load();', 'if (environmentMode === "demo") { const next = { ...payload, id: old?.id ?? `demo-routing-${Date.now()}` } as Config; setConfigs((current) => old ? current.map((row) => row.id === old.id ? next : row) : [...current, next]); setSaving(false); return; } const result = old ? await (supabase as any).from("itsm_routing_config").update(payload).eq("id", old.id).eq("tenant_id", tenantId) : await (supabase as any).from("itsm_routing_config").insert(payload); setSaving(false); if (result.error) { setError(result.error.message); return; } await load();')
+          itsm.write_text(ins, encoding="utf-8")
+
+          # Demo guardrails: list realistic controls from fixtures without writing fake database rows.
+          gr = Path("src/lib/guardrails.functions.ts")
+          grs = gr.read_text(encoding="utf-8")
+          grs = grs.replace('import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";', 'import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";\nimport { DEMO_GUARDRAILS } from "@/lib/demo-data";\nimport { resolveTenantContext } from "@/lib/tenant-context.server";')
+          grs = grs.replace('const s = await import("./guardrails/service.server");\n    try {\n      const ctx = await s.resolveGovernanceContext(context.supabase, context.userId);', 'const s = await import("./guardrails/service.server");\n    try {\n      const { environmentMode } = await resolveTenantContext(context.supabase, context.userId);\n      if (environmentMode === "demo") return { ok: true as const, canManage: true, guardrails: DEMO_GUARDRAILS, evaluations: DEMO_AUDIT_EVENTS ?? [] };\n      const ctx = await s.resolveGovernanceContext(context.supabase, context.userId);', 1)
+          # Remove the accidental reference if the replacement cannot use audit fixtures in this wrapper.
+          grs = grs.replace('evaluations: DEMO_AUDIT_EVENTS ?? []', 'evaluations: []')
+          gr.write_text(grs, encoding="utf-8")
+
+          # Clean up this one-off workflow after applying the source changes.
+          Path(".github/workflows/cenops-finalize.yml").unlink()
 
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
@@ -94,15 +135,11 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Commit final source branding
+      - name: Commit follow-up changes
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src
-          if git diff --cached --quiet; then
-            echo "No additional branding changes required."
-          else
-            git commit -m "feat: finalize Cenops customer-facing branding [skip ci]"
-            git push
-          fi
+          git add src .github/workflows/cenops-finalize.yml
+          git commit -m "feat: refine CenOps console and demo coverage [skip ci]"
+          git push
