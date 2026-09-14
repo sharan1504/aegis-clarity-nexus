@@ -1,18 +1,35 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Bot, Plug, ShieldAlert, ShieldCheck, Users, Settings, Sparkles, History, BarChart3, SearchCheck, Workflow, Activity } from "lucide-react";
+import { Activity, BarChart3, Bot, History, Plug, SearchCheck, Settings, ShieldAlert, ShieldCheck, Sparkles, Users, Workflow } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar";
 import { useTenantContext } from "@/lib/tenant";
-import { GlobalSearch } from "./GlobalSearch";
 import { Badge } from "@/components/ui/badge";
 import { listOperationalIssues } from "@/lib/operational-console.functions";
 
 const nav = [
-  { section: "Overview", items: [{ title: "Command Center", url: "/", icon: Sparkles }, { title: "Analytics", url: "/analytics", icon: BarChart3 }, { title: "Vulnerabilities", url: "/investigations", icon: SearchCheck }] },
-  { section: "AI Operations", items: [{ title: "AI Agents", url: "/agents", icon: Bot }, { title: "Agentic Studio", url: "/agentic-studio", icon: Workflow }, { title: "Agent Governance", url: "/agentic-studio/governance", icon: ShieldCheck }, { title: "Approval Center", url: "/approvals", icon: ShieldCheck }] },
-  { section: "Data & Systems", items: [{ title: "Integrations", url: "/integrations", icon: Plug }, { title: "ITSM Routing", url: "/settings/itsm-routing", icon: Settings }, { title: "Operational Console", url: "/operational-console", icon: Activity }, { title: "Audit Viewer", url: "/audit", icon: History }] },
-  { section: "Administration", items: [{ title: "Guardrails", url: "/governance", icon: ShieldAlert }, { title: "User Management", url: "/users", icon: Users }, { title: "Settings", url: "/settings", icon: Settings }] },
+  { section: "Overview", items: [
+    { title: "Command Center", url: "/", icon: Sparkles },
+    { title: "Analytics", url: "/analytics", icon: BarChart3 },
+    { title: "Vulnerabilities", url: "/investigations", icon: SearchCheck },
+  ] },
+  { section: "AI Operations", items: [
+    { title: "AI Agents", url: "/agents", icon: Bot },
+    { title: "Agentic Studio", url: "/agentic-studio", icon: Workflow },
+    { title: "Agent Governance", url: "/agentic-studio/governance", icon: ShieldCheck },
+    { title: "Approval Center", url: "/approvals", icon: ShieldCheck },
+  ] },
+  { section: "Data & Systems", items: [
+    { title: "Integrations", url: "/integrations", icon: Plug },
+    { title: "ITSM Routing", url: "/settings/itsm-routing", icon: Settings },
+    { title: "Operational Console", url: "/operational-console", icon: Activity },
+    { title: "Audit Viewer", url: "/audit", icon: History },
+  ] },
+  { section: "Administration", items: [
+    { title: "Guardrails", url: "/governance", icon: ShieldAlert },
+    { title: "User Management", url: "/users", icon: Users },
+    { title: "Settings", url: "/settings", icon: Settings },
+  ] },
 ];
 
 export function AppSidebar() {
@@ -22,8 +39,8 @@ export function AppSidebar() {
   const { tenantName, primaryDomain } = useTenantContext();
   const [openHighCritical, setOpenHighCritical] = useState(0);
   const loadIssues = useServerFn(listOperationalIssues);
-  const isActive = (url: string) => url === "/" ? path === "/" : (url === "/agentic-studio" || url === "/settings" ? path === url : path.startsWith(url));
   const workspaceName = tenantName ?? "Workspace";
+  const isActive = (url: string) => url === "/" ? path === "/" : (url === "/agentic-studio" || url === "/settings" ? path === url : path.startsWith(url));
 
   useEffect(() => {
     let active = true;
@@ -32,24 +49,41 @@ export function AppSidebar() {
   }, [loadIssues, path]);
 
   return <Sidebar collapsible="icon">
-    <SidebarHeader className="border-b border-sidebar-border/70 bg-sidebar/70">
-      <div className="flex items-center gap-2.5 px-2 py-3">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent text-primary-foreground shadow-[0_0_18px_color-mix(in_oklab,var(--color-primary)_22%,transparent)]">
-          <Sparkles className="h-4 w-4" />
+    <SidebarHeader className="border-b border-sidebar-border/70">
+      <div className="flex items-center gap-3 px-3 py-4">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary via-primary to-accent text-primary-foreground shadow-[0_0_24px_color-mix(in_oklab,var(--color-primary)_24%,transparent)]">
+          <Sparkles className="h-[18px] w-[18px]" />
         </div>
-        {!collapsed && <div className="flex min-w-0 flex-col leading-tight"><span className="text-sm font-semibold tracking-tight">Cenops</span><span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">AI Operations</span></div>}
+        {!collapsed && <div className="min-w-0 leading-tight"><div className="text-[17px] font-semibold tracking-[-0.02em] text-sidebar-foreground">Cenops</div><div className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">AI for Reliable Operations</div></div>}
       </div>
     </SidebarHeader>
-    <SidebarContent>
-      {!collapsed && <SidebarGroup><SidebarGroupContent><GlobalSearch /></SidebarGroupContent></SidebarGroup>}
-      {!collapsed && <SidebarGroup className="pb-1"><SidebarGroupContent><Link to="/chat" className="flex w-full items-center gap-2 rounded-md border border-primary/20 bg-primary/10 px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-primary/15"><Sparkles className="h-4 w-4 text-primary" /><span>Ask Cenops</span><span className="ml-auto text-[10px] text-muted-foreground">AI</span></Link></SidebarGroupContent></SidebarGroup>}
-      {nav.map((group) => <SidebarGroup key={group.section} className="py-1.5">
-        {!collapsed && <SidebarGroupLabel className="px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/80">{group.section}</SidebarGroupLabel>}
-        <SidebarGroupContent><SidebarMenu>{group.items.map((item) => <SidebarMenuItem key={item.url}><SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title} className="h-9"><Link to={item.url} className="flex items-center gap-2"><item.icon className="h-4 w-4 shrink-0" />{!collapsed && <span className="flex min-w-0 flex-1 items-center gap-2">{item.title}{item.url === "/operational-console" && openHighCritical > 0 && <Badge variant="destructive" className="ml-auto h-5 min-w-5 px-1 text-[10px]">{openHighCritical}</Badge>}</span>}</Link></SidebarMenuButton></SidebarMenuItem>)}</SidebarMenu></SidebarGroupContent>
+
+    <SidebarContent className="px-2 py-2">
+      {nav.map((group) => <SidebarGroup key={group.section} className="py-2">
+        {!collapsed && <SidebarGroupLabel className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/70">{group.section}</SidebarGroupLabel>}
+        <SidebarGroupContent>
+          <SidebarMenu className="gap-0.5">
+            {group.items.map((item) => <SidebarMenuItem key={item.url}>
+              <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title} className="h-9 rounded-lg px-3 text-[13px] font-medium text-sidebar-foreground/80 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground data-[active=true]:text-sidebar-foreground">
+                <Link to={item.url} className="flex items-center gap-3">
+                  <item.icon className="h-[17px] w-[17px] shrink-0" />
+                  {!collapsed && <span className="flex min-w-0 flex-1 items-center gap-2"><span className="truncate">{item.title}</span>{item.url === "/operational-console" && openHighCritical > 0 && <Badge variant="destructive" className="ml-auto h-5 min-w-5 rounded-full px-1 text-[10px]">{openHighCritical}</Badge>}</span>}
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>)}
+          </SidebarMenu>
+        </SidebarGroupContent>
       </SidebarGroup>)}
     </SidebarContent>
-    <SidebarFooter className="border-t border-sidebar-border/70 bg-sidebar/50">
-      {!collapsed ? <div className="px-2 py-2.5 text-[11px] text-muted-foreground"><div className="font-medium text-sidebar-foreground">{workspaceName}</div>{primaryDomain ? <div className="truncate">{primaryDomain}</div> : <div>Tenant • Production</div>}</div> : <div className="flex justify-center py-2 text-xs font-semibold text-muted-foreground">{workspaceName.slice(0, 1).toUpperCase()}</div>}
+
+    <SidebarFooter className="border-t border-sidebar-border/70 p-2">
+      {!collapsed && <div className="mb-2 rounded-xl border border-sidebar-border bg-sidebar-accent/20 px-3 py-3">
+        <div className="flex items-center gap-2 text-[12px] font-medium text-sidebar-foreground"><span className="h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_8px_var(--color-success)]" />Protected operations</div>
+        <div className="mt-1 text-[10px] leading-4 text-muted-foreground">Observe · Govern · Optimize · Act · Verify</div>
+      </div>}
+      <div className="rounded-lg px-3 py-2 text-[10px] text-muted-foreground">
+        {!collapsed ? <><div className="truncate font-medium text-sidebar-foreground/80">{workspaceName}</div><div className="truncate">{primaryDomain ?? "Production workspace"}</div></> : <div className="text-center font-semibold">{workspaceName.slice(0, 1).toUpperCase()}</div>}
+      </div>
     </SidebarFooter>
   </Sidebar>;
 }
