@@ -17,6 +17,7 @@ const nav = [
     { title: "AI Agents", url: "/agents", icon: Bot },
     { title: "CenOps Copilot", url: "/chat", icon: Sparkles },
     { title: "CenOps Copilot", url: "/chat", icon: Sparkles },
+    { title: "CenOps Copilot", url: "/chat", icon: Sparkles },
     { title: "Agentic Studio", url: "/agentic-studio", icon: Workflow },
     { title: "Agent Governance", url: "/agentic-studio/governance", icon: ShieldCheck },
     { title: "Approval Center", url: "/approvals", icon: ShieldCheck },
