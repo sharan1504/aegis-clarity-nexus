@@ -33,15 +33,16 @@ jobs:
           s = re.sub(r'import \{ AgenticGovernancePage \} from "\./_app\.agentic-studio\.governance";\n?', '', s, count=1)
           s = re.sub(r'\n  const governanceView = .*?;\n', '\n', s, count=1)
           s = re.sub(r'\n  if \(governanceView\) return <AgenticGovernancePage />;\n', '\n', s, count=1)
-          marker = '  const availableTools = tools.filter((tool) => tool.available); const blockedTools = tools.filter((tool) => !tool.available);\n'
           if 'const pathname = useRouterState' not in s:
+              marker = '  const availableTools = tools.filter((tool) => tool.available); const blockedTools = tools.filter((tool) => !tool.available);\n'
+              if marker not in s: raise SystemExit('agent state marker not found')
               s = s.replace(marker, marker + '  const pathname = useRouterState({ select: (r) => r.location.pathname });\n', 1)
           if '<Outlet />' not in s:
               s = s.replace('  return <div className="space-y-6">', '  return <><Outlet />{pathname === "/agentic-studio" && <div className="space-y-6">', 1)
               idx = s.find('\nfunction ArchitectView')
               if idx < 0: raise SystemExit('agent component boundary not found')
               before, after = s[:idx], s[idx:]
-              before, count = re.subn(r'\n  </div>;\n}$', '\n  </div>}\n  </>;\n}', before, count=1)
+              before, count = re.subn(r'</div>;\n}\s*$', '</div>}\n  </>;\n}', before, count=1)
               if count != 1: raise SystemExit('agent return closing not found')
               s = before + after
           agent.write_text(s)
@@ -49,15 +50,16 @@ jobs:
           settings = Path('src/routes/_app.settings.tsx')
           s = settings.read_text()
           s = s.replace('import { createFileRoute } from "@tanstack/react-router";', 'import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";', 1)
-          marker = '  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("");\n'
           if 'const pathname = useRouterState' not in s:
+              marker = '  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("");\n'
+              if marker not in s: raise SystemExit('settings state marker not found')
               s = s.replace(marker, marker + '  const pathname = useRouterState({ select: (r) => r.location.pathname });\n', 1)
           if '<Outlet />' not in s:
               s = s.replace('  return <div><PageHeader title="Settings"', '  return <><Outlet />{pathname === "/settings" && <div><PageHeader title="Settings"', 1)
               idx = s.find('\nfunction Field')
               if idx < 0: raise SystemExit('settings component boundary not found')
               before, after = s[:idx], s[idx:]
-              before, count = re.subn(r'\n  </div>;\n}$', '\n  </div>}\n  </>;\n}', before, count=1)
+              before, count = re.subn(r'</div>;</div>;\n}\s*$', '</div>}</div>}\n  </>;\n}', before, count=1)
               if count != 1: raise SystemExit('settings return closing not found')
               s = before + after
           settings.write_text(s)
