@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTenantContext } from "@/lib/tenant";
 import { DEMO_AGENT_OUTCOMES, DEMO_AGENT_CONNECTIONS } from "@/lib/demo-data";
 import { DEMO_AGENT_OUTCOMES, DEMO_AGENT_CONNECTIONS } from "@/lib/demo-data";
+import { DEMO_AGENT_OUTCOMES, DEMO_AGENT_CONNECTIONS } from "@/lib/demo-data";
 import { ArrowRight, Link2, Plus, ShieldCheck, Trash2, Workflow } from "lucide-react";
 import { toast } from "sonner";
 
