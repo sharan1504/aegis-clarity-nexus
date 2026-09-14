@@ -1,0 +1,75 @@
+name: Fix nested route rendering
+
+on:
+  push:
+    branches:
+      - fix/nested-route-rendering-20260914
+
+permissions:
+  contents: write
+
+jobs:
+  fix-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply nested route fix
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          agent = Path('src/routes/_app.agentic-studio.tsx')
+          s = agent.read_text()
+          s = s.replace('import { createFileRoute, Link } from "@tanstack/react-router";', 'import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";', 1)
+          s = s.replace('import { AgenticGovernancePage } from "./_app.agentic-studio.governance";\n', '', 1)
+          s = s.replace('  const governanceView = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "governance";\n', '', 1)
+          s = s.replace('\n  if (governanceView) return <AgenticGovernancePage />;\n', '\n', 1)
+          marker = '  const availableTools = tools.filter((tool) => tool.available); const blockedTools = tools.filter((tool) => !tool.available);\n'
+          s = s.replace(marker, marker + '  const pathname = useRouterState({ select: (r) => r.location.pathname });\n', 1)
+          s = s.replace('  return <div className="space-y-6">', '  return <><Outlet />{pathname === "/agentic-studio" && <div className="space-y-6">', 1)
+          old = '\n  </div>;\n}\n\nfunction ArchitectView'
+          new = '\n  </div>}\n  </>;\n}\n\nfunction ArchitectView'
+          if old not in s: raise SystemExit('agent closing marker not found')
+          s = s.replace(old, new, 1)
+          agent.write_text(s)
+
+          settings = Path('src/routes/_app.settings.tsx')
+          s = settings.read_text()
+          s = s.replace('import { createFileRoute } from "@tanstack/react-router";', 'import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";', 1)
+          marker = '  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("");\n'
+          s = s.replace(marker, marker + '  const pathname = useRouterState({ select: (r) => r.location.pathname });\n', 1)
+          s = s.replace('  return <div><PageHeader title="Settings"', '  return <><Outlet />{pathname === "/settings" && <div><PageHeader title="Settings"', 1)
+          old = '\n  </div>;\n}\n\nfunction Field'
+          new = '\n  </div>}\n  </>;\n}\n\nfunction Field'
+          if old not in s: raise SystemExit('settings closing marker not found')
+          s = s.replace(old, new, 1)
+          settings.write_text(s)
+
+          sidebar = Path('src/components/layout/AppSidebar.tsx')
+          s = sidebar.read_text()
+          old = '  const isActive = (url: string) => url === "/" ? path === "/" : path.startsWith(url);'
+          new = '  const isActive = (url: string) => url === "/" ? path === "/" : (url === "/agentic-studio" || url === "/settings" ? path === url : path.startsWith(url));'
+          if old not in s: raise SystemExit('sidebar active matcher not found')
+          s = s.replace(old, new, 1)
+          sidebar.write_text(s)
+          PY
+      - name: Install dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Lint
+        run: npm run lint
+      - name: Test
+        run: npm test
+      - name: Build
+        run: npm run build
+      - name: Commit verified fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/routes/_app.agentic-studio.tsx src/routes/_app.settings.tsx src/components/layout/AppSidebar.tsx package-lock.json
+          git diff --cached --quiet && exit 0
+          git commit -m "fix: render nested governance and ITSM routes"
+          git push
