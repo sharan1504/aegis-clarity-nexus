@@ -51,6 +51,12 @@ jobs:
           git commit -m "chore: sync npm lockfile"
           git push origin "HEAD:${GITHUB_HEAD_REF}"
 
+      - name: Checkout PR head before source mutation
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          git fetch origin "${GITHUB_HEAD_REF}"
+          git checkout -B "${GITHUB_HEAD_REF}" "origin/${GITHUB_HEAD_REF}"
+
       - name: Apply CenOps visual follow-up
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         run: |
@@ -66,7 +72,7 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src
+          git add src .github/workflows/ci.yml
           git add -u scripts/cenops_visual_followup.py
           git commit -m "feat: refine CenOps console visual system"
           git push origin "HEAD:${GITHUB_HEAD_REF}"
