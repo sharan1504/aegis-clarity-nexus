@@ -8,19 +8,17 @@ import { Badge } from "@/components/ui/badge";
 import { listOperationalIssues } from "@/lib/operational-console.functions";
 
 const nav = [
-  { section: "Overview", items: [
-    { title: "Command Center", url: "/", icon: Sparkles },
-    { title: "Analytics", url: "/analytics", icon: BarChart3 },
-    { title: "Vulnerabilities", url: "/investigations", icon: SearchCheck },
-  ] },
   { section: "AI Operations", items: [
-    { title: "AI Agents", url: "/agents", icon: Bot },
     { title: "CenOps Copilot", url: "/chat", icon: Sparkles },
+    { title: "Command Center", url: "/", icon: Sparkles },
+    { title: "AI Agents", url: "/agents", icon: Bot },
     { title: "Agentic Studio", url: "/agentic-studio", icon: Workflow },
     { title: "Agent Governance", url: "/agentic-studio/governance", icon: ShieldCheck },
     { title: "Approval Center", url: "/approvals", icon: ShieldCheck },
   ] },
   { section: "Data & Systems", items: [
+    { title: "Analytics", url: "/analytics", icon: BarChart3 },
+    { title: "Vulnerabilities", url: "/investigations", icon: SearchCheck },
     { title: "Integrations", url: "/integrations", icon: Plug },
     { title: "ITSM Routing", url: "/settings/itsm-routing", icon: Settings },
     { title: "Operational Console", url: "/operational-console", icon: Activity },
