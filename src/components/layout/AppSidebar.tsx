@@ -15,6 +15,7 @@ const nav = [
   ] },
   { section: "AI Operations", items: [
     { title: "AI Agents", url: "/agents", icon: Bot },
+    { title: "CenOps Copilot", url: "/chat", icon: Sparkles },
     { title: "Agentic Studio", url: "/agentic-studio", icon: Workflow },
     { title: "Agent Governance", url: "/agentic-studio/governance", icon: ShieldCheck },
     { title: "Approval Center", url: "/approvals", icon: ShieldCheck },
@@ -54,36 +55,20 @@ export function AppSidebar() {
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary via-primary to-accent text-primary-foreground shadow-[0_0_24px_color-mix(in_oklab,var(--color-primary)_24%,transparent)]">
           <Sparkles className="h-[18px] w-[18px]" />
         </div>
-        {!collapsed && <div className="min-w-0 leading-tight"><div className="text-[17px] font-semibold tracking-[-0.02em] text-sidebar-foreground">Cenops</div><div className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">AI for Reliable Operations</div></div>}
+        {!collapsed && <div className="min-w-0 leading-tight"><div className="text-[17px] font-extrabold tracking-[-0.02em] text-sidebar-foreground">CenOps</div><div className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">AI Control Plane for Enterprise Operations</div></div>}
       </div>
     </SidebarHeader>
-
     <SidebarContent className="px-2 py-2">
       {nav.map((group) => <SidebarGroup key={group.section} className="py-2">
         {!collapsed && <SidebarGroupLabel className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/70">{group.section}</SidebarGroupLabel>}
-        <SidebarGroupContent>
-          <SidebarMenu className="gap-0.5">
-            {group.items.map((item) => <SidebarMenuItem key={item.url}>
-              <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title} className="h-9 rounded-lg px-3 text-[13px] font-medium text-sidebar-foreground/80 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground data-[active=true]:text-sidebar-foreground">
-                <Link to={item.url} className="flex items-center gap-3">
-                  <item.icon className="h-[17px] w-[17px] shrink-0" />
-                  {!collapsed && <span className="flex min-w-0 flex-1 items-center gap-2"><span className="truncate">{item.title}</span>{item.url === "/operational-console" && openHighCritical > 0 && <Badge variant="destructive" className="ml-auto h-5 min-w-5 rounded-full px-1 text-[10px]">{openHighCritical}</Badge>}</span>}
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>)}
-          </SidebarMenu>
-        </SidebarGroupContent>
+        <SidebarGroupContent><SidebarMenu className="gap-0.5">
+          {group.items.map((item) => <SidebarMenuItem key={item.url}><SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title} className="h-9 rounded-lg px-3 text-[13px] font-medium text-sidebar-foreground/80 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground data-[active=true]:text-sidebar-foreground"><Link to={item.url} className="flex items-center gap-3"><item.icon className="h-[17px] w-[17px] shrink-0" />{!collapsed && <span className="flex min-w-0 flex-1 items-center gap-2"><span className="truncate">{item.title}</span>{item.url === "/operational-console" && openHighCritical > 0 && <Badge variant="destructive" className="ml-auto h-5 min-w-5 rounded-full px-1 text-[10px]">{openHighCritical}</Badge>}</span>}</Link></SidebarMenuButton></SidebarMenuItem>)}
+        </SidebarMenu></SidebarGroupContent>
       </SidebarGroup>)}
     </SidebarContent>
-
     <SidebarFooter className="border-t border-sidebar-border/70 p-2">
-      {!collapsed && <div className="mb-2 rounded-xl border border-sidebar-border bg-sidebar-accent/20 px-3 py-3">
-        <div className="flex items-center gap-2 text-[12px] font-medium text-sidebar-foreground"><span className="h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_8px_var(--color-success)]" />Protected operations</div>
-        <div className="mt-1 text-[10px] leading-4 text-muted-foreground">Observe · Govern · Optimize · Act · Verify</div>
-      </div>}
-      <div className="rounded-lg px-3 py-2 text-[10px] text-muted-foreground">
-        {!collapsed ? <><div className="truncate font-medium text-sidebar-foreground/80">{workspaceName}</div><div className="truncate">{primaryDomain ?? "Production workspace"}</div></> : <div className="text-center font-semibold">{workspaceName.slice(0, 1).toUpperCase()}</div>}
-      </div>
+      {!collapsed && <div className="mb-2 rounded-xl border border-sidebar-border bg-sidebar-accent/20 px-3 py-3"><div className="flex items-center gap-2 text-[12px] font-medium text-sidebar-foreground"><span className="h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_8px_var(--color-success)]" />Protected operations</div></div>}
+      <div className="rounded-lg px-3 py-2 text-[10px] text-muted-foreground">{!collapsed ? <><div className="truncate font-medium text-sidebar-foreground/80">{workspaceName}</div><div className="truncate">{primaryDomain ?? "Production workspace"}</div></> : <div className="text-center font-semibold">{workspaceName.slice(0, 1).toUpperCase()}</div>}</div>
     </SidebarFooter>
   </Sidebar>;
 }
