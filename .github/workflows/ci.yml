@@ -61,7 +61,8 @@ jobs:
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         run: |
           python scripts/cenops_visual_followup.py
-          rm scripts/cenops_visual_followup.py
+          python scripts/cenops_index_syntax_fix.py
+          rm scripts/cenops_visual_followup.py scripts/cenops_index_syntax_fix.py
 
       - name: Commit CenOps visual follow-up
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
