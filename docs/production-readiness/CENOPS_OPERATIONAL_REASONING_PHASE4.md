@@ -1,0 +1,1 @@
+Guardrails: use only evidence already present in the response, do not infer unsupported business impact, do not create synthetic metrics, preserve department scope, and never execute consequential production changes without approval.

@@ -1,0 +1,1 @@
+Acceptance criteria: leadership sees a clear assessment, business impact, evidence rationale, and verification plan; risk priority is deterministic; no risk is fabricated; verification does not claim execution; governed action boundaries remain intact.
