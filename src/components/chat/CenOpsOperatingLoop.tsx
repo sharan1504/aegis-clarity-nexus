@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
-import { ArrowRight, CheckCircle2, CircleDot, Clock3, GitBranch, ShieldCheck, Sparkles, Target } from "lucide-react";
+import { CheckCircle2, CircleDot, Clock3, GitBranch, ShieldCheck, Sparkles, Target } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CenOpsMarkdownMessage } from "@/components/chat/CenOpsMarkdownMessage";
 import type { CenOpsResponse } from "@/lib/cenops-response-intelligence";
