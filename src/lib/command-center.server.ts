@@ -52,10 +52,14 @@ export async function loadCommandCenterData(supabase: UserClientLike, userId: st
   const { tenantId, environmentMode } = await resolveTenantContext(supabase, userId); const usingDemo = environmentMode === "demo";
   if (usingDemo) return buildDemoCommandCenterData();
 
+  // Live mode must only surface provider-backed, non-mock tenant data.
+  // Mock integrations are intentionally excluded so stale demo fixtures can
+  // never make a Live tenant appear connected or populated.
   const { data: integrationSeed, error: integrationSeedError } = await supabase
     .from("integrations")
     .select("id,provider,status,health_status,last_sync_at,last_sync_status,is_mock,external_org_name,region,updated_at")
     .eq("tenant_id", tenantId)
+    .eq("is_mock", false)
     .order("updated_at", { ascending: false });
 
   if (integrationSeedError) throw integrationSeedError;
