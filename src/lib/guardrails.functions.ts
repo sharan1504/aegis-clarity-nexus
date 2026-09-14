@@ -6,6 +6,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { DEMO_GUARDRAILS } from "@/lib/demo-data";
 import { resolveTenantContext } from "@/lib/tenant-context.server";
+import { DEMO_GUARDRAILS } from "@/lib/demo-data";
+import { resolveTenantContext } from "@/lib/tenant-context.server";
 
 export const listGuardrails = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
