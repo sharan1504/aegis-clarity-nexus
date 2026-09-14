@@ -90,3 +90,13 @@ export function formatCenOpsKnowledge(query: string): string {
   if (!matches.length) return "No specific CenOps product-knowledge match was found. Answer only from supplied evidence and explicitly state when the product knowledge does not establish a detail.";
   return matches.map((entry) => `### ${entry.topic}\n${entry.content}`).join("\n\n");
 }
+
+// Backward-compatible exports for the existing chat engine during the incremental rollout.
+export type AegisKnowledgeEntry = CenOpsKnowledgeEntry;
+export const AEGIS_AI_KNOWLEDGE = CENOPS_AI_KNOWLEDGE;
+export function retrieveAegisKnowledge(query: string, limit = 10): CenOpsKnowledgeEntry[] {
+  return retrieveCenOpsKnowledge(query, limit);
+}
+export function formatAegisKnowledge(query: string): string {
+  return formatCenOpsKnowledge(query);
+}
