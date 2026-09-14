@@ -1,50 +1,39 @@
-# Aegis AI public website and platform entry
+# Cenops enterprise visual-system redesign
 
 ## Goal
-Turn `/` into a polished public Aegis AI website while preserving the operational platform as a separate authenticated experience. Visitors can request access; existing authorized users can sign in and open the platform.
+Redesign Cenops as a cohesive, premium AI operations control plane while preserving every existing feature, route, permission, workflow, integration, and data behavior.
 
-## Assumptions
-- Keep deployment and domain wiring unchanged for now, as requested. The final site will be ready for either `cenops.in` or `www.cenops.in` once confirmed.
-- Use a reviewed access-request flow rather than automatically granting workspace access to every form submission.
-- Keep `sshrinivasan97@gmail.com` as a full Admin. The live backend already confirms this account has the Admin role.
+## Central visual system
+- Rework the semantic light and dark theme tokens first: midnight/graphite surfaces, restrained indigo primary, cyan information, emerald success, clearer surface elevation, borders, focus rings, and professional chart colors.
+- Add shared visual utilities for the calm atmospheric workspace background, technical grid treatment, compact section labels, focused panels, and reduced-motion-safe interaction states.
+- Refine shared cards, buttons, fields, badges, tables, tabs, dialogs, skeletons, charts, and sidebar primitives so existing screens inherit the new system without page-level color hard-coding.
+- Preserve the current dark identity while giving light mode its own cool, high-contrast enterprise palette.
 
-## Public website
-- Move the current authenticated Command Center from `/` to `/dashboard` without changing its functionality.
-- Build a new public homepage at `/` with its own navigation, mobile menu, and distinct light/dark section rhythm.
-- Use authoritative serif display typography, clean sans-serif body typography, near-black/navy/white surfaces, and one restrained teal trust accent.
-- Create a purpose-built product visual showing the evidence-to-audit operating loop; avoid decorative gradients, fake screenshots, and invented customer proof.
-- Add the requested sections:
-  - Vendor-neutral approval and audit positioning
-  - “Governs actions across” provider/category bar
-  - Three governance problems
-  - Six-step connect → sync → recommend → guard → approve → audit pipeline
-  - Shipped platform capabilities
-  - Why-now context
-  - Fair category comparison
-  - Security and architecture detail
-  - Design-partner call to action
-  - Product/company/legal/contact footer
-- Keep every capability statement tied to the shipped Aegis implementation and avoid customer, usage, or market-leadership claims.
+## Application shell
+- Upgrade the sidebar branding, grouping, active-state treatment, spacing, and collapsed presentation using only existing destinations.
+- Refine the top bar around search, workspace/environment status, role, theme, notifications, user identity, and sign-out.
+- Improve the content workspace width, responsive spacing, page-title hierarchy, and loading presentation across desktop, tablet, and mobile.
 
-## Access and sign-in flow
-- Add a public request-access form with name, work email, organization, role, and optional context.
-- Store requests separately from user accounts; submission shows a confirmation and a clear existing-user sign-in link.
-- Do not automatically create a tenant, user, or privileged role from a public form.
-- Update sign-in and sign-out navigation so authenticated users enter `/dashboard`, while signed-out visitors return to the public website.
-- Keep Admin/Manager/Analyst/Viewer permissions enforced by the existing server and database role system.
+## Major screens
+- Command Center: strengthen the control-room hierarchy across current findings, attention signals, agent activity, approvals, and verified activity without inventing data.
+- Agentic Studio and Agents: emphasize identity, purpose, data access, tools, guardrails, evaluation, and relationships with subtle topology motifs.
+- Approval Center: style the existing lifecycle and evidence as a governance gate with stronger risk, stage, affected-system, reasoning, and audit hierarchy.
+- Integrations: create denser provider panels with concise health, capability, environment, sync, and action presentation.
+- Analytics, Settings, Audit, and Reports: apply the same surfaces, typography, controls, tables, charts, and status language; keep Settings intentionally quieter.
+- Authentication: replace the current broad gradient treatment with a midnight/graphite entry experience and an original connected-systems visual that remains visible at laptop widths and never collapses into an empty mobile canvas.
 
-## Security
-- Add strict validation and abuse-resistant limits to public access requests; expose no request records publicly.
-- Recheck and harden profile tenant assignment and self-role assignment so users cannot switch tenants or grant themselves Admin.
-- Mark only the two active security findings fixed after verification.
+## Responsive and accessibility verification
+- Check the shared shell and representative major screens at 1440, 1280, 1024, 900, 768, and mobile widths.
+- Verify text fit, navigation collapse, chart sizing, stacked cards, focus visibility, reduced motion, and light/dark contrast.
+- Run the project lint, full test suite, production build, and browser-based visual checks.
 
-## SEO and accessibility
-- Add unique homepage metadata and structured organization/software information without fabricated proof.
-- Update the sitemap to include only public, indexable pages; authenticated platform pages remain excluded.
-- Preserve semantic headings, keyboard navigation, visible focus states, reduced-motion support, image alt text, and WCAG AA contrast.
+## Google sign-in branding
+- The current Google sign-in uses Lovable-managed OAuth credentials. Changing Google’s account-picker branding requires a Cenops-owned Google OAuth client and cannot be completed from the connected services currently available here.
+- Keep sign-in behavior unchanged during the visual redesign.
+- Once a Cenops-owned Google client ID and secret exist, configure them through Lovable Cloud Authentication Settings, using Cenops app name/logo/support email/privacy/terms and the callback URL shown there.
+- Verify end to end that Google displays “continue to Cenops.” Google review may be required depending on publishing status and requested scopes.
 
-## Verification
-- Run focused tests for request validation/access behavior and route protection.
-- Run lint, full tests, and production build.
-- Verify public homepage and authenticated `/dashboard` at desktop and mobile sizes, including form success/error states and navigation.
-- Do not publish or connect a domain in this change.
+## Scope safeguards
+- No business logic, APIs, database schema/data, authentication flow, routing, agents, integrations, workflows, or feature names will change.
+- No stock photography, copied branding, fabricated metrics, or invented routes will be introduced.
+- Deployment and domain wiring remain untouched.
