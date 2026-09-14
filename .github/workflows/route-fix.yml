@@ -4,16 +4,12 @@ on:
   push:
     branches:
       - fix/nested-route-rendering-20260914
-  pull_request:
-    branches:
-      - main
 
 permissions:
   contents: write
 
 jobs:
   fix-and-verify:
-    if: github.event_name == 'push' || github.event.pull_request.head.ref == 'fix/nested-route-rendering-20260914'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,39 +33,35 @@ jobs:
               marker = '  const availableTools = tools.filter((tool) => tool.available); const blockedTools = tools.filter((tool) => !tool.available);\n'
               if marker not in s: raise SystemExit('agent state marker not found')
               s = s.replace(marker, marker + '  const pathname = useRouterState({ select: (r) => r.location.pathname });\n', 1)
-          if '<Outlet />' not in s:
-              s = s.replace('  return <div className="space-y-6">', '  return <><Outlet />{pathname === "/agentic-studio" && <div className="space-y-6">', 1)
-              idx = s.find('\nfunction ArchitectView')
-              if idx < 0: raise SystemExit('agent component boundary not found')
-              before, after = s[:idx], s[idx:]
-              before, count = re.subn(r'</div>;\n}\s*$', '</div>}\n  </>;\n}', before, count=1)
-              if count != 1: raise SystemExit('agent return closing not found')
-              s = before + after
-          agent.write_text(s)
+          s = s.replace('  return <div className="space-y-6">', '  return pathname === "/agentic-studio" ? <div className="space-y-6">', 1)
+          idx = s.find('\nfunction ArchitectView')
+          if idx < 0: raise SystemExit('agent component boundary not found')
+          before, after = s[:idx], s[idx:]
+          before, count = re.subn(r'</div>;\s*}$', '</div> : <Outlet />;\n}', before, count=1)
+          if count != 1: raise SystemExit('agent return closing not found')
+          agent.write_text(before + after)
 
           settings = Path('src/routes/_app.settings.tsx')
           s = settings.read_text()
           s = s.replace('import { createFileRoute } from "@tanstack/react-router";', 'import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";', 1)
+          marker = '  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("");\n'
           if 'const pathname = useRouterState' not in s:
-              marker = '  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>("");\n'
               if marker not in s: raise SystemExit('settings state marker not found')
               s = s.replace(marker, marker + '  const pathname = useRouterState({ select: (r) => r.location.pathname });\n', 1)
-          if '<Outlet />' not in s:
-              s = s.replace('  return <div><PageHeader title="Settings"', '  return <><Outlet />{pathname === "/settings" && <div><PageHeader title="Settings"', 1)
-              idx = s.find('\nfunction Field')
-              if idx < 0: raise SystemExit('settings component boundary not found')
-              before, after = s[:idx], s[idx:]
-              before, count = re.subn(r'</div>;</div>;\n}\s*$', '</div>}</div>}\n  </>;\n}', before, count=1)
-              if count != 1: raise SystemExit('settings return closing not found')
-              s = before + after
-          settings.write_text(s)
+          s = s.replace('  return <div><PageHeader title="Settings"', '  return pathname === "/settings" ? <div><PageHeader title="Settings"', 1)
+          idx = s.find('\nfunction Field')
+          if idx < 0: raise SystemExit('settings component boundary not found')
+          before, after = s[:idx], s[idx:]
+          before, count = re.subn(r'</div>;</div>;\s*}$', '</div>}</div> : <Outlet />;\n}', before, count=1)
+          if count != 1: raise SystemExit('settings return closing not found')
+          settings.write_text(before + after)
 
           sidebar = Path('src/components/layout/AppSidebar.tsx')
           s = sidebar.read_text()
           old = '  const isActive = (url: string) => url === "/" ? path === "/" : path.startsWith(url);'
           new = '  const isActive = (url: string) => url === "/" ? path === "/" : (url === "/agentic-studio" || url === "/settings" ? path === url : path.startsWith(url));'
-          if old in s: s = s.replace(old, new, 1)
-          sidebar.write_text(s)
+          if old not in s: raise SystemExit('sidebar active matcher not found')
+          sidebar.write_text(s.replace(old, new, 1))
           PY
       - name: Install dependencies
         run: npm install --ignore-scripts --no-audit --no-fund
