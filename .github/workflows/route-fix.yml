@@ -52,7 +52,7 @@ jobs:
           idx = s.find('\nfunction Field')
           if idx < 0: raise SystemExit('settings component boundary not found')
           before, after = s[:idx], s[idx:]
-          before, count = re.subn(r'</div>;</div>;\s*}$', '</div>}</div> : <Outlet />;\n}', before, count=1)
+          before, count = re.subn(r'</div>}\s*</div>;\s*}$', '</div>}</div> : <Outlet />;\n}', before, count=1)
           if count != 1: raise SystemExit('settings return closing not found')
           settings.write_text(before + after)
 
