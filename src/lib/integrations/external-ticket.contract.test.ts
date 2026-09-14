@@ -13,7 +13,7 @@ describe("external ticket contract", () => {
 
   it("uses tenant-scoped server-side provider credentials and real provider APIs", () => {
     expect(ticketServer).toContain('from("provider_connections")');
-    expect(ticketServer).toContain('eq("tenant_id", role.tenant_id)');
+    expect(ticketServer).toContain('eq("tenant_id", tenantId)');
     expect(ticketServer).toContain("api.atlassian.com");
     expect(ticketServer).toContain("/api/now/table/change_request");
     expect(ticketServer).toContain("AEGIS_CREDENTIAL_ENCRYPTION_KEY");

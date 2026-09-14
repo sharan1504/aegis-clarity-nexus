@@ -10,6 +10,11 @@ const mocks = vi.hoisted(() => ({
   recordEq: vi.fn(),
   recordSelect: vi.fn(),
   recordMaybeSingle: vi.fn(),
+  routingSelect: vi.fn(),
+  routingEq: vi.fn(),
+  routingDefaultEq: vi.fn(),
+  routingEnabledEq: vi.fn(),
+  routingMaybeSingle: vi.fn(),
   runUpdate: vi.fn(),
   runIdEq: vi.fn(),
   runTenantEq: vi.fn(),
@@ -24,6 +29,7 @@ vi.mock("@/integrations/supabase/client", () => ({
     from: vi.fn((table: string) => {
       if (table === "change_approvals") return { update: mocks.approvalUpdate };
       if (table === "change_records") return { update: mocks.recordUpdate, select: mocks.recordSelect };
+      if (table === "itsm_routing_config") return { select: mocks.routingSelect };
       if (table === "agent_runs") return { update: mocks.runUpdate };
       throw new Error(`Unexpected table ${table}`);
     }),
@@ -32,6 +38,7 @@ vi.mock("@/integrations/supabase/client", () => ({
 vi.mock("@/lib/audit", () => ({ writeAudit: mocks.audit }));
 vi.mock("@/lib/realtime", () => ({ pushNotification: mocks.notify, updateRecords: vi.fn() }));
 vi.mock("@/lib/integrations/external-ticket.server", () => ({ createExternalTicketServer: mocks.externalTicket }));
+vi.mock("@/lib/approval-ticket.server", () => ({ createConfiguredApprovalTicket: mocks.externalTicket }));
 
 import { bulkDecideChanges, decideChange } from "./change-service";
 import type { ChangeRecord } from "./change-data";
@@ -47,6 +54,11 @@ beforeEach(() => {
   mocks.recordEq.mockResolvedValue({ error: null });
   mocks.recordSelect.mockImplementation(() => ({ eq: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: mocks.recordMaybeSingle })) })) }));
   mocks.recordMaybeSingle.mockResolvedValue({ data: { agent_run_id: null }, error: null });
+  mocks.routingSelect.mockImplementation(() => ({ eq: mocks.routingEq }));
+  mocks.routingEq.mockImplementation(() => ({ eq: mocks.routingDefaultEq }));
+  mocks.routingDefaultEq.mockImplementation(() => ({ eq: mocks.routingEnabledEq }));
+  mocks.routingEnabledEq.mockImplementation(() => ({ maybeSingle: mocks.routingMaybeSingle }));
+  mocks.routingMaybeSingle.mockResolvedValue({ data: null, error: null });
   mocks.runUpdate.mockImplementation(() => ({ eq: mocks.runIdEq }));
   mocks.runIdEq.mockImplementation(() => ({ eq: mocks.runTenantEq }));
   mocks.runTenantEq.mockResolvedValue({ error: null });
