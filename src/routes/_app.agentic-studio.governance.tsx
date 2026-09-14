@@ -13,6 +13,7 @@ import { ArrowRight, Link2, Plus, ShieldCheck, Trash2, Workflow } from "lucide-r
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/agentic-studio/governance")({ component: AgenticGovernancePage });
+export { AgenticGovernancePage };
 type Outcome = { id: string; agent_key: string; name: string; description: string | null; trigger_config: Record<string, unknown>; approval_required: boolean; enabled: boolean };
 type Connection = { id: string; source_agent_key: string; target_agent_key: string; purpose: string | null; allowed_capabilities: string[]; approval_required: boolean; enabled: boolean };
 const agents = [{ key: "agent-license", name: "License Agent" }, { key: "agent-security", name: "Security Agent" }, { key: "agent-cost", name: "Cost Agent" }, { key: "agent-incident", name: "Incident Agent" }, { key: "agent-workflow", name: "Workflow Agent" }];
