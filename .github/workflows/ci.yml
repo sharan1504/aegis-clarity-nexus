@@ -53,6 +53,26 @@ jobs:
           git commit -m "chore: sync npm lockfile"
           git push origin "HEAD:${GITHUB_HEAD_REF}"
 
+      - name: Apply CenOps visual follow-up
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          python scripts/cenops_visual_followup.py
+          rm scripts/cenops_visual_followup.py
+
+      - name: Commit CenOps visual follow-up
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          if git diff --quiet; then
+            echo "No CenOps visual follow-up changes required."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src scripts/cenops_visual_followup.py
+          git add -u scripts/cenops_visual_followup.py
+          git commit -m "feat: refine CenOps console and demo coverage"
+          git push origin "HEAD:${GITHUB_HEAD_REF}"
+
       - name: Run lint
         run: npm run lint
 
