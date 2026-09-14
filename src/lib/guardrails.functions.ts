@@ -4,12 +4,16 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { DEMO_GUARDRAILS } from "@/lib/demo-data";
+import { resolveTenantContext } from "@/lib/tenant-context.server";
 
 export const listGuardrails = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const s = await import("./guardrails/service.server");
     try {
+      const { environmentMode } = await resolveTenantContext(context.supabase, context.userId);
+      if (environmentMode === "demo") return { ok: true as const, canManage: true, guardrails: DEMO_GUARDRAILS as any, evaluations: [] };
       const ctx = await s.resolveGovernanceContext(context.supabase, context.userId);
       const [guardrails, evaluations] = await Promise.all([
         s.listGuardrails(context.supabase, ctx.tenantId),

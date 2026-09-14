@@ -138,3 +138,31 @@ export const DEMO_AGENT_WORKFLOWS: Record<string, { trigger: string; description
     ],
   },
 };
+
+
+export const DEMO_GUARDRAILS = [
+  { id:"demo-guardrail-1", tenantId:"demo-tenant", name:"Production destructive actions require approval", description:"Blocks destructive production mutations until an approved change record exists.", scope:"organization", scopeId:null, guardrailType:"require_approval", enabled:true, priority:10, severity:"critical", enforcementMode:"enforce", conditions:{environment:"production",is_destructive:true,has_approval:false}, action:{effect:"require_approval",message:"Production destructive actions require an approved change record."}, message:"Production destructive actions require an approved change record.", isSystem:false, version:1 },
+  { id:"demo-guardrail-2", tenantId:"demo-tenant", name:"Sensitive data protection", description:"Prevents restricted customer data from being exposed through tool results.", scope:"organization", scopeId:null, guardrailType:"deny_sensitive_data", enabled:true, priority:20, severity:"high", enforcementMode:"enforce", conditions:{data_classification:"restricted"}, action:{effect:"block",redact_fields:["ssn","paymentCard","accessToken"]}, message:"Restricted fields are protected.", isSystem:false, version:2 },
+  { id:"demo-guardrail-3", tenantId:"demo-tenant", name:"Read operations stay within approved scope", description:"Limits high-volume evidence reads to protect operational scope.", scope:"agent", scopeId:"agent-license", guardrailType:"limit_records", enabled:true, priority:30, severity:"medium", enforcementMode:"monitor", conditions:{execution_class:"read_only",affected_records_gt:500}, action:{effect:"limit",max_records:500}, message:"Read scope exceeded the demo limit.", isSystem:false, version:1 },
+];
+export const DEMO_AGENT_OUTCOMES = [
+  { id:"demo-outcome-1", agent_key:"agent-license", name:"Reclaim inactive licenses", description:"Prepare approval-gated reclamation for inactive users.", trigger_config:{schedule:"daily"}, approval_required:true, enabled:true },
+  { id:"demo-outcome-2", agent_key:"agent-license", name:"Detect overlapping entitlements", description:"Identify users with multiple active entitlements.", trigger_config:{event:"sync.completed"}, approval_required:false, enabled:true },
+  { id:"demo-outcome-3", agent_key:"agent-security", name:"Prepare critical remediation", description:"Prepare a governed remediation proposal for critical findings.", trigger_config:{severity:"critical"}, approval_required:true, enabled:true },
+];
+export const DEMO_AGENT_CONNECTIONS = [
+  { id:"demo-connection-1", source_agent_key:"agent-security", target_agent_key:"agent-workflow", purpose:"Hand approved remediation proposals to the workflow agent.", allowed_capabilities:["change.proposal"], approval_required:true, enabled:true },
+  { id:"demo-connection-2", source_agent_key:"agent-license", target_agent_key:"agent-workflow", purpose:"Route approved license remediation into governed execution.", allowed_capabilities:["change.proposal","verification"], approval_required:true, enabled:true },
+];
+export const DEMO_ITSM_INTEGRATIONS = [
+  { id:"demo-jira-itsm", provider:"jira" as const, display_name:"Jira Service Management — Demo" },
+  { id:"demo-servicenow-itsm", provider:"servicenow" as const, display_name:"ServiceNow ITSM — Demo" },
+];
+export const DEMO_ITSM_DISCOVERY = {
+  jira:{projects:[{id:"demo-jira-project-1",key:"OPS",name:"Operations"},{id:"demo-jira-project-2",key:"PLAT",name:"Platform Engineering"}],issueTypes:[{id:"demo-jira-type-1",name:"Change"},{id:"demo-jira-type-2",name:"Task"}]},
+  servicenow:{categories:[{id:"demo-sn-cat-1",name:"Infrastructure"},{id:"demo-sn-cat-2",name:"Security"}],assignmentGroups:[{id:"demo-sn-group-1",name:"Platform Operations"},{id:"demo-sn-group-2",name:"Cloud Security"}]},
+};
+export const DEMO_ITSM_CONFIGS = [
+  { id:"demo-routing-jira", integration_id:"demo-jira-itsm", provider:"jira", target_config:{projectKey:"OPS"}, issue_type:"Change", notification_emails:["ops@acme.example","change-manager@acme.example"], is_default:true, automatic_trigger_enabled:false },
+  { id:"demo-routing-servicenow", integration_id:"demo-servicenow-itsm", provider:"servicenow", target_config:{assignmentGroup:"Platform Operations",category:"Infrastructure"}, issue_type:"Change Request", notification_emails:["itsm@acme.example"], is_default:false, automatic_trigger_enabled:false },
+];
