@@ -1,51 +1,39 @@
 // Sensitive change-control actions. Every one of these writes an immutable
-// audit entry and emits a tenant notification; Realtime pushes the result to
-// every open client.
+audit entry and emits a tenant notification; Realtime pushes the result to
+every open client.
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 import { writeAudit } from "@/lib/audit";
 import { pushNotification, updateRecords } from "@/lib/realtime";
 import { createExternalTicketServer } from "@/lib/integrations/external-ticket.server";
+import { createConfiguredApprovalTicket } from "@/lib/approval-ticket.server";
 import { CHANGE_STAGES, type ChangeRecord, type ChangeStage, type ChangeTimelineEvent, type ExternalTicket } from "@/lib/change-data";
 import { resolveCurrentTenantContext } from "@/lib/tenant-context.server";
 interface ActorContext { tenantId: string; actor: string; role: string; }
 async function appendTimeline(record: ChangeRecord, event: ChangeTimelineEvent, extra: { stage?: ChangeStage; externalTickets?: ExternalTicket[] } = {}) { if (!record.rowId) return; await supabase.from("change_records").update({ timeline: [event, ...record.timeline] as unknown as Json, ...(extra.stage ? { stage: extra.stage } : {}), ...(extra.externalTickets ? { external_tickets: extra.externalTickets as unknown as Json } : {}) }).eq("id", record.rowId); }
 function nextStage(record: ChangeRecord, allApproved: boolean): ChangeStage | undefined { if (!allApproved) return undefined; const idx = CHANGE_STAGES.indexOf(record.stage); return idx >= 0 && idx < CHANGE_STAGES.length - 1 ? CHANGE_STAGES[idx + 1] : undefined; }
-async function advanceLinkedAgentRun(record: ChangeRecord, ctx: ActorContext, decision: "approved" | "rejected", stage: ChangeStage | undefined) {
-  if (!record.rowId || !record.approvals.length) return;
-  const { data: link } = await (supabase as any).from("change_records").select("agent_run_id").eq("id", record.rowId).eq("tenant_id", ctx.tenantId).maybeSingle();
-  if (!link?.agent_run_id) return;
-  if (decision !== "approved" || stage !== "Ready to Execute") return;
-  const allApproved = record.approvals.every((approval) => approval.status === "approved" || approval.status === "pending");
-  if (!allApproved) return;
-  await (supabase as any).from("agent_runs").update({ status: "running", current_step: "execute", approval: { status: "approved", changeRecordId: record.rowId, changeId: record.id, approvedAt: new Date().toISOString(), approvedBy: ctx.actor } }).eq("id", link.agent_run_id).eq("tenant_id", ctx.tenantId);
-}
-async function maybeCreateAutomaticExternalTicket(record: ChangeRecord, ctx: ActorContext, stage: ChangeStage | undefined) {
-  if (!record.rowId || !stage) return;
-  const { data: routing, error } = await (supabase as any).from("itsm_routing_config").select("provider,automatic_trigger_stage,automatic_trigger_severity").eq("tenant_id", ctx.tenantId).eq("is_default", true).eq("automatic_trigger_enabled", true).maybeSingle();
-  if (error || !routing) return;
-  const severityMatches = !routing.automatic_trigger_severity || String(routing.automatic_trigger_severity).toLowerCase() === String(record.severity).toLowerCase();
-  if (routing.automatic_trigger_stage !== stage || !severityMatches) return;
-  const system = routing.provider === "jira" ? "Jira" : routing.provider === "servicenow" ? "ServiceNow" : null;
-  if (!system) return;
-  try {
-    const ticket = await createExternalTicketServer({ data: { changeRecordId: record.rowId, system } });
-    await writeAudit({ tenantId: ctx.tenantId, action: "ticket.auto_created", entityType: "ticket", entityId: record.rowId, actorRole: ctx.role, detail: `Automatic ${system} ticket ${ticket.id} linked to ${record.id}`, payload: { changeId: record.id, system, ticketId: ticket.id, url: ticket.url, triggerStage: stage, triggerSeverity: record.severity } });
-  } catch (error) {
-    await writeAudit({ tenantId: ctx.tenantId, action: "ticket.auto_create_failed", entityType: "change_record", entityId: record.id, actorRole: ctx.role, detail: `Automatic ITSM ticket creation failed: ${error instanceof Error ? error.message : String(error)}`, payload: { changeId: record.id, stage, severity: record.severity } });
-  }
-}
+async function advanceLinkedAgentRun(record: ChangeRecord, ctx: ActorContext, decision: "approved" | "rejected", stage: ChangeStage | undefined) { if (!record.rowId || !record.approvals.length) return; const { data: link } = await (supabase as any).from("change_records").select("agent_run_id").eq("id", record.rowId).eq("tenant_id", ctx.tenantId).maybeSingle(); if (!link?.agent_run_id) return; if (decision !== "approved" || stage !== "Ready to Execute") return; const allApproved = record.approvals.every((approval) => approval.status === "approved" || approval.status === "pending"); if (!allApproved) return; await (supabase as any).from("agent_runs").update({ status: "running", current_step: "execute", approval: { status: "approved", changeRecordId: record.rowId, changeId: record.id, approvedAt: new Date().toISOString(), approvedBy: ctx.actor } }).eq("id", link.agent_run_id).eq("tenant_id", ctx.tenantId); }
+async function maybeCreateAutomaticExternalTicket(record: ChangeRecord, ctx: ActorContext, stage: ChangeStage | undefined) { if (!record.rowId || !stage) return; const { data: routing, error } = await (supabase as any).from("itsm_routing_config").select("provider,automatic_trigger_stage,automatic_trigger_severity").eq("tenant_id", ctx.tenantId).eq("is_default", true).eq("automatic_trigger_enabled", true).maybeSingle(); if (error || !routing) return; const severityMatches = !routing.automatic_trigger_severity || String(routing.automatic_trigger_severity).toLowerCase() === String(record.severity).toLowerCase(); if (routing.automatic_trigger_stage !== stage || !severityMatches) return; const system = routing.provider === "jira" ? "Jira" : routing.provider === "servicenow" ? "ServiceNow" : null; if (!system) return; try { const ticket = await createExternalTicketServer({ data: { changeRecordId: record.rowId, system } }); await writeAudit({ tenantId: ctx.tenantId, action: "ticket.auto_created", entityType: "ticket", entityId: record.rowId, actorRole: ctx.role, detail: `Automatic ${system} ticket ${ticket.id} linked to ${record.id}`, payload: { changeId: record.id, system, ticketId: ticket.id, url: ticket.url, triggerStage: stage, triggerSeverity: record.severity } }); } catch (error) { await writeAudit({ tenantId: ctx.tenantId, action: "ticket.auto_create_failed", entityType: "change_record", entityId: record.id, actorRole: ctx.role, detail: `Automatic ITSM ticket creation failed: ${error instanceof Error ? error.message : String(error)}`, payload: { changeId: record.id, stage, severity: record.severity } }); } }
 export async function decideChange(record: ChangeRecord, decision: "approved" | "rejected", ctx: ActorContext, comment?: string) {
   const now = new Date().toISOString();
   const { environmentMode } = await resolveCurrentTenantContext(supabase);
   if (environmentMode === "demo") { const stage = nextStage(record, decision === "approved"); updateRecords((records) => records.map((current) => current.id !== record.id ? current : { ...current, stage: stage ?? current.stage, approvals: current.approvals.map((approval) => approval.status === "pending" ? { ...approval, status: decision, timestamp: now, comment: comment ?? `${decision === "approved" ? "Approved" : "Rejected"} by ${ctx.actor} (${ctx.role})` } : approval), timeline: [{ ts: now, actor: ctx.actor, kind: "status", text: decision === "approved" ? `Approval recorded by ${ctx.actor} (${ctx.role}).${stage ? ` Stage advanced to ${stage}.` : ""}` : `Change rejected by ${ctx.actor} (${ctx.role}).` }, ...current.timeline] })); await pushNotification({ tenantId: ctx.tenantId, kind: "approval_deadline", title: `${record.id} ${decision}`, body: `${record.title} — ${decision} by ${ctx.actor} (${ctx.role}).`, href: `/approvals/${record.id}` }); return; }
   const pending = record.approvals.filter((a) => a.status === "pending" && a.rowId); const ids = pending.map((a) => a.rowId!) as string[];
   if (ids.length) { const { error } = await supabase.from("change_approvals").update({ status: decision, decided_at: now, comment: comment ?? `${decision === "approved" ? "Approved" : "Rejected"} by ${ctx.actor} (${ctx.role})` }).in("id", ids); if (error) throw error; }
-  const stage = nextStage(record, decision === "approved");
+  const allApproved = decision === "approved" && record.approvals.every((approval) => approval.status !== "pending" || pending.some((candidate) => candidate.rowId === approval.rowId));
+  const stage = nextStage(record, allApproved);
   await appendTimeline(record, { ts: now, actor: ctx.actor, kind: "status", text: decision === "approved" ? `Approval recorded by ${ctx.actor} (${ctx.role}).${stage ? ` Stage advanced to ${stage}.` : ""}` : `Change rejected by ${ctx.actor} (${ctx.role}).` }, { stage });
   await advanceLinkedAgentRun(record, ctx, decision, stage);
   await writeAudit({ tenantId: ctx.tenantId, action: decision === "approved" ? "change.approved" : "change.rejected", entityType: "change_record", entityId: record.id, actorRole: ctx.role, detail: `${record.title} — ${decision} (${ids.length} approval row(s))`, payload: { changeId: record.id, risk: record.risk.tier, executionMode: record.executionMode, approvalsDecided: pending.map((a) => a.team), comment: comment ?? null } });
   await pushNotification({ tenantId: ctx.tenantId, kind: "approval_deadline", title: `${record.id} ${decision}`, body: `${record.title} — ${decision} by ${ctx.actor}.`, href: `/approvals/${record.id}` });
+  if (decision === "approved" && stage === "Ready to Execute") {
+    try {
+      const ticket = await createConfiguredApprovalTicket({ data: { changeRecordId: record.rowId ?? "" } });
+      await writeAudit({ tenantId: ctx.tenantId, action: "ticket.approval_created", entityType: "ticket", entityId: record.rowId, actorRole: ctx.role, detail: `${ticket.system} ticket ${ticket.id} created from final approval for ${record.id}`, payload: { changeId: record.id, system: ticket.system, ticketId: ticket.id, url: ticket.url } });
+    } catch (error) {
+      await writeAudit({ tenantId: ctx.tenantId, action: "ticket.approval_create_failed", entityType: "change_record", entityId: record.id, actorRole: ctx.role, detail: `ITSM ticket creation after approval failed: ${error instanceof Error ? error.message : String(error)}`, payload: { changeId: record.id, stage, severity: record.severity } });
+    }
+  }
   await maybeCreateAutomaticExternalTicket(record, ctx, stage);
 }
 export async function bulkDecideChanges(records: ChangeRecord[], decision: "approved" | "rejected", ctx: ActorContext) { for (const record of records) await decideChange(record, decision, ctx, `Bulk ${decision} by ${ctx.actor} (${ctx.role})`); const { environmentMode } = await resolveCurrentTenantContext(supabase); if (environmentMode !== "demo") await writeAudit({ tenantId: ctx.tenantId, action: decision === "approved" ? "change.bulk_approved" : "change.bulk_rejected", entityType: "change_record", actorRole: ctx.role, detail: `Bulk ${decision} of ${records.length} change record(s)`, payload: { changeIds: records.map((r) => r.id) } }); }
