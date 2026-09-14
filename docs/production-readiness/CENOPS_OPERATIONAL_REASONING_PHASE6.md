@@ -1,0 +1,1 @@
+Completion note: this branch contains the reusable reasoning engine, reasoning panel, tests, and guardrail documentation. It is intended to be consumed by the rich response UI after PR #123 is merged.
