@@ -61,8 +61,9 @@ export class LovableModelGateway implements ModelGateway {
   constructor(options: LovableModelGatewayOptions = {}) {
     this.apiKey = options.apiKey ?? process.env.LOVABLE_API_KEY;
     this.endpoint = options.endpoint ?? DEFAULT_ENDPOINT;
-    this.model = options.model ?? process.env.AEGIS_AI_MODEL ?? DEFAULT_MODEL;
-    this.fetchImpl = options.fetchImpl ?? fetch;
+    const configuredModel = options.model ?? process.env.AEGIS_AI_MODEL;
+    this.model = configuredModel?.startsWith("openai/") ? configuredModel : DEFAULT_MODEL;
+    this.fetchImpl = options.fetchImpl ?? globalThis.fetch.bind(globalThis);
   }
 
   async complete(request: ModelRequest): Promise<ModelResponse> {
