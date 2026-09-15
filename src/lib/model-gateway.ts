@@ -2,7 +2,8 @@ export type ModelTask =
   | "workflow_planning"
   | "classification"
   | "summarization"
-  | "reasoning";
+  | "reasoning"
+  | "complex_reasoning";
 
 export interface ModelMessage {
   role: "system" | "user" | "assistant";
@@ -39,7 +40,45 @@ export interface LovableModelGatewayOptions {
 }
 
 const DEFAULT_ENDPOINT = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const DEFAULT_MODEL = "openai/gpt-6-astra";
+const FAST_MODEL = "google/gemini-3.1-flash-lite";
+const STANDARD_MODEL = "google/gemini-3.8-flash";
+const REASONING_MODEL = "openai/gpt-6-astra";
+
+const MODEL_ENV_BY_TASK: Record<ModelTask, string> = {
+  classification: "CENOPS_FAST_MODEL",
+  summarization: "CENOPS_FAST_MODEL",
+  workflow_planning: "CENOPS_STANDARD_MODEL",
+  reasoning: "CENOPS_STANDARD_MODEL",
+  complex_reasoning: "CENOPS_REASONING_MODEL",
+};
+
+const DEFAULT_MODEL_BY_TASK: Record<ModelTask, string> = {
+  classification: FAST_MODEL,
+  summarization: FAST_MODEL,
+  workflow_planning: STANDARD_MODEL,
+  reasoning: STANDARD_MODEL,
+  complex_reasoning: REASONING_MODEL,
+};
+
+const SUPPORTED_MODEL_PREFIXES = ["google/gemini-", "openai/gpt-5.6-", "openai/gpt-6-astra"] as const;
+
+function isSupportedModel(model: string | undefined): model is string {
+  return Boolean(model && SUPPORTED_MODEL_PREFIXES.some((prefix) => model.startsWith(prefix)));
+}
+
+function configuredModelForTask(task: ModelTask, explicitModel?: string): string {
+  if (isSupportedModel(explicitModel)) return explicitModel;
+
+  const taskEnv = MODEL_ENV_BY_TASK[task];
+  const taskModel = process.env[taskEnv];
+  if (isSupportedModel(taskModel)) return taskModel;
+
+  // Legacy single-model override remains supported only for an explicit, known model.
+  const legacyModel = process.env.CENOPS_AI_MODEL ?? process.env.AEGIS_AI_MODEL;
+  if (isSupportedModel(legacyModel)) return legacyModel;
+
+  return DEFAULT_MODEL_BY_TASK[task];
+}
 
 export function describeAiGatewayError(status: number, body: string, model: string): string {
   const detail = body.trim().replace(/\s+/g, " ").slice(0, 800);
@@ -51,33 +90,32 @@ export function describeAiGatewayError(status: number, body: string, model: stri
     : `AI request failed (${status}) for model ${model}: the gateway returned no diagnostic body.`;
 }
 
-/** Provider-specific AI access lives behind this server-side adapter. */
+/** Provider-specific AI access and model selection live behind this server-side adapter. */
 export class LovableModelGateway implements ModelGateway {
   private readonly apiKey: string | undefined;
   private readonly endpoint: string;
-  private readonly model: string;
+  private readonly explicitModel: string | undefined;
   private readonly fetchImpl: typeof fetch;
 
   constructor(options: LovableModelGatewayOptions = {}) {
     this.apiKey = options.apiKey ?? process.env.LOVABLE_API_KEY;
     this.endpoint = options.endpoint ?? DEFAULT_ENDPOINT;
-    const configuredModel = options.model ?? process.env.AEGIS_AI_MODEL;
-    this.model = configuredModel?.startsWith("openai/") ? configuredModel : DEFAULT_MODEL;
+    this.explicitModel = options.model;
     this.fetchImpl = options.fetchImpl ?? globalThis.fetch.bind(globalThis);
   }
 
   async complete(request: ModelRequest): Promise<ModelResponse> {
     if (!this.apiKey) throw new Error("Lovable AI is not configured for this workspace.");
 
+    const model = configuredModelForTask(request.task, this.explicitModel);
     const requestBody: Record<string, unknown> = {
-      model: this.model,
+      model,
       messages: request.messages,
       ...(request.json ? { response_format: { type: "json_object" } } : {}),
     };
 
-    // gpt-6-astra only supports the API default temperature of 1.
-    // Do not send temperature for this model; retaining a 0.1 override causes a 400.
-    if (!this.model.startsWith("openai/gpt-6-astra")) {
+    // GPT-6 Astra only supports the API default temperature of 1.
+    if (!model.startsWith("openai/gpt-6-astra")) {
       requestBody.temperature = request.temperature ?? 0.1;
     }
 
@@ -91,7 +129,7 @@ export class LovableModelGateway implements ModelGateway {
     });
 
     const body = await response.text();
-    if (!response.ok) throw new Error(describeAiGatewayError(response.status, body, this.model));
+    if (!response.ok) throw new Error(describeAiGatewayError(response.status, body, model));
 
     const parsed = JSON.parse(body) as {
       model?: string;
@@ -103,7 +141,7 @@ export class LovableModelGateway implements ModelGateway {
 
     return {
       content,
-      model: parsed.model ?? this.model,
+      model: parsed.model ?? model,
       provider: "lovable-ai",
       usage: parsed.usage
         ? {
