@@ -61,6 +61,7 @@ const DEFAULT_MODEL_BY_TASK: Record<ModelTask, string> = {
 };
 
 const SUPPORTED_MODEL_PREFIXES = ["google/gemini-", "openai/gpt-5.6-", "openai/gpt-6-astra"] as const;
+const COMPLEX_REASONING_PATTERN = /\b(investigate|investigation|root cause|correlate|correlation|postmortem|forensic|deep dive|why did .* happen|across .* integrations|multi-source|cross-provider)\b/i;
 
 function isSupportedModel(model: string | undefined): model is string {
   return Boolean(model && SUPPORTED_MODEL_PREFIXES.some((prefix) => model.startsWith(prefix)));
@@ -78,6 +79,12 @@ function configuredModelForTask(task: ModelTask, explicitModel?: string): string
   if (isSupportedModel(legacyModel)) return legacyModel;
 
   return DEFAULT_MODEL_BY_TASK[task];
+}
+
+function resolveTask(request: ModelRequest): ModelTask {
+  if (request.task !== "reasoning") return request.task;
+  const userText = request.messages.filter((message) => message.role === "user").map((message) => message.content).join("\n");
+  return COMPLEX_REASONING_PATTERN.test(userText) ? "complex_reasoning" : "reasoning";
 }
 
 export function describeAiGatewayError(status: number, body: string, model: string): string {
@@ -107,7 +114,8 @@ export class LovableModelGateway implements ModelGateway {
   async complete(request: ModelRequest): Promise<ModelResponse> {
     if (!this.apiKey) throw new Error("Lovable AI is not configured for this workspace.");
 
-    const model = configuredModelForTask(request.task, this.explicitModel);
+    const task = resolveTask(request);
+    const model = configuredModelForTask(task, this.explicitModel);
     const requestBody: Record<string, unknown> = {
       model,
       messages: request.messages,
