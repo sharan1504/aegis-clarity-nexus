@@ -9,53 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageHeader } from "@/components/layout/AppLayout";
 import { generateProductivityReport, type ProductivityReport, type ProductivityWindow } from "@/lib/productivity.functions";
-
 export const Route = createFileRoute("/_app/productivity")({ component: ProductivityPage });
-
-function ProductivityPage() {
-  const generate = useServerFn(generateProductivityReport);
-  const [provider, setProvider] = useState("jira");
-  const [user, setUser] = useState("");
-  const [window, setWindow] = useState<ProductivityWindow>("month");
-  const [report, setReport] = useState<ProductivityReport | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const run = async () => {
-    if (!user.trim()) return;
-    setLoading(true);
-    try {
-      const result = await generate({ data: { provider, user: user.trim(), window } });
-      if (result.ok) setReport(result.report);
-    } finally { setLoading(false); }
-  };
-
-  const downloadCsv = () => {
-    if (!report) return;
-    const header = ["Provider", "Work item", "Title", "Assignee", "Status", "Created", "Updated", "Completed", "Project", "URL"];
-    const lines = [header, ...report.rows.map((r) => [r.provider, r.workItemId, r.title, r.assignee, r.status, r.createdAt ?? "", r.updatedAt ?? "", r.completedAt ?? "", r.project ?? "", r.url ?? ""])];
-    const csv = lines.map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a"); anchor.href = url; anchor.download = `${provider}-${user.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-${window}.csv`; anchor.click(); URL.revokeObjectURL(url);
-  };
-
-  return <div className="space-y-6">
-    <PageHeader title="Productivity Agent" description="Measure user and team work activity across connected providers using governed, synchronized evidence." actions={<Badge variant="outline" className="gap-1.5"><Sparkles className="h-3.5 w-3.5" />Read-only analytics</Badge>} />
-    <Card><CardHeader><CardTitle className="text-base">Generate a productivity report</CardTitle></CardHeader><CardContent><div className="grid gap-3 md:grid-cols-[180px_1fr_180px_auto]">
-      <Select value={provider} onValueChange={setProvider}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{["salesforce","jira","servicenow","genesys","slack","github"].map((p) => <SelectItem key={p} value={p}>{p === "m365" ? "Microsoft 365" : p.charAt(0).toUpperCase() + p.slice(1)}</SelectItem>)}</SelectContent></Select>
-      <Input value={user} onChange={(e) => setUser(e.target.value)} placeholder="User name, e.g. Shyam Srinivasan" onKeyDown={(e) => { if (e.key === "Enter") void run(); }} />
-      <Select value={window} onValueChange={(value) => setWindow(value as ProductivityWindow)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="week">Current week</SelectItem><SelectItem value="month">Current month</SelectItem><SelectItem value="3_months">Past 3 months</SelectItem><SelectItem value="6_months">Past 6 months</SelectItem><SelectItem value="year">Past year</SelectItem></SelectContent></Select>
-      <Button onClick={() => void run()} disabled={loading || !user.trim()}>{loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}Generate</Button>
-    </div></CardContent></Card>
-
-    {report && <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Metric label="Handled" value={report.totalHandled} /><Metric label="Completed" value={report.completed} /><Metric label="Open" value={report.open} /><Metric label="Throughput / week" value={report.throughputPerWeek} /></div>
-      <Card><CardHeader className="flex flex-row items-center justify-between space-y-0"><div><CardTitle className="text-base">{report.user} · {report.provider}</CardTitle><p className="mt-1 text-xs text-muted-foreground">{new Date(report.from).toLocaleDateString()} – {new Date(report.to).toLocaleDateString()}{report.averageCycleTimeHours !== null ? ` · Avg cycle time ${report.averageCycleTimeHours}h` : ""}</p></div><Button variant="outline" size="sm" onClick={downloadCsv}><Download className="mr-2 h-3.5 w-3.5" />CSV</Button></CardHeader><CardContent>
-        {report.warnings.length > 0 && <div className="mb-4 rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-3 text-sm text-muted-foreground">{report.warnings.join(" ")}</div>}
-        <div className="overflow-x-auto"><table className="w-full text-left text-xs"><thead><tr className="border-b text-muted-foreground"><th className="p-2">Work item</th><th className="p-2">Title</th><th className="p-2">Status</th><th className="p-2">Updated</th><th className="p-2">Project</th></tr></thead><tbody>{report.rows.map((row) => <tr key={`${row.provider}-${row.workItemId}`} className="border-b last:border-0"><td className="p-2 font-medium">{row.url ? <a className="underline" href={row.url} target="_blank" rel="noreferrer">{row.workItemId}</a> : row.workItemId}</td><td className="max-w-md p-2">{row.title}</td><td className="p-2">{row.status}</td><td className="p-2 text-muted-foreground">{row.updatedAt ? new Date(row.updatedAt).toLocaleString() : "—"}</td><td className="p-2">{row.project ?? "—"}</td></tr>)}</tbody></table></div>
-      </CardContent></Card>
-    </div>}
-  </div>;
-}
-
-function Metric({ label, value }: { label: string; value: number }) { return <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">{label}</div><div className="mt-1 text-xl font-semibold">{value}</div></CardContent></Card>; }
+function ProductivityPage() { const generate = useServerFn(generateProductivityReport); const [provider,setProvider]=useState("jira"); const [user,setUser]=useState(""); const [window,setWindow]=useState<ProductivityWindow>("month"); const [report,setReport]=useState<ProductivityReport|null>(null); const [loading,setLoading]=useState(false); const run=async()=>{if(!user.trim())return;setLoading(true);try{const result=await generate({data:{provider,user:user.trim(),window}});if(result.ok)setReport(result.report);}finally{setLoading(false);}}; const downloadCsv=()=>{if(!report)return;const header=["Provider","Work item","Title","Assignee","Status","Created","Updated","Completed","Project","URL"];const lines=[header,...report.rows.map(r=>[r.provider,r.workItemId,r.title,r.assignee,r.status,r.createdAt??"",r.updatedAt??"",r.completedAt??"",r.project??"",r.url??""])];const csv=lines.map(row=>row.map(value=>`"${String(value).replaceAll('"','""')}"`).join(",")).join("\n");const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));const a=document.createElement("a");a.href=url;a.download=`${provider}-${user.replace(/[^a-z0-9]+/gi,"-").toLowerCase()}-${window}.csv`;a.click();URL.revokeObjectURL(url);}; return <div className="space-y-6"><PageHeader title="Productivity Agent" description="Measure user and team work activity across connected providers using governed, synchronized evidence." actions={<Badge variant="outline" className="gap-1.5"><Sparkles className="h-3.5 w-3.5"/>Read-only analytics</Badge>}/><Card><CardHeader><CardTitle className="text-base">Generate a productivity report</CardTitle></CardHeader><CardContent><div className="grid gap-3 md:grid-cols-[180px_1fr_180px_auto]"><Select value={provider} onValueChange={setProvider}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{["salesforce","jira","servicenow","genesys","slack","github"].map(p=><SelectItem key={p} value={p}>{p.charAt(0).toUpperCase()+p.slice(1)}</SelectItem>)}</SelectContent></Select><Input value={user} onChange={e=>setUser(e.target.value)} placeholder="User name, e.g. Shyam Srinivasan" onKeyDown={e=>{if(e.key==="Enter")void run();}}/><Select value={window} onValueChange={v=>setWindow(v as ProductivityWindow)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="week">Current week</SelectItem><SelectItem value="month">Current month</SelectItem><SelectItem value="3_months">Past 3 months</SelectItem><SelectItem value="6_months">Past 6 months</SelectItem><SelectItem value="year">Past year</SelectItem></SelectContent></Select><Button onClick={()=>void run()} disabled={loading||!user.trim()}>{loading?<Loader2 className="mr-2 h-4 w-4 animate-spin"/>:<FileText className="mr-2 h-4 w-4"/>}Generate</Button></div></CardContent></Card>{report&&<div className="space-y-4"><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Metric label="Handled" value={report.totalHandled}/><Metric label="Completed" value={report.completed}/><Metric label="Open" value={report.open}/><Metric label="Throughput / week" value={report.throughputPerWeek}/></div><Card><CardHeader className="flex flex-row items-center justify-between space-y-0"><div><CardTitle className="text-base">{report.user} · {report.provider}</CardTitle><p className="mt-1 text-xs text-muted-foreground">{new Date(report.from).toLocaleDateString()} – {new Date(report.to).toLocaleDateString()}{report.averageCycleTimeHours!==null?` · Avg cycle time ${report.averageCycleTimeHours}h`:""}</p></div><Button variant="outline" size="sm" onClick={downloadCsv}><Download className="mr-2 h-3.5 w-3.5"/>CSV</Button></CardHeader><CardContent>{report.warnings.length>0&&<div className="mb-4 rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-3 text-sm text-muted-foreground">{report.warnings.join(" ")}</div>}<div className="overflow-x-auto"><table className="w-full text-left text-xs"><thead><tr className="border-b text-muted-foreground"><th className="p-2">Work item</th><th className="p-2">Title</th><th className="p-2">Status</th><th className="p-2">Updated</th><th className="p-2">Project</th></tr></thead><tbody>{report.rows.map(row=><tr key={`${row.provider}-${row.workItemId}`} className="border-b last:border-0"><td className="p-2 font-medium">{row.url?<a className="underline" href={row.url} target="_blank" rel="noreferrer">{row.workItemId}</a>:row.workItemId}</td><td className="max-w-md p-2">{row.title}</td><td className="p-2">{row.status}</td><td className="p-2 text-muted-foreground">{row.updatedAt?new Date(row.updatedAt).toLocaleString():"—"}</td><td className="p-2">{row.project??"—"}</td></tr>)}</tbody></table></div></CardContent></Card></div>}</div> }
+function Metric({label,value}:{label:string;value:number}){return <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">{label}</div><div className="mt-1 text-xl font-semibold">{value}</div></CardContent></Card>}
