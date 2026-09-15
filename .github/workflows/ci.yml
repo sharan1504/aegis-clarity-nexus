@@ -17,6 +17,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Validate the PR head rather than GitHub's synthetic merge ref.
+          # This keeps generated files on the feature branch authoritative while
+          # still allowing the PR to be reviewed and merged normally.
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
