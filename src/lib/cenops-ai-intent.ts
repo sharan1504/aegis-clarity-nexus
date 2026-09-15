@@ -25,6 +25,9 @@ const hasAny = (text: string, terms: string[]) => terms.some((term) => text.incl
 export function classifyCenOpsIntent(message: string): CenOpsAiIntentResult {
   const text = message.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
+  if (hasAny(text, ["productivity agent", "what does the productivity agent", "what is the productivity agent", "explain the productivity agent", "productivity agent do"])) {
+    return { intent: "agent_explanation", confidence: 0.95, productQuestion: true, requiresLiveEvidence: false };
+  }
   if (hasAny(text, ["productivity report", "generate report", "detailed report", "performance report", "productivity summary"])) {
     return { intent: "productivity_report", confidence: 0.95, productQuestion: false, requiresLiveEvidence: true };
   }
