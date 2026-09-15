@@ -84,7 +84,7 @@ function configuredModelForTask(task: ModelTask, explicitModel?: string): string
   if (isSupportedModel(taskModel)) return taskModel;
 
   // Legacy single-model override remains supported only for an explicit, known model.
-  const legacyModel = process.env.CENOPS_AI_MODEL ?? process.env.AEGIS_AI_MODEL;
+  const legacyModel = process.env.CENOPS_AI_MODEL || process.env.AEGIS_AI_MODEL;
   if (isSupportedModel(legacyModel)) return legacyModel;
 
   return DEFAULT_MODEL_BY_TASK[task];
