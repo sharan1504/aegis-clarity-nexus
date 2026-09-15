@@ -6,6 +6,8 @@ export type CenOpsAiIntent =
   | "integration_status"
   | "agent_explanation"
   | "agent_configuration"
+  | "productivity_analysis"
+  | "productivity_report"
   | "operational_analysis"
   | "investigation"
   | "governance"
@@ -23,6 +25,15 @@ const hasAny = (text: string, terms: string[]) => terms.some((term) => text.incl
 export function classifyCenOpsIntent(message: string): CenOpsAiIntentResult {
   const text = message.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
+  if (hasAny(text, ["productivity agent", "what does the productivity agent", "what is the productivity agent", "explain the productivity agent", "productivity agent do"])) {
+    return { intent: "agent_explanation", confidence: 0.95, productQuestion: true, requiresLiveEvidence: false };
+  }
+  if (hasAny(text, ["productivity report", "generate report", "detailed report", "performance report", "productivity summary"])) {
+    return { intent: "productivity_report", confidence: 0.95, productQuestion: false, requiresLiveEvidence: true };
+  }
+  if (hasAny(text, ["productivity", "tickets handled", "cases handled", "work items handled", "throughput", "cycle time", "how many tickets", "how many cases", "performance this week", "performance this month", "last 3 months", "last 6 months", "last 12 months", "past 3 months", "past 6 months", "past year"])) {
+    return { intent: "productivity_analysis", confidence: 0.94, productQuestion: false, requiresLiveEvidence: true };
+  }
   if (hasAny(text, ["approval", "permission", "audit", "governance", "read only", "approval gate"])) {
     return { intent: "governance", confidence: 0.92, productQuestion: true, requiresLiveEvidence: hasAny(text, ["my", "current", "pending", "who approved", "approval status"]) };
   }

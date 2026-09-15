@@ -18,7 +18,8 @@ export type CapabilityKey =
   | "cloud_resource_inventory"
   | "cost_inventory"
   | "repo_inventory"
-  | "security_findings";
+  | "security_findings"
+  | "productivity_activity";
 
 export interface CapabilityDef { id: string; key: string; displayName: string; description: string | null; category: string; readOnly: boolean; writeCapable: boolean; }
 export const PROVIDER_LABELS: Record<string, { name: string; logo: string; category: string }> = {
