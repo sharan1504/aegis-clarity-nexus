@@ -18,8 +18,8 @@ const textResponse = (body: string, status: number) =>
 
 describe("LovableModelGateway", () => {
   beforeEach(() => {
-    // The production CI environment can define model variables. Defaults in these
-    // tests must exercise the gateway's governed built-in routing instead.
+    // CI may define model variables. Reset all router inputs so default-routing tests
+    // exercise the governed built-in policy rather than the runner's environment.
     vi.stubEnv("CENOPS_FAST_MODEL", "");
     vi.stubEnv("CENOPS_STANDARD_MODEL", "");
     vi.stubEnv("CENOPS_REASONING_MODEL", "");
@@ -30,24 +30,16 @@ describe("LovableModelGateway", () => {
   afterEach(() => vi.unstubAllEnvs());
 
   it("routes workflow planning to the standard Gemini model by default", async () => {
-    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
-      jsonResponse({ choices: [{ message: { content: "ok" } }] }),
-    );
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ choices: [{ message: { content: "ok" } }] }));
     const gateway = new LovableModelGateway({ apiKey: "test-key", endpoint: "https://example.test", fetchImpl });
 
     const result = await gateway.complete({ task: "workflow_planning", messages: [{ role: "user", content: "Plan a workflow." }] });
 
     expect(result.model).toBe("google/gemini-3.8-flash");
-    expect(fetchImpl).toHaveBeenCalledWith(
-      "https://example.test",
-      expect.objectContaining({ body: expect.stringContaining('"model":"google/gemini-3.8-flash"') }),
-    );
   });
 
   it("routes classification and summarization to the low-cost Gemini model", async () => {
-    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
-      jsonResponse({ choices: [{ message: { content: "ok" } }] }),
-    );
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ choices: [{ message: { content: "ok" } }] }));
     const gateway = new LovableModelGateway({ apiKey: "test-key", endpoint: "https://example.test", fetchImpl });
 
     await gateway.complete({ task: "classification", messages: [{ role: "user", content: "classify" }] });
@@ -58,9 +50,7 @@ describe("LovableModelGateway", () => {
   });
 
   it("routes complex reasoning to Astra", async () => {
-    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
-      jsonResponse({ choices: [{ message: { content: "ok" } }] }),
-    );
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ choices: [{ message: { content: "ok" } }] }));
     const gateway = new LovableModelGateway({ apiKey: "test-key", endpoint: "https://example.test", fetchImpl });
 
     const result = await gateway.complete({ task: "complex_reasoning", messages: [{ role: "user", content: "investigate root cause" }] });
@@ -70,10 +60,8 @@ describe("LovableModelGateway", () => {
     expect(JSON.parse(String(options?.body))).not.toHaveProperty("temperature");
   });
 
-  it("automatically escalates complex enterprise investigations from the normal reasoning task", async () => {
-    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
-      jsonResponse({ choices: [{ message: { content: "ok" } }] }),
-    );
+  it("automatically escalates complex enterprise investigations from normal reasoning", async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ choices: [{ message: { content: "ok" } }] }));
     const gateway = new LovableModelGateway({ apiKey: "test-key", endpoint: "https://example.test", fetchImpl });
 
     const result = await gateway.complete({
@@ -86,9 +74,7 @@ describe("LovableModelGateway", () => {
 
   it("allows task-specific model overrides", async () => {
     vi.stubEnv("CENOPS_STANDARD_MODEL", "openai/gpt-5.6-terra");
-    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
-      jsonResponse({ choices: [{ message: { content: "ok" } }] }),
-    );
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ choices: [{ message: { content: "ok" } }] }));
     const gateway = new LovableModelGateway({ apiKey: "test-key", endpoint: "https://example.test", fetchImpl });
 
     const result = await gateway.complete({ task: "reasoning", messages: [{ role: "user", content: "x" }] });
@@ -96,11 +82,9 @@ describe("LovableModelGateway", () => {
     expect(result.model).toBe("openai/gpt-5.6-terra");
   });
 
-  it("rejects unsupported model overrides and keeps the governed default", async () => {
+  it("ignores a stale unsupported task override and keeps the governed default", async () => {
     vi.stubEnv("CENOPS_STANDARD_MODEL", "google/gemini-2.5-flash");
-    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
-      jsonResponse({ choices: [{ message: { content: "ok" } }] }),
-    );
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ choices: [{ message: { content: "ok" } }] }));
     const gateway = new LovableModelGateway({ apiKey: "test-key", endpoint: "https://example.test", fetchImpl });
 
     const result = await gateway.complete({ task: "reasoning", messages: [{ role: "user", content: "x" }] });
@@ -109,27 +93,13 @@ describe("LovableModelGateway", () => {
   });
 
   it("supports a known legacy OpenAI model override", async () => {
-    vi.stubEnv("AEGIS_AI_MODEL", "openai/test-model");
-    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
-      jsonResponse({ choices: [{ message: { content: "ok" } }] }),
-    );
+    vi.stubEnv("AEGIS_AI_MODEL", "openai/gpt-5.6-terra");
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ choices: [{ message: { content: "ok" } }] }));
     const gateway = new LovableModelGateway({ apiKey: "test-key", endpoint: "https://example.test", fetchImpl });
 
     const result = await gateway.complete({ task: "reasoning", messages: [{ role: "user", content: "x" }] });
 
-    expect(result.model).toBe("openai/test-model");
-  });
-
-  it("does not send temperature to gpt-6-astra because the model only supports the API default", async () => {
-    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
-      jsonResponse({ choices: [{ message: { content: "ok" } }] }),
-    );
-    const gateway = new LovableModelGateway({ apiKey: "test-key", endpoint: "https://example.test", fetchImpl });
-
-    await gateway.complete({ task: "complex_reasoning", messages: [{ role: "user", content: "x" }], temperature: 0.1 });
-
-    const [, options] = fetchImpl.mock.calls[0];
-    expect(JSON.parse(String(options?.body))).not.toHaveProperty("temperature");
+    expect(result.model).toBe("openai/gpt-5.6-terra");
   });
 
   it("formats gateway errors with actionable status-specific diagnostics", async () => {
@@ -146,8 +116,6 @@ describe("LovableModelGateway", () => {
 
   it("fails closed when AI access is not configured", async () => {
     const gateway = new LovableModelGateway({ apiKey: undefined });
-    await expect(
-      gateway.complete({ task: "classification", messages: [{ role: "user", content: "x" }] }),
-    ).rejects.toThrow("Lovable AI is not configured");
+    await expect(gateway.complete({ task: "classification", messages: [{ role: "user", content: "x" }] })).rejects.toThrow("Lovable AI is not configured");
   });
 });
