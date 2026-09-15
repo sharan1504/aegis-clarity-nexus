@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { createOAuthState, consumeOAuthState, getAdminClient, readConnectionCredentials, storeOAuthConnection, markReconnectRequired } from "./oauth-framework.server";
 import { encryptCredentials } from "./credential-vault.server";
-export const JIRA_SCOPES = ["read:jira-work", "read:jira-user"] as const;
+export const JIRA_SCOPES = ["read:jira-work", "read:jira-user", "write:jira-work"] as const;
 const AUTHORIZE_URL = "https://auth.atlassian.com/authorize"; const TOKEN_URL = "https://auth.atlassian.com/oauth/token"; const RESOURCES_URL = "https://api.atlassian.com/oauth/token/accessible-resources";
 export function buildJiraAuthorizeUrl(input: { clientId: string; redirectUri: string; state: string }): string { const url = new URL(AUTHORIZE_URL); url.searchParams.set("audience", "api.atlassian.com"); url.searchParams.set("client_id", input.clientId); url.searchParams.set("scope", JIRA_SCOPES.join(" ")); url.searchParams.set("redirect_uri", input.redirectUri); url.searchParams.set("state", input.state); url.searchParams.set("response_type", "code"); url.searchParams.set("prompt", "consent"); return url.toString(); }
 async function tokenRequest(body: URLSearchParams) { const response = await fetch(TOKEN_URL, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body }); const text = await response.text(); if (!response.ok) throw new Error(`Jira OAuth token request failed (${response.status}): ${text.slice(0, 300)}`); const json = JSON.parse(text) as any; if (!json.access_token) throw new Error("Jira OAuth did not return an access token."); return json; }

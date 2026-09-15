@@ -11,7 +11,7 @@ import crypto from "node:crypto";
 
 export const GITHUB_API = "https://api.github.com";
 export const GITHUB_API_VERSION = "2022-11-28";
-/** Installation-scoped repository collection. Never use /user/repos for app auth. */
+/** Installation-scoped repository collection for GitHub App auth. */
 export const GITHUB_INSTALLATION_REPOSITORIES_PATH = "/installation/repositories";
 export const GITHUB_INSTALLATION_REPOSITORIES_KEY = "repositories";
 const STATE_TTL_MS = 10 * 60 * 1000;
