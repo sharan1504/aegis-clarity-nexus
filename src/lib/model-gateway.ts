@@ -17,15 +17,31 @@ export interface ModelRequest {
   json?: boolean;
 }
 
+export interface ModelUsage {
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+}
+
 export interface ModelResponse {
   content: string;
   model: string;
   provider: string;
-  usage?: {
-    inputTokens?: number;
-    outputTokens?: number;
-    totalTokens?: number;
-  };
+  usage?: ModelUsage;
+}
+
+export class ModelGatewayError extends Error {
+  readonly model: string;
+  readonly provider: string;
+  readonly usage?: ModelUsage;
+
+  constructor(message: string, options: { model: string; provider: string; usage?: ModelUsage }) {
+    super(message);
+    this.name = "ModelGatewayError";
+    this.model = options.model;
+    this.provider = options.provider;
+    this.usage = options.usage;
+  }
 }
 
 export interface ModelGateway {
@@ -112,6 +128,16 @@ function isOutOfScopeRequest(request: ModelRequest): boolean {
   return request.messages.some((message) => message.role === "system" && message.content.includes(OUT_OF_SCOPE_INTENT_MARKER));
 }
 
+function parseUsage(value: unknown): ModelUsage | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const usage = value as { prompt_tokens?: unknown; completion_tokens?: unknown; total_tokens?: unknown };
+  const inputTokens = Number.isFinite(Number(usage.prompt_tokens)) ? Number(usage.prompt_tokens) : undefined;
+  const outputTokens = Number.isFinite(Number(usage.completion_tokens)) ? Number(usage.completion_tokens) : undefined;
+  const totalTokens = Number.isFinite(Number(usage.total_tokens)) ? Number(usage.total_tokens) : undefined;
+  if (inputTokens === undefined && outputTokens === undefined && totalTokens === undefined) return undefined;
+  return { inputTokens, outputTokens, totalTokens };
+}
+
 export function describeAiGatewayError(status: number, body: string, model: string): string {
   const detail = body.trim().replace(/\s+/g, " ").slice(0, 800);
   if (status === 402) return `AI request failed (402): AI credits or billing are unavailable for this workspace. Model=${model}.`;
@@ -169,28 +195,37 @@ export class LovableModelGateway implements ModelGateway {
     });
 
     const body = await response.text();
-    if (!response.ok) throw new Error(describeAiGatewayError(response.status, body, model));
-
-    const parsed = JSON.parse(body) as {
+    let parsed: {
       model?: string;
       choices?: Array<{ message?: { content?: string } }>;
       usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
-    };
-    const content = parsed.choices?.[0]?.message?.content;
-    if (!content) throw new Error("AI returned an empty completion.");
+    } | undefined;
+    try {
+      parsed = JSON.parse(body) as typeof parsed;
+    } catch {
+      parsed = undefined;
+    }
 
-    return {
-      content,
-      model: parsed.model ?? model,
-      provider: "lovable-ai",
-      usage: parsed.usage
-        ? {
-            inputTokens: parsed.usage.prompt_tokens,
-            outputTokens: parsed.usage.completion_tokens,
-            totalTokens: parsed.usage.total_tokens,
-          }
-        : undefined,
-    };
+    const usage = parseUsage(parsed?.usage);
+    const resolvedModel = parsed?.model ?? model;
+    if (!response.ok) {
+      throw new ModelGatewayError(describeAiGatewayError(response.status, body, resolvedModel), {
+        model: resolvedModel,
+        provider: "lovable-ai",
+        usage,
+      });
+    }
+
+    const content = parsed?.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new ModelGatewayError("AI returned an empty completion.", {
+        model: resolvedModel,
+        provider: "lovable-ai",
+        usage,
+      });
+    }
+
+    return { content, model: resolvedModel, provider: "lovable-ai", usage };
   }
 }
 
