@@ -6,7 +6,7 @@ export interface ProviderDefinition {
   name: string;
   category: string;
   description: string;
-  auth: "OAuth 2.0" | "API Key" | "Access Keys" | "GitHub App" | "MCP";
+  auth: "OAuth 2.0" | "API Key" | "Access Keys" | "AWS IAM Role" | "GitHub App" | "MCP";
   scopes: string[];
   capabilities: ProviderCapability[];
   availability: ProviderAvailability;
@@ -17,7 +17,7 @@ const logo = (slug: string) => `https://cdn.simpleicons.org/${slug}`;
 
 export const PROVIDER_REGISTRY: ProviderDefinition[] = [
   { id: "genesys", name: "Genesys Cloud", category: "Contact Center", description: "Voice, digital, workforce and license telemetry.", auth: "OAuth 2.0", scopes: ["organization:readonly", "users:readonly", "license:readonly", "routing:readonly", "analytics:readonly"], capabilities: ["read", "sync"], availability: "available", logoUrl: logo("genesys") },
-  { id: "aws", name: "AWS", category: "Cloud", description: "EC2, S3, IAM, Cost Explorer and CloudWatch.", auth: "Access Keys", scopes: ["provider-managed"], capabilities: ["read", "sync"], availability: "available", logoUrl: logo("amazonaws") },
+  { id: "aws", name: "AWS", category: "Cloud", description: "EC2, S3, IAM, Cost Explorer and CloudWatch via cross-account IAM role assumption.", auth: "AWS IAM Role", scopes: ["provider-managed"], capabilities: ["read", "sync"], availability: "available", logoUrl: logo("amazonaws") },
   { id: "azure", name: "Microsoft Azure", category: "Cloud", description: "Resource Graph, Cost Management and Defender.", auth: "OAuth 2.0", scopes: ["provider-managed"], capabilities: ["read", "sync"], availability: "available", logoUrl: logo("microsoftazure") },
   { id: "gcp", name: "Google Cloud", category: "Cloud", description: "Compute, storage, IAM and cloud cost insights.", auth: "OAuth 2.0", scopes: ["provider-managed"], capabilities: ["read", "sync"], availability: "coming_soon", logoUrl: logo("googlecloud") },
   { id: "m365", name: "Microsoft 365", category: "Productivity", description: "Entra ID, licensing, Teams and Exchange.", auth: "OAuth 2.0", scopes: ["LicenseAssignment.Read.All", "User.Read.All"], capabilities: ["read", "sync"], availability: "available", logoUrl: logo("microsoftoffice") },
