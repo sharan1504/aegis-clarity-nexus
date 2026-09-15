@@ -28,4 +28,13 @@ describe("integration security architecture", () => {
     expect(source).toContain("microsoft365Impl");
     expect(source).toContain("microsoft365: microsoft365Impl");
   });
+
+  it("protects encrypted provider credentials from authenticated-column reads", () => {
+    const migration = fs.readFileSync(
+      path.resolve(process.cwd(), "supabase/migrations/20260915190000_unify_provider_credentials.sql"),
+      "utf8",
+    );
+    expect(migration).toContain("revoke select (encrypted_credentials) on public.provider_connections from anon, authenticated;");
+    expect(migration).toContain("grant all on public.provider_connections to service_role;");
+  });
 });
