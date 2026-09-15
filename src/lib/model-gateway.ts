@@ -60,11 +60,20 @@ const DEFAULT_MODEL_BY_TASK: Record<ModelTask, string> = {
   complex_reasoning: REASONING_MODEL,
 };
 
-const SUPPORTED_MODEL_PREFIXES = ["google/gemini-", "openai/gpt-5.6-", "openai/gpt-6-astra"] as const;
+// Keep the production router on a deliberate, tested model allowlist. A broad provider
+// prefix would silently re-enable stale/unsupported models such as Gemini 2.5 from an
+// inherited workspace environment variable.
+const SUPPORTED_MODELS = new Set([
+  FAST_MODEL,
+  STANDARD_MODEL,
+  REASONING_MODEL,
+  "openai/gpt-5.6-terra",
+  "openai/gpt-5.6-sol",
+]);
 const COMPLEX_REASONING_PATTERN = /\b(investigate|investigation|root cause|correlate|correlation|postmortem|forensic|deep dive|why did .* happen|across .* integrations|multi-source|cross-provider)\b/i;
 
 function isSupportedModel(model: string | undefined): model is string {
-  return Boolean(model && SUPPORTED_MODEL_PREFIXES.some((prefix) => model.startsWith(prefix)));
+  return Boolean(model && SUPPORTED_MODELS.has(model));
 }
 
 function configuredModelForTask(task: ModelTask, explicitModel?: string): string {
