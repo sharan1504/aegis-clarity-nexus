@@ -11,6 +11,7 @@ export type CenOpsAiIntent =
   | "operational_analysis"
   | "investigation"
   | "governance"
+  | "out_of_scope"
   | "unknown";
 
 export interface CenOpsAiIntentResult {
@@ -65,5 +66,5 @@ export function classifyCenOpsIntent(message: string): CenOpsAiIntentResult {
     return { intent: "platform_overview", confidence: 0.98, productQuestion: true, requiresLiveEvidence: false };
   }
 
-  return { intent: "unknown", confidence: 0.45, productQuestion: false, requiresLiveEvidence: true };
+  return { intent: "out_of_scope", confidence: 0.99, productQuestion: false, requiresLiveEvidence: false };
 }
