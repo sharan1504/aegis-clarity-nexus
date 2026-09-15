@@ -67,6 +67,22 @@ describe("LovableModelGateway", () => {
     expect(fetchImpl).toHaveBeenCalledWith("https://example.test", expect.objectContaining({ body: expect.stringContaining('"model":"openai/gpt-6-astra"') }));
   });
 
+  it("does not send temperature to gpt-6-astra because the model only supports the API default", async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ choices: [{ message: { content: "ok" } }] }), { status: 200 }),
+    );
+    const gateway = new LovableModelGateway({ apiKey: "test-key", endpoint: "https://example.test", fetchImpl });
+
+    await gateway.complete({
+      task: "reasoning",
+      messages: [{ role: "user", content: "x" }],
+      temperature: 0.1,
+    });
+
+    const [, options] = fetchImpl.mock.calls[0];
+    expect(JSON.parse(String(options?.body))).not.toHaveProperty("temperature");
+  });
+
   it("formats gateway errors with actionable status-specific diagnostics", async () => {
     for (const [status, expected] of [[402, "AI credits or billing are unavailable"], [401, "credential was rejected or is not authorized"], [429, "AI gateway rate-limited"]] as const) {
       const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response("gateway detail", { status }));
