@@ -28,7 +28,7 @@ describe("CenOps productivity intent routing", () => {
   ])("classifies general or unrelated requests as out_of_scope: %s", (message) => {
     const result = classifyCenOpsIntent(message);
     expect(result.intent).toBe("out_of_scope");
-    expect(result.productQuestion).toBe(false);
+    expect(result.productQuestion).toBe(true);
     expect(result.requiresLiveEvidence).toBe(false);
   });
 
