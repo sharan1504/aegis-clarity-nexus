@@ -43,6 +43,20 @@ describe("LovableModelGateway", () => {
     expect(JSON.parse(String(options?.body))).not.toHaveProperty("temperature");
   });
 
+  it("automatically escalates complex enterprise investigations from the normal reasoning task", async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ choices: [{ message: { content: "ok" } }] }), { status: 200 }),
+    );
+    const gateway = new LovableModelGateway({ apiKey: "test-key", endpoint: "https://example.test", fetchImpl });
+
+    const result = await gateway.complete({
+      task: "reasoning",
+      messages: [{ role: "user", content: "Investigate the root cause across multiple integrations and correlate the evidence." }],
+    });
+
+    expect(result.model).toBe("openai/gpt-6-astra");
+  });
+
   it("allows task-specific model overrides", async () => {
     vi.stubEnv("CENOPS_STANDARD_MODEL", "openai/gpt-5.6-terra");
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
