@@ -20,4 +20,22 @@ describe("CenOps productivity intent routing", () => {
     expect(result.intent).toBe("agent_explanation");
     expect(result.productQuestion).toBe(true);
   });
+
+  it.each([
+    "tell me what is 98*97",
+    "what is the capital of France",
+    "write me a poem",
+  ])("classifies general or unrelated requests as out_of_scope: %s", (message) => {
+    const result = classifyCenOpsIntent(message);
+    expect(result.intent).toBe("out_of_scope");
+    expect(result.productQuestion).toBe(true);
+    expect(result.requiresLiveEvidence).toBe(false);
+  });
+
+  it("preserves representative platform operational and product routing", () => {
+    expect(classifyCenOpsIntent("What is CenOps?").intent).toBe("platform_overview");
+    expect(classifyCenOpsIntent("What integrations are supported?").intent).toBe("integration_discovery");
+    expect(classifyCenOpsIntent("What is happening with current incidents?").intent).toBe("operational_analysis");
+    expect(classifyCenOpsIntent("Investigate why the incident started").intent).toBe("investigation");
+  });
 });
