@@ -1,3 +1,5 @@
+import { writeAiUsageEvent } from "@/lib/ai-usage.server";
+
 export type ModelTask =
   | "workflow_planning"
   | "classification"
@@ -107,14 +109,11 @@ function isSupportedModel(model: string | undefined): model is string {
 
 function configuredModelForTask(task: ModelTask, explicitModel?: string): string {
   if (isSupportedModel(explicitModel)) return explicitModel;
-
   const taskEnv = MODEL_ENV_BY_TASK[task];
   const taskModel = process.env[taskEnv];
   if (isSupportedModel(taskModel)) return taskModel;
-
   const legacyModel = process.env.CENOPS_AI_MODEL || process.env.AEGIS_AI_MODEL;
   if (isSupportedModel(legacyModel)) return legacyModel;
-
   return DEFAULT_MODEL_BY_TASK[task];
 }
 
@@ -143,12 +142,9 @@ export function describeAiGatewayError(status: number, body: string, model: stri
   if (status === 402) return `AI request failed (402): AI credits or billing are unavailable for this workspace. Model=${model}.`;
   if (status === 401 || status === 403) return `AI request failed (${status}): the Lovable AI credential was rejected or is not authorized. Model=${model}.`;
   if (status === 429) return `AI request failed (429): the AI gateway rate-limited the request. Model=${model}.`;
-  return detail
-    ? `AI request failed (${status}) for model ${model}: ${detail}`
-    : `AI request failed (${status}) for model ${model}: the gateway returned no diagnostic body.`;
+  return detail ? `AI request failed (${status}) for model ${model}: ${detail}` : `AI request failed (${status}) for model ${model}: the gateway returned no diagnostic body.`;
 }
 
-/** Provider-specific AI access and model selection live behind this server-side adapter. */
 export class LovableModelGateway implements ModelGateway {
   private readonly apiKey: string | undefined;
   private readonly endpoint: string;
@@ -163,69 +159,47 @@ export class LovableModelGateway implements ModelGateway {
   }
 
   async complete(request: ModelRequest): Promise<ModelResponse> {
+    const startedAt = Date.now();
     if (isOutOfScopeRequest(request)) {
-      return {
-        content: JSON.stringify(OUT_OF_SCOPE_RESPONSE),
-        model: "cenops-scope-guardrail",
-        provider: "cenops",
-      };
+      const response = { content: JSON.stringify(OUT_OF_SCOPE_RESPONSE), model: "cenops-scope-guardrail", provider: "cenops" };
+      await writeAiUsageEvent(request, undefined, response.model, startedAt);
+      return response;
     }
 
     if (!this.apiKey) throw new Error("Lovable AI is not configured for this workspace.");
-
     const task = resolveTask(request);
     const model = configuredModelForTask(task, this.explicitModel);
-    const requestBody: Record<string, unknown> = {
-      model,
-      messages: request.messages,
-      ...(request.json ? { response_format: { type: "json_object" } } : {}),
-    };
+    const requestBody: Record<string, unknown> = { model, messages: request.messages, ...(request.json ? { response_format: { type: "json_object" } } : {}) };
+    if (!model.startsWith("openai/gpt-6-astra")) requestBody.temperature = request.temperature ?? 0.1;
 
-    if (!model.startsWith("openai/gpt-6-astra")) {
-      requestBody.temperature = request.temperature ?? 0.1;
-    }
-
-    const response = await this.fetchImpl(this.endpoint, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    const body = await response.text();
-    let parsed: {
-      model?: string;
-      choices?: Array<{ message?: { content?: string } }>;
-      usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
-    } | undefined;
     try {
-      parsed = JSON.parse(body) as typeof parsed;
-    } catch {
-      parsed = undefined;
-    }
-
-    const usage = parseUsage(parsed?.usage);
-    const resolvedModel = parsed?.model ?? model;
-    if (!response.ok) {
-      throw new ModelGatewayError(describeAiGatewayError(response.status, body, resolvedModel), {
-        model: resolvedModel,
-        provider: "lovable-ai",
-        usage,
+      const response = await this.fetchImpl(this.endpoint, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${this.apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
       });
+      const body = await response.text();
+      let parsed: { model?: string; choices?: Array<{ message?: { content?: string } }>; usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } } | undefined;
+      try { parsed = JSON.parse(body) as typeof parsed; } catch { parsed = undefined; }
+      const usage = parseUsage(parsed?.usage);
+      const resolvedModel = parsed?.model ?? model;
+      if (!response.ok) {
+        const error = new ModelGatewayError(describeAiGatewayError(response.status, body, resolvedModel), { model: resolvedModel, provider: "lovable-ai", usage });
+        await writeAiUsageEvent(request, usage, resolvedModel, startedAt);
+        throw error;
+      }
+      const content = parsed?.choices?.[0]?.message?.content;
+      if (!content) {
+        const error = new ModelGatewayError("AI returned an empty completion.", { model: resolvedModel, provider: "lovable-ai", usage });
+        await writeAiUsageEvent(request, usage, resolvedModel, startedAt);
+        throw error;
+      }
+      await writeAiUsageEvent(request, usage, resolvedModel, startedAt);
+      return { content, model: resolvedModel, provider: "lovable-ai", usage };
+    } catch (error) {
+      if (error instanceof ModelGatewayError) throw error;
+      throw error;
     }
-
-    const content = parsed?.choices?.[0]?.message?.content;
-    if (!content) {
-      throw new ModelGatewayError("AI returned an empty completion.", {
-        model: resolvedModel,
-        provider: "lovable-ai",
-        usage,
-      });
-    }
-
-    return { content, model: resolvedModel, provider: "lovable-ai", usage };
   }
 }
 
