@@ -41,6 +41,16 @@ export interface LovableModelGatewayOptions {
 const DEFAULT_ENDPOINT = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const DEFAULT_MODEL = "openai/gpt-6-astra";
 
+export function describeAiGatewayError(status: number, body: string, model: string): string {
+  const detail = body.trim().replace(/\s+/g, " ").slice(0, 800);
+  if (status === 402) return `AI request failed (402): AI credits or billing are unavailable for this workspace. Model=${model}.`;
+  if (status === 401 || status === 403) return `AI request failed (${status}): the Lovable AI credential was rejected or is not authorized. Model=${model}.`;
+  if (status === 429) return `AI request failed (429): the AI gateway rate-limited the request. Model=${model}.`;
+  return detail
+    ? `AI request failed (${status}) for model ${model}: ${detail}`
+    : `AI request failed (${status}) for model ${model}: the gateway returned no diagnostic body.`;
+}
+
 /** Provider-specific AI access lives behind this server-side adapter. */
 export class LovableModelGateway implements ModelGateway {
   private readonly apiKey: string | undefined;
@@ -51,7 +61,7 @@ export class LovableModelGateway implements ModelGateway {
   constructor(options: LovableModelGatewayOptions = {}) {
     this.apiKey = options.apiKey ?? process.env.LOVABLE_API_KEY;
     this.endpoint = options.endpoint ?? DEFAULT_ENDPOINT;
-    this.model = options.model ?? DEFAULT_MODEL;
+    this.model = options.model ?? process.env.AEGIS_AI_MODEL ?? DEFAULT_MODEL;
     this.fetchImpl = options.fetchImpl ?? fetch;
   }
 
@@ -73,7 +83,7 @@ export class LovableModelGateway implements ModelGateway {
     });
 
     const body = await response.text();
-    if (!response.ok) throw new Error(`AI completion failed (${response.status}).`);
+    if (!response.ok) throw new Error(describeAiGatewayError(response.status, body, this.model));
 
     const parsed = JSON.parse(body) as {
       model?: string;

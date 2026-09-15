@@ -1,8 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, afterEach } from "vitest";
 
 import { LovableModelGateway } from "./model-gateway";
 
 describe("LovableModelGateway", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
   it("keeps provider details behind the gateway contract", async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(
@@ -37,6 +39,27 @@ describe("LovableModelGateway", () => {
         body: expect.stringContaining('"model":"openai/gpt-6-astra"'),
       }),
     );
+  });
+
+  it("uses AEGIS_AI_MODEL as the single configurable model override", async () => {
+    vi.stubEnv("AEGIS_AI_MODEL", "openai/test-model");
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ choices: [{ message: { content: "ok" } }] }), { status: 200 }),
+    );
+    const gateway = new LovableModelGateway({ apiKey: "test-key", endpoint: "https://example.test", fetchImpl });
+
+    const result = await gateway.complete({ task: "reasoning", messages: [{ role: "user", content: "x" }] });
+
+    expect(result.model).toBe("openai/test-model");
+    expect(fetchImpl).toHaveBeenCalledWith("https://example.test", expect.objectContaining({ body: expect.stringContaining('"model":"openai/test-model"') }));
+  });
+
+  it("formats gateway errors with actionable status-specific diagnostics", async () => {
+    for (const [status, expected] of [[402, "AI credits or billing are unavailable"], [401, "credential was rejected or is not authorized"], [429, "AI gateway rate-limited"]] as const) {
+      const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(new Response("gateway detail", { status }));
+      const gateway = new LovableModelGateway({ apiKey: "test-key", endpoint: "https://example.test", fetchImpl });
+      await expect(gateway.complete({ task: "reasoning", messages: [{ role: "user", content: "x" }] })).rejects.toThrow(expected);
+    }
   });
 
   it("fails closed when AI access is not configured", async () => {

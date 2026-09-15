@@ -5,12 +5,11 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { authorizeCapabilityAccess } from "@/lib/capabilities/authorization.server";
 import { capabilityRouter } from "@/lib/capabilities/router.server";
+import { defaultModelGateway } from "@/lib/model-gateway";
 import { executeLicenseOptimization } from "./optimization";
 import { executeLicenseAgent } from "./functions";
 import { LICENSE_AGENT_KEY } from "./types";
 
-const LOVABLE_AI_ENDPOINT = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const LOVABLE_AI_MODEL = "openai/gpt-6-astra";
 const OUT_OF_SCOPE_MESSAGE = "I don't have access to a connected data source that can answer that question. This License Agent can only answer questions using data from connected and authorized sources.";
 const SOURCE_NOT_CONNECTED_MESSAGE = "I don't have access to the requested license data because a connected and authorized data source is not available. Please connect or enable the appropriate data source for this agent.";
 
@@ -23,22 +22,8 @@ function isMultipleLicenseQuestion(question: string): boolean {
   return [/\bwhich users have (more than|multiple|several) licenses\b/, /\bwho (has|have) (more than|multiple|several) licenses\b/, /\busers with (more than|multiple|several) licenses\b/, /\busers? assigned (more than|multiple|several) licenses\b/, /\busers? with more than one license\b/, /\bmultiple[- ]license users\b/].some((pattern) => pattern.test(normalized));
 }
 
-async function askModel(messages: Array<{ role: "system" | "user" | "assistant"; content: string }>, json = false): Promise<string> {
-  const key = process.env["LOVABLE_API_KEY"];
-  if (!key) throw new Error("Lovable AI is not configured. Enable Lovable AI for this project.");
-  const response = await fetch(LOVABLE_AI_ENDPOINT, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: LOVABLE_AI_MODEL, messages, temperature: 0.05, ...(json ? { response_format: { type: "json_object" } } : {}) }),
-  });
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Lovable AI request failed (${response.status}): ${text.slice(0, 300)}`);
-  }
-  const body = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  const content = body.choices?.[0]?.message?.content;
-  if (!content) throw new Error("Lovable AI returned an empty response.");
-  return content;
+async function askModel(messages: Array<{ role: "system" | "user" | "assistant"; content: string }>, json = false) {
+  return defaultModelGateway.complete({ task: "reasoning", messages, temperature: 0.05, json });
 }
 
 function parseIntent(raw: string): Intent {
@@ -128,18 +113,18 @@ export const executeLicenseChat = createServerFn({ method: "POST" })
         await assertRealConnectedSource(context.supabase, context.userId);
         const evidence = await collectMultipleLicenseEvidence(context.supabase, context.userId);
         const response = await answerWithEvidence(latest, data.messages, evidence);
-        return { ok: true as const, content: response, provider: "Lovable AI", model: LOVABLE_AI_MODEL, readOnly: true as const };
+        return { ok: true as const, content: response.content, provider: "Lovable AI", model: response.model, readOnly: true as const };
       }
-      const intentRaw = await askModel([
+      const intentResponse = await askModel([
         { role: "system", content: "You are the strict scope router for a License Agent. You are NOT a general assistant. A question is inScope only when it can be answered using connected License Agent data: license assignments, license usage, users, user license details, connected source access, multiple-license users, or evidence-backed license optimization. Questions about weather, news, coding, general knowledge, unrelated products, personal advice, or other topics are out of scope. A question asking what data/sources the agent can access uses source_access. For user-specific questions, extract the user's display name into userName when the question names a user and does not provide a user ID or email. Return JSON only: {inScope:boolean, operation:'summary'|'usage'|'assignments'|'user_details'|'optimization'|'source_access'|'multiple_license_users'|null, userId?, userName?, userEmail?, licenseId?, licenseName?}. If out of scope, set inScope=false and operation=null. Never treat general knowledge as License Agent evidence." },
         { role: "user", content: latest },
       ], true);
-      const intent = parseIntent(intentRaw);
-      if (!intent.inScope || !intent.operation) return { ok: true as const, content: OUT_OF_SCOPE_MESSAGE, provider: "Lovable AI", model: LOVABLE_AI_MODEL, readOnly: true as const };
+      const intent = parseIntent(intentResponse.content);
+      if (!intent.inScope || !intent.operation) return { ok: true as const, content: OUT_OF_SCOPE_MESSAGE, provider: "Lovable AI", model: intentResponse.model, readOnly: true as const };
       await assertRealConnectedSource(context.supabase, context.userId);
       const evidence = await collectEvidence(intent, context.supabase, context.userId);
       const response = await answerWithEvidence(latest, data.messages, evidence);
-      return { ok: true as const, content: response, provider: "Lovable AI", model: LOVABLE_AI_MODEL, readOnly: true as const };
+      return { ok: true as const, content: response.content, provider: "Lovable AI", model: response.model, readOnly: true as const };
     } catch (error) {
       console.error("[license-agent-chat] failed", error);
       return { ok: false as const, error: error instanceof Error ? error.message : "The License Agent chat could not be completed." };
