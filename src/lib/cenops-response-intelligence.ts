@@ -35,8 +35,30 @@ export interface CenOpsResponse {
 const asString = (value: unknown, fallback = "") => typeof value === "string" ? value.trim() : fallback;
 const asArray = <T,>(value: unknown, mapper: (item: unknown) => T): T[] => Array.isArray(value) ? value.map(mapper).filter(Boolean) : [];
 const severity = (value: unknown): CenOpsSeverity | undefined => ["critical", "high", "medium", "low", "info"].includes(String(value).toLowerCase()) ? String(value).toLowerCase() as CenOpsSeverity : undefined;
-export function responseTypeForIntent(intent: string): CenOpsResponseType { if (intent === "platform_overview" || intent === "product_feature" || intent === "integration_discovery" || intent === "agent_explanation") return "product"; if (intent === "integration_how_to" || intent === "agent_configuration") return "how_to"; if (intent === "integration_status") return "status"; if (intent === "investigation") return "investigation"; return "operational"; }
+const outOfScopeResponse = (): CenOpsResponse => ({
+  responseType: "product",
+  executiveSummary: "That request is outside CenOps scope. CenOps is focused on tenant operations, integrations, agents, guardrails, productivity, risk, and investigations.",
+  keyFindings: [],
+  metrics: [],
+  risks: [],
+  opportunities: [],
+  recommendations: [],
+  whatChanged: [],
+  whatRequiresAttention: [],
+  evidence: [],
+  confidence: 0,
+  actionRequired: false,
+  followUps: [],
+});
+export function responseTypeForIntent(intent: string): CenOpsResponseType {
+  if (intent === "platform_overview" || intent === "product_feature" || intent === "integration_discovery" || intent === "agent_explanation") return "product";
+  if (intent === "integration_how_to" || intent === "agent_configuration") return "how_to";
+  if (intent === "integration_status") return "status";
+  if (intent === "investigation") return "investigation";
+  return "operational";
+}
 export function normalizeCenOpsResponse(raw: unknown, intent: string): CenOpsResponse {
+  if (intent === "out_of_scope") return outOfScopeResponse();
   const value = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   const fallbackAnswer = asString(value.answer, "Analysis complete.");
   const type = ["executive", "operational", "investigation", "product", "how_to", "status"].includes(String(value.responseType)) ? String(value.responseType) as CenOpsResponseType : responseTypeForIntent(intent);
@@ -52,6 +74,7 @@ export function normalizeCenOpsResponse(raw: unknown, intent: string): CenOpsRes
     approvalState: contextRaw.approvalState === "pending" ? "pending" : contextRaw.approvalState === "not_required" ? "not_required" : undefined,
   };
   const hasContext = Object.values(operationalContext).some((item) => Array.isArray(item) ? item.length > 0 : Boolean(item));
+  const evidence = asArray(value.evidence, (item) => { const x = (item && typeof item === "object" ? item : {}) as Record<string, unknown>; return { source: asString(x.source, "CenOps evidence"), detail: asString(x.detail), timestamp: asString(x.timestamp) || undefined }; }).slice(0, 12);
   return {
     responseType: type,
     executiveSummary: asString(value.executiveSummary, fallbackAnswer),
@@ -62,8 +85,8 @@ export function normalizeCenOpsResponse(raw: unknown, intent: string): CenOpsRes
     recommendations: recommendations.slice(0, 8),
     whatChanged: asArray(value.whatChanged, (x) => asString(x)).slice(0, 8),
     whatRequiresAttention: asArray(value.whatRequiresAttention, (x) => asString(x)).slice(0, 8),
-    evidence: asArray(value.evidence, (item) => { const x = (item && typeof item === "object" ? item : {}) as Record<string, unknown>; return { source: asString(x.source, "CenOps evidence"), detail: asString(x.detail), timestamp: asString(x.timestamp) || undefined }; }).slice(0, 12),
-    confidence: Math.max(0, Math.min(100, Number(value.confidence ?? 0) || 0)),
+    evidence,
+    confidence: evidence.length > 0 ? Math.max(0, Math.min(100, Number(value.confidence ?? 0) || 0)) : 0,
     actionRequired: value.actionRequired === true,
     followUps: asArray(value.followUps, (item) => { const x = (item && typeof item === "object" ? item : {}) as Record<string, unknown>; return { label: asString(x.label, "Explore further"), prompt: asString(x.prompt), route: asString(x.route) || undefined }; }).filter((x) => x.prompt).slice(0, 5),
     operationalContext: hasContext ? operationalContext : undefined,
