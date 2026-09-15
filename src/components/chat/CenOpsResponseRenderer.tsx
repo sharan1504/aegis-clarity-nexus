@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CenOpsMarkdownMessage } from "@/components/chat/CenOpsMarkdownMessage";
+import { CenOpsOperatingLoop } from "@/components/chat/CenOpsOperatingLoop";
 import type { CenOpsResponse, CenOpsSeverity } from "@/lib/cenops-response-intelligence";
 
 const severityClass: Record<CenOpsSeverity, string> = { critical: "border-destructive/50 bg-destructive/5", high: "border-orange-500/40 bg-orange-500/5", medium: "border-yellow-500/40 bg-yellow-500/5", low: "border-primary/20 bg-primary/5", info: "border-border bg-muted/20" };
@@ -11,11 +12,14 @@ const SeverityIcon = ({ value }: { value?: CenOpsSeverity }) => value === "criti
 
 export function CenOpsResponseRenderer({ response, onFollowUp }: { response: CenOpsResponse; onFollowUp?: (prompt: string) => void }) {
   const compact = response.responseType === "product" || response.responseType === "how_to";
+  const intelligenceResponse = response.responseType === "operational" || response.responseType === "investigation" || response.responseType === "executive";
   return <div className="space-y-4">
     <div className="rounded-xl border bg-background p-4 sm:p-5">
       <div className="mb-2 flex flex-wrap items-center gap-2"><Badge variant="outline">{response.responseType === "how_to" ? "Guidance" : response.responseType === "product" ? "CenOps capability" : response.responseType === "investigation" ? "Investigation" : "Operational intelligence"}</Badge>{response.confidence > 0 && <Badge variant="secondary">{Math.round(response.confidence)}% confidence</Badge>}</div>
       <CenOpsMarkdownMessage content={response.executiveSummary} />
     </div>
+
+    {intelligenceResponse && <CenOpsOperatingLoop response={response} />}
 
     {response.metrics.length > 0 && <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{response.metrics.slice(0, 8).map((metric, i) => <Card key={`${metric.label}-${i}`}><CardContent className="p-4"><div className="flex items-center gap-2 text-xs text-muted-foreground"><Gauge className="h-3.5 w-3.5" />{metric.label}</div><div className="mt-1 text-xl font-semibold">{metric.value}</div>{metric.change && <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">{metric.trend === "up" ? <ArrowUp className="h-3 w-3" /> : metric.trend === "down" ? <ArrowDown className="h-3 w-3" /> : null}{metric.change}</div>}</CardContent></Card>)}</div>}
 
