@@ -1,0 +1,1 @@
+Implementation notes: Productivity Agent registry, provider-agnostic normalized work-item report builder, department-scoped read-only reporting workspace, Copilot productivity/report intent classification and product knowledge. The detailed report route is /productivity.
