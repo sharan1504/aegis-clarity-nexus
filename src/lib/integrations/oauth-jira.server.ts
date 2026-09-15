@@ -1,60 +1,17 @@
-import { createPkcePair, createOAuthState, consumeOAuthState, getAdminClient, readConnectionCredentials, storeOAuthConnection } from "./oauth-framework.server";
+import crypto from "node:crypto";
+import { createPkcePair, createOAuthState, consumeOAuthState, getAdminClient, readConnectionCredentials, storeOAuthConnection, markReconnectRequired } from "./oauth-framework.server";
+import { encryptCredentials } from "./credential-vault.server";
 
 export const JIRA_SCOPES = ["read:jira-work", "read:jira-user"] as const;
 const AUTHORIZE_URL = "https://auth.atlassian.com/authorize";
 const TOKEN_URL = "https://auth.atlassian.com/oauth/token";
 const RESOURCES_URL = "https://api.atlassian.com/oauth/token/accessible-resources";
 
-export function buildJiraAuthorizeUrl(input: { clientId: string; redirectUri: string; state: string; codeChallenge: string }): string {
-  const url = new URL(AUTHORIZE_URL);
-  url.searchParams.set("audience", "api.atlassian.com");
-  url.searchParams.set("client_id", input.clientId);
-  url.searchParams.set("scope", JIRA_SCOPES.join(" "));
-  url.searchParams.set("redirect_uri", input.redirectUri);
-  url.searchParams.set("state", input.state);
-  url.searchParams.set("response_type", "code");
-  url.searchParams.set("prompt", "consent");
-  url.searchParams.set("code_challenge", input.codeChallenge);
-  url.searchParams.set("code_challenge_method", "S256");
-  return url.toString();
-}
-
-async function exchangeAuthorizationCode(input: { code: string; clientId: string; clientSecret: string; redirectUri: string; codeVerifier: string }) {
-  const response = await fetch(TOKEN_URL, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ grant_type: "authorization_code", client_id: input.clientId, client_secret: input.clientSecret, code: input.code, redirect_uri: input.redirectUri, code_verifier: input.codeVerifier }) });
-  const text = await response.text();
-  if (!response.ok) throw new Error(`Jira OAuth token exchange failed (${response.status}): ${text.slice(0, 300)}`);
-  const body = JSON.parse(text) as { access_token?: string; refresh_token?: string; expires_in?: number; scope?: string };
-  if (!body.access_token) throw new Error("Jira OAuth did not return an access token.");
-  return { accessToken: body.access_token, refreshToken: body.refresh_token ?? null, expiresAt: new Date(Date.now() + Number(body.expires_in ?? 3600) * 1000).toISOString(), scopes: body.scope?.split(/\s+/).filter(Boolean) ?? [...JIRA_SCOPES] };
-}
-
-async function resolveCloudId(accessToken: string) {
-  const response = await fetch(RESOURCES_URL, { headers: { authorization: `Bearer ${accessToken}`, accept: "application/json" } });
-  const text = await response.text();
-  if (!response.ok) throw new Error(`Jira accessible-resources failed (${response.status}): ${text.slice(0, 300)}`);
-  const sites = JSON.parse(text) as Array<{ id?: string; name?: string; url?: string }>;
-  const site = sites.find((item) => item.id);
-  if (!site?.id) throw new Error("Jira returned no accessible site for this connection.");
-  return site;
-}
-
-export async function startJiraOAuth(input: { tenantId: string; userId: string; connectionId?: string; clientId: string; clientSecret: string; redirectUri: string; displayName?: string; environment?: string }) {
-  const db = await getAdminClient();
-  const connectionId = input.connectionId ?? crypto.randomUUID();
-  const { verifier, challenge } = createPkcePair();
-  const pending = { clientId: input.clientId.trim(), clientSecret: input.clientSecret, provider: "jira", oauth: true };
-  const encrypted = (await import("./credential-vault.server")).encryptCredentials(pending);
-  await db.from("provider_connections").upsert({ id: connectionId, tenant_id: input.tenantId, provider: "jira", display_name: input.displayName ?? null, environment: input.environment ?? "Production", status: "failed", encrypted_credentials: encrypted, last_error: "OAuth authorization in progress", updated_at: new Date().toISOString() }, { onConflict: "id" });
-  const state = await createOAuthState(db, { tenantId: input.tenantId, provider: "jira", redirectUri: input.redirectUri, connectionId, codeVerifier: verifier });
-  return { connectionId, authorizeUrl: buildJiraAuthorizeUrl({ clientId: input.clientId, redirectUri: input.redirectUri, state, codeChallenge: challenge }) };
-}
-
-export async function completeJiraOAuth(state: string, code: string) {
-  const db = await getAdminClient();
-  const stateRecord = await consumeOAuthState(db, state, "jira");
-  const credentials = await readConnectionCredentials<{ clientId: string; clientSecret: string }>(db, stateRecord.connectionId, stateRecord.tenantId);
-  const tokens = await exchangeAuthorizationCode({ code, clientId: credentials.clientId, clientSecret: credentials.clientSecret, redirectUri: stateRecord.redirectUri, codeVerifier: stateRecord.codeVerifier ?? "" });
-  const site = await resolveCloudId(tokens.accessToken);
-  await storeOAuthConnection(db, { connectionId: stateRecord.connectionId, tenantId: stateRecord.tenantId, provider: "jira", externalId: site.id, displayName: site.name ?? "Jira", credentials: { ...credentials, accessToken: tokens.accessToken, refreshToken: tokens.refreshToken, cloudId: site.id, siteUrl: site.url, scopes: tokens.scopes }, expiresAt: tokens.expiresAt });
-  return { connectionId: stateRecord.connectionId, tenantId: stateRecord.tenantId, cloudId: site.id, displayName: site.name ?? "Jira" };
-}
+export function buildJiraAuthorizeUrl(input: { clientId: string; redirectUri: string; state: string; codeChallenge: string }): string { const url = new URL(AUTHORIZE_URL); url.searchParams.set("audience", "api.atlassian.com"); url.searchParams.set("client_id", input.clientId); url.searchParams.set("scope", JIRA_SCOPES.join(" ")); url.searchParams.set("redirect_uri", input.redirectUri); url.searchParams.set("state", input.state); url.searchParams.set("response_type", "code"); url.searchParams.set("prompt", "consent"); url.searchParams.set("code_challenge", input.codeChallenge); url.searchParams.set("code_challenge_method", "S256"); return url.toString(); }
+async function tokenRequest(body: URLSearchParams) { const response = await fetch(TOKEN_URL, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body }); const text = await response.text(); if (!response.ok) throw new Error(`Jira OAuth token request failed (${response.status}): ${text.slice(0, 300)}`); const json = JSON.parse(text) as any; if (!json.access_token) throw new Error("Jira OAuth did not return an access token."); return json; }
+async function exchangeAuthorizationCode(input: { code: string; clientId: string; clientSecret: string; redirectUri: string; codeVerifier: string }) { const body = await tokenRequest(new URLSearchParams({ grant_type: "authorization_code", client_id: input.clientId, client_secret: input.clientSecret, code: input.code, redirect_uri: input.redirectUri, code_verifier: input.codeVerifier })); return { accessToken: body.access_token, refreshToken: body.refresh_token ?? null, expiresAt: new Date(Date.now() + Number(body.expires_in ?? 3600) * 1000).toISOString(), scopes: body.scope?.split(/\s+/).filter(Boolean) ?? [...JIRA_SCOPES] }; }
+export async function refreshJiraAccessToken(input: { clientId: string; clientSecret: string; refreshToken: string }) { const body = await tokenRequest(new URLSearchParams({ grant_type: "refresh_token", client_id: input.clientId, client_secret: input.clientSecret, refresh_token: input.refreshToken })); return { accessToken: body.access_token, refreshToken: body.refresh_token ?? input.refreshToken, expiresAt: new Date(Date.now() + Number(body.expires_in ?? 3600) * 1000).toISOString(), scopes: body.scope?.split(/\s+/).filter(Boolean) ?? [...JIRA_SCOPES] }; }
+async function resolveCloudId(accessToken: string) { const response = await fetch(RESOURCES_URL, { headers: { authorization: `Bearer ${accessToken}`, accept: "application/json" } }); const text = await response.text(); if (!response.ok) throw new Error(`Jira accessible-resources failed (${response.status}): ${text.slice(0, 300)}`); const sites = JSON.parse(text) as Array<{ id?: string; name?: string; url?: string }>; const site = sites.find((item) => item.id); if (!site?.id) throw new Error("Jira returned no accessible site for this connection."); return site; }
+export async function startJiraOAuth(input: { tenantId: string; userId: string; connectionId?: string; clientId: string; clientSecret: string; redirectUri: string; displayName?: string; environment?: string }) { const db = await getAdminClient(); const connectionId = input.connectionId ?? crypto.randomUUID(); const { verifier, challenge } = createPkcePair(); await db.from("provider_connections").upsert({ id: connectionId, tenant_id: input.tenantId, provider: "jira", display_name: input.displayName ?? null, environment: input.environment ?? "Production", status: "failed", encrypted_credentials: encryptCredentials({ clientId: input.clientId.trim(), clientSecret: input.clientSecret, provider: "jira" }), last_error: "OAuth authorization in progress", updated_at: new Date().toISOString() }, { onConflict: "id" }); const state = await createOAuthState(db, { tenantId: input.tenantId, provider: "jira", redirectUri: input.redirectUri, connectionId, codeVerifier: verifier }); return { connectionId, authorizeUrl: buildJiraAuthorizeUrl({ clientId: input.clientId, redirectUri: input.redirectUri, state, codeChallenge: challenge }) }; }
+export async function completeJiraOAuth(state: string, code: string) { const db = await getAdminClient(); const stateRecord = await consumeOAuthState(db, state, "jira"); const credentials = await readConnectionCredentials<{ clientId: string; clientSecret: string }>(db, stateRecord.connectionId, stateRecord.tenantId); const tokens = await exchangeAuthorizationCode({ code, clientId: credentials.clientId, clientSecret: credentials.clientSecret, redirectUri: stateRecord.redirectUri, codeVerifier: stateRecord.codeVerifier ?? "" }); const site = await resolveCloudId(tokens.accessToken); await storeOAuthConnection(db, { connectionId: stateRecord.connectionId, tenantId: stateRecord.tenantId, provider: "jira", externalId: site.id, displayName: site.name ?? "Jira", credentials: { ...credentials, accessToken: tokens.accessToken, refreshToken: tokens.refreshToken, cloudId: site.id, siteUrl: site.url, scopes: tokens.scopes }, expiresAt: tokens.expiresAt }); return { connectionId: stateRecord.connectionId, tenantId: stateRecord.tenantId, cloudId: site.id, displayName: site.name ?? "Jira" }; }
+export async function ensureJiraAccessToken(connectionId: string, tenantId: string) { const db = await getAdminClient(); const credentials = await readConnectionCredentials<any>(db, connectionId, tenantId); if (credentials.accessToken && credentials.expiresAt && new Date(credentials.expiresAt).getTime() - Date.now() > 120_000) return credentials.accessToken; if (!credentials.refreshToken) { await markReconnectRequired(db, connectionId, "Jira access expired and no refresh token is available. Reconnect required."); throw new Error("Jira reconnect required."); } try { const refreshed = await refreshJiraAccessToken({ clientId: credentials.clientId, clientSecret: credentials.clientSecret, refreshToken: credentials.refreshToken }); await storeOAuthConnection(db, { connectionId, tenantId, provider: "jira", externalId: credentials.cloudId, displayName: credentials.displayName ?? "Jira", credentials: { ...credentials, accessToken: refreshed.accessToken, refreshToken: refreshed.refreshToken, expiresAt: refreshed.expiresAt, scopes: refreshed.scopes }, expiresAt: refreshed.expiresAt }); return refreshed.accessToken; } catch (error) { await markReconnectRequired(db, connectionId, "Jira token refresh failed. Reconnect required."); throw error; } }
