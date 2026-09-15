@@ -41,7 +41,7 @@ describe("LovableModelGateway", () => {
     );
   });
 
-  it("uses AEGIS_AI_MODEL as the single configurable model override", async () => {
+  it("uses AEGIS_AI_MODEL as the single configurable model override when it is OpenAI", async () => {
     vi.stubEnv("AEGIS_AI_MODEL", "openai/test-model");
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(JSON.stringify({ choices: [{ message: { content: "ok" } }] }), { status: 200 }),
@@ -52,6 +52,19 @@ describe("LovableModelGateway", () => {
 
     expect(result.model).toBe("openai/test-model");
     expect(fetchImpl).toHaveBeenCalledWith("https://example.test", expect.objectContaining({ body: expect.stringContaining('"model":"openai/test-model"') }));
+  });
+
+  it("falls back to the OpenAI default when the environment points to Gemini", async () => {
+    vi.stubEnv("AEGIS_AI_MODEL", "google/gemini-2.5-flash");
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ choices: [{ message: { content: "ok" } }] }), { status: 200 }),
+    );
+    const gateway = new LovableModelGateway({ apiKey: "test-key", endpoint: "https://example.test", fetchImpl });
+
+    const result = await gateway.complete({ task: "reasoning", messages: [{ role: "user", content: "x" }] });
+
+    expect(result.model).toBe("openai/gpt-6-astra");
+    expect(fetchImpl).toHaveBeenCalledWith("https://example.test", expect.objectContaining({ body: expect.stringContaining('"model":"openai/gpt-6-astra"') }));
   });
 
   it("formats gateway errors with actionable status-specific diagnostics", async () => {
