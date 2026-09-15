@@ -43,6 +43,22 @@ const DEFAULT_ENDPOINT = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const FAST_MODEL = "google/gemini-3.1-flash-lite";
 const STANDARD_MODEL = "google/gemini-3.8-flash";
 const REASONING_MODEL = "openai/gpt-6-astra";
+const OUT_OF_SCOPE_INTENT_MARKER = "REQUEST INTENT: out_of_scope";
+const OUT_OF_SCOPE_RESPONSE = {
+  responseType: "product",
+  executiveSummary: "That request is outside CenOps scope. CenOps is focused on tenant operations, integrations, agents, guardrails, productivity, risk, and investigations.",
+  keyFindings: [],
+  metrics: [],
+  risks: [],
+  opportunities: [],
+  recommendations: [],
+  whatChanged: [],
+  whatRequiresAttention: [],
+  evidence: [],
+  confidence: 0,
+  actionRequired: false,
+  followUps: [],
+};
 
 const MODEL_ENV_BY_TASK: Record<ModelTask, string> = {
   classification: "CENOPS_FAST_MODEL",
@@ -60,9 +76,6 @@ const DEFAULT_MODEL_BY_TASK: Record<ModelTask, string> = {
   complex_reasoning: REASONING_MODEL,
 };
 
-// Keep the production router on a deliberate, tested model allowlist. A broad provider
-// prefix would silently re-enable stale/unsupported models such as Gemini 2.5 from an
-// inherited workspace environment variable.
 const SUPPORTED_MODELS = new Set([
   FAST_MODEL,
   STANDARD_MODEL,
@@ -83,7 +96,6 @@ function configuredModelForTask(task: ModelTask, explicitModel?: string): string
   const taskModel = process.env[taskEnv];
   if (isSupportedModel(taskModel)) return taskModel;
 
-  // Legacy single-model override remains supported only for an explicit, known model.
   const legacyModel = process.env.CENOPS_AI_MODEL || process.env.AEGIS_AI_MODEL;
   if (isSupportedModel(legacyModel)) return legacyModel;
 
@@ -94,6 +106,10 @@ function resolveTask(request: ModelRequest): ModelTask {
   if (request.task !== "reasoning") return request.task;
   const userText = request.messages.filter((message) => message.role === "user").map((message) => message.content).join("\n");
   return COMPLEX_REASONING_PATTERN.test(userText) ? "complex_reasoning" : "reasoning";
+}
+
+function isOutOfScopeRequest(request: ModelRequest): boolean {
+  return request.messages.some((message) => message.role === "system" && message.content.includes(OUT_OF_SCOPE_INTENT_MARKER));
 }
 
 export function describeAiGatewayError(status: number, body: string, model: string): string {
@@ -121,6 +137,14 @@ export class LovableModelGateway implements ModelGateway {
   }
 
   async complete(request: ModelRequest): Promise<ModelResponse> {
+    if (isOutOfScopeRequest(request)) {
+      return {
+        content: JSON.stringify(OUT_OF_SCOPE_RESPONSE),
+        model: "cenops-scope-guardrail",
+        provider: "cenops",
+      };
+    }
+
     if (!this.apiKey) throw new Error("Lovable AI is not configured for this workspace.");
 
     const task = resolveTask(request);
@@ -131,7 +155,6 @@ export class LovableModelGateway implements ModelGateway {
       ...(request.json ? { response_format: { type: "json_object" } } : {}),
     };
 
-    // GPT-6 Astra only supports the API default temperature of 1.
     if (!model.startsWith("openai/gpt-6-astra")) {
       requestBody.temperature = request.temperature ?? 0.1;
     }
