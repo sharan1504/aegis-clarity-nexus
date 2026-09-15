@@ -26,6 +26,7 @@ import { Route as AppIntegrationsRouteImport } from './routes/_app.integrations'
 import { Route as AppInvestigationsRouteImport } from './routes/_app.investigations'
 import { Route as AppMarketplaceRouteImport } from './routes/_app.marketplace'
 import { Route as AppOperationalConsoleRouteImport } from './routes/_app.operational-console'
+import { Route as AppProductivityRouteImport } from './routes/_app.productivity'
 import { Route as AppReportsRouteImport } from './routes/_app.reports'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppUsersRouteImport } from './routes/_app.users'
@@ -128,6 +129,11 @@ const AppMarketplaceRoute = AppMarketplaceRouteImport.update({
 const AppOperationalConsoleRoute = AppOperationalConsoleRouteImport.update({
   id: '/operational-console',
   path: '/operational-console',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProductivityRoute = AppProductivityRouteImport.update({
+  id: '/productivity',
+  path: '/productivity',
   getParentRoute: () => AppRoute,
 } as any)
 const AppReportsRoute = AppReportsRouteImport.update({
@@ -236,6 +242,7 @@ export interface FileRoutesByFullPath {
   '/investigations': typeof AppInvestigationsRoute
   '/marketplace': typeof AppMarketplaceRoute
   '/operational-console': typeof AppOperationalConsoleRoute
+  '/productivity': typeof AppProductivityRoute
   '/reports': typeof AppReportsRoute
   '/settings': typeof AppSettingsRouteWithChildren
   '/users': typeof AppUsersRoute
@@ -270,6 +277,7 @@ export interface FileRoutesByTo {
   '/investigations': typeof AppInvestigationsRoute
   '/marketplace': typeof AppMarketplaceRoute
   '/operational-console': typeof AppOperationalConsoleRoute
+  '/productivity': typeof AppProductivityRoute
   '/reports': typeof AppReportsRoute
   '/settings': typeof AppSettingsRouteWithChildren
   '/users': typeof AppUsersRoute
@@ -307,6 +315,7 @@ export interface FileRoutesById {
   '/_app/investigations': typeof AppInvestigationsRoute
   '/_app/marketplace': typeof AppMarketplaceRoute
   '/_app/operational-console': typeof AppOperationalConsoleRoute
+  '/_app/productivity': typeof AppProductivityRoute
   '/_app/reports': typeof AppReportsRoute
   '/_app/settings': typeof AppSettingsRouteWithChildren
   '/_app/users': typeof AppUsersRoute
@@ -345,6 +354,7 @@ export interface FileRouteTypes {
     | '/investigations'
     | '/marketplace'
     | '/operational-console'
+    | '/productivity'
     | '/reports'
     | '/settings'
     | '/users'
@@ -379,6 +389,7 @@ export interface FileRouteTypes {
     | '/investigations'
     | '/marketplace'
     | '/operational-console'
+    | '/productivity'
     | '/reports'
     | '/settings'
     | '/users'
@@ -415,6 +426,7 @@ export interface FileRouteTypes {
     | '/_app/investigations'
     | '/_app/marketplace'
     | '/_app/operational-console'
+    | '/_app/productivity'
     | '/_app/reports'
     | '/_app/settings'
     | '/_app/users'
@@ -569,6 +581,13 @@ declare module '@tanstack/react-router' {
       path: '/operational-console'
       fullPath: '/operational-console'
       preLoaderRoute: typeof AppOperationalConsoleRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/productivity': {
+      id: '/_app/productivity'
+      path: '/productivity'
+      fullPath: '/productivity'
+      preLoaderRoute: typeof AppProductivityRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/reports': {
@@ -727,6 +746,7 @@ interface AppRouteChildren {
   AppInvestigationsRoute: typeof AppInvestigationsRoute
   AppMarketplaceRoute: typeof AppMarketplaceRoute
   AppOperationalConsoleRoute: typeof AppOperationalConsoleRoute
+  AppProductivityRoute: typeof AppProductivityRoute
   AppReportsRoute: typeof AppReportsRoute
   AppSettingsRoute: typeof AppSettingsRouteWithChildren
   AppUsersRoute: typeof AppUsersRoute
@@ -749,6 +769,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppInvestigationsRoute: AppInvestigationsRoute,
   AppMarketplaceRoute: AppMarketplaceRoute,
   AppOperationalConsoleRoute: AppOperationalConsoleRoute,
+  AppProductivityRoute: AppProductivityRoute,
   AppReportsRoute: AppReportsRoute,
   AppSettingsRoute: AppSettingsRouteWithChildren,
   AppUsersRoute: AppUsersRoute,
