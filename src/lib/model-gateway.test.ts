@@ -18,8 +18,6 @@ const textResponse = (body: string, status: number) =>
 
 describe("LovableModelGateway", () => {
   beforeEach(() => {
-    // CI may define model variables. Reset all router inputs so default-routing tests
-    // exercise the governed built-in policy rather than the runner's environment.
     vi.stubEnv("CENOPS_FAST_MODEL", "");
     vi.stubEnv("CENOPS_STANDARD_MODEL", "");
     vi.stubEnv("CENOPS_REASONING_MODEL", "");
@@ -28,6 +26,28 @@ describe("LovableModelGateway", () => {
   });
 
   afterEach(() => vi.unstubAllEnvs());
+
+  it("short-circuits out-of-scope requests without calling the provider", async () => {
+    const fetchImpl = vi.fn<typeof fetch>();
+    const gateway = new LovableModelGateway({ apiKey: "test-key", endpoint: "https://example.test", fetchImpl });
+
+    const result = await gateway.complete({
+      task: "reasoning",
+      messages: [
+        { role: "system", content: "REQUEST INTENT: out_of_scope." },
+        { role: "user", content: "tell me what is 98*97" },
+      ],
+    });
+
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(result.provider).toBe("cenops");
+    expect(result.model).toBe("cenops-scope-guardrail");
+    expect(JSON.parse(result.content)).toMatchObject({
+      responseType: "product",
+      confidence: 0,
+      evidence: [],
+    });
+  });
 
   it("routes workflow planning to the standard Gemini model by default", async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ choices: [{ message: { content: "ok" } }] }));

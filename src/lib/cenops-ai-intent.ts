@@ -11,6 +11,7 @@ export type CenOpsAiIntent =
   | "operational_analysis"
   | "investigation"
   | "governance"
+  | "out_of_scope"
   | "unknown";
 
 export interface CenOpsAiIntentResult {
@@ -65,5 +66,7 @@ export function classifyCenOpsIntent(message: string): CenOpsAiIntentResult {
     return { intent: "platform_overview", confidence: 0.98, productQuestion: true, requiresLiveEvidence: false };
   }
 
-  return { intent: "unknown", confidence: 0.45, productQuestion: false, requiresLiveEvidence: true };
+  // The existing Copilot path uses productQuestion as its legacy "no live evidence" gate.
+  // Keep it true here only to prevent provider evidence loading; the authoritative scope is intent=out_of_scope.
+  return { intent: "out_of_scope", confidence: 0.99, productQuestion: true, requiresLiveEvidence: false };
 }
