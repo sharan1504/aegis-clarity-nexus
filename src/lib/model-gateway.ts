@@ -69,18 +69,25 @@ export class LovableModelGateway implements ModelGateway {
   async complete(request: ModelRequest): Promise<ModelResponse> {
     if (!this.apiKey) throw new Error("Lovable AI is not configured for this workspace.");
 
+    const requestBody: Record<string, unknown> = {
+      model: this.model,
+      messages: request.messages,
+      ...(request.json ? { response_format: { type: "json_object" } } : {}),
+    };
+
+    // gpt-6-astra only supports the API default temperature of 1.
+    // Do not send temperature for this model; retaining a 0.1 override causes a 400.
+    if (!this.model.startsWith("openai/gpt-6-astra")) {
+      requestBody.temperature = request.temperature ?? 0.1;
+    }
+
     const response = await this.fetchImpl(this.endpoint, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: this.model,
-        messages: request.messages,
-        temperature: request.temperature ?? 0.1,
-        ...(request.json ? { response_format: { type: "json_object" } } : {}),
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     const body = await response.text();
