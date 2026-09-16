@@ -58,7 +58,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     needs: validate
-    timeout-minutes: 15
+    timeout-minutes: 30
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
@@ -87,11 +87,11 @@ jobs:
       - name: Show migration plan
         run: npx --yes supabase@latest migration list --project-ref "$SUPABASE_PROJECT_REF"
 
-      - name: Dry-run Supabase migrations
-        run: npx --yes supabase@latest db push --project-ref "$SUPABASE_PROJECT_REF" --dry-run
+      - name: Dry-run all unapplied migrations
+        run: npx --yes supabase@latest db push --project-ref "$SUPABASE_PROJECT_REF" --include-all --dry-run
 
-      - name: Apply Supabase migrations
-        run: npx --yes supabase@latest db push --project-ref "$SUPABASE_PROJECT_REF"
+      - name: Apply all unapplied migrations
+        run: npx --yes supabase@latest db push --project-ref "$SUPABASE_PROJECT_REF" --include-all
 
       - name: Verify migration state
         run: npx --yes supabase@latest migration list --project-ref "$SUPABASE_PROJECT_REF"
