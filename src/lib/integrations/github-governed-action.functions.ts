@@ -9,5 +9,7 @@ export const executeApprovedGitHubAction = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     if (!data.changeRecordId) return { ok: false as const, error: "A change record id is required." };
     const actor = await resolveActor(context.supabase, context.userId);
-    return executeApprovedAction(context.supabase, actor, data.changeRecordId);
+    const result = await executeApprovedAction(context.supabase, actor, data.changeRecordId);
+    if (!result.ok) return { ok: false as const, error: result.reasons.join(" "), decision: result.decision, requiredActions: result.requiredActions };
+    return result;
   });
