@@ -34,7 +34,6 @@ function isClearlyOutOfScope(text: string): boolean {
 
 export function classifyCenOpsIntent(message: string): CenOpsAiIntentResult {
   const text = message.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-
   if (hasAny(text, ["productivity agent", "what does the productivity agent", "what is the productivity agent", "explain the productivity agent", "productivity agent do"])) return { intent: "agent_explanation", confidence: 0.95, productQuestion: true, requiresLiveEvidence: false };
   if (hasAny(text, ["productivity report", "generate report", "detailed report", "performance report", "productivity summary"])) return { intent: "productivity_report", confidence: 0.95, productQuestion: false, requiresLiveEvidence: true };
   if (hasAny(text, ["productivity", "tickets handled", "cases handled", "work items handled", "throughput", "cycle time", "how many tickets", "how many cases", "performance this week", "performance this month", "last 3 months", "last 6 months", "last 12 months", "past 3 months", "past 6 months", "past year"])) return { intent: "productivity_analysis", confidence: 0.94, productQuestion: false, requiresLiveEvidence: true };
@@ -48,12 +47,6 @@ export function classifyCenOpsIntent(message: string): CenOpsAiIntentResult {
   if (hasAny(text, ["integrations", "providers", "available integrations", "what can i connect", "supported providers", "integration catalog"])) return { intent: "integration_discovery", confidence: 0.96, productQuestion: true, requiresLiveEvidence: false };
   if (hasAny(text, ["feature", "features", "capability", "capabilities", "what can it do", "what does cenops do", "how does cenops work"])) return { intent: "product_feature", confidence: 0.9, productQuestion: true, requiresLiveEvidence: false };
   if (hasAny(text, ["tell me more", "what is this platform", "what is this platform about", "what this platform is about", "what does this platform do", "what does the platform do", "what is cenops", "what is cenops about", "what does cenops do", "what is cenops used for", "what problem does cenops solve", "why does cenops exist", "why would i use cenops", "how does cenops help", "overview", "about this platform", "explain cenops", "explain the platform", "describe cenops", "describe the platform", "what is this"])) return { intent: "platform_overview", confidence: 0.98, productQuestion: true, requiresLiveEvidence: false };
-
   if (isClearlyOutOfScope(text)) return { intent: "out_of_scope", confidence: 0.99, productQuestion: true, requiresLiveEvidence: false };
-
-  // Unknown is intentionally different from out_of_scope. Ambiguous requests are
-  // allowed to reach the model with CenOps product knowledge so the model can
-  // answer, clarify, or decline based on the actual request instead of the
-  // deterministic router silently converting uncertainty into rejection.
   return { intent: "unknown", confidence: 0.35, productQuestion: true, requiresLiveEvidence: false };
 }
