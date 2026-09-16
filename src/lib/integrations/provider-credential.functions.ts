@@ -11,6 +11,7 @@ import { connectSplunk } from "./provider-splunk.server";
 import { connectOkta } from "./api-okta.server";
 import { connectDefender } from "./oauth-defender.server";
 import { startWorkdayOAuth } from "./oauth-workday.server";
+import { connectOracle } from "./oauth-oracle.server";
 
 async function tenantFor(context: any) {
   const { tenantId, roles } = await resolveTenant(context.supabase, context.userId);
@@ -29,3 +30,4 @@ export const startSplunkConnection = createServerFn({ method: "POST" }).middlewa
 export const startOktaConnection = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { connectionId?: string; baseUrl: string; apiToken: string; displayName?: string; environment?: string }) => input).handler(async ({ data, context }) => connectOkta({ tenantId: await tenantFor(context), userId: context.userId, ...data }));
 export const startDefenderConnection = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { connectionId?: string; clientId: string; clientSecret: string; customerTenantId?: string; displayName?: string; environment?: string }) => input).handler(async ({ data, context }) => connectDefender({ tenantId: await tenantFor(context), userId: context.userId, ...data }));
 export const startWorkdayConnection = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { connectionId?: string; region: "us" | "usWcp" | "eu" | "sg" | "uk"; tenantAlias: string; clientId: string; clientSecret: string; redirectUri: string; displayName?: string; environment?: string }) => input).handler(async ({ data, context }) => startWorkdayOAuth({ tenantId: await tenantFor(context), ...data }));
+export const startOracleConnection = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { connectionId?: string; identityDomainUrl: string; clientId: string; clientSecret: string; scope: string; displayName?: string; environment?: string }) => input).handler(async ({ data, context }) => connectOracle({ tenantId: await tenantFor(context), userId: context.userId, ...data }));
