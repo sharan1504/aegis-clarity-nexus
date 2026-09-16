@@ -12,66 +12,22 @@ function runtimeError(error: unknown) {
 }
 
 async function loadRun(supabase: any, tenantId: string, runId: string): Promise<AgentRunState> {
-  const { data, error } = await supabase
-    .from("agent_runs")
-    .select("id,tenant_id,agent_key,status,current_step,input,plan,policy_verdict,approval,execution,verification,error,created_at,updated_at")
-    .eq("id", runId)
-    .eq("tenant_id", tenantId)
-    .single();
+  const { data, error } = await supabase.from("agent_runs").select("id,tenant_id,agent_key,status,current_step,input,plan,policy_verdict,approval,execution,verification,error,created_at,updated_at").eq("id", runId).eq("tenant_id", tenantId).single();
   if (error || !data) throw new Error(error?.message ?? "Agent run was not found.");
-  const { data: evidenceRows, error: evidenceError } = await supabase
-    .from("agent_run_evidence")
-    .select("evidence")
-    .eq("run_id", runId)
-    .eq("tenant_id", tenantId)
-    .order("created_at", { ascending: true });
+  const { data: evidenceRows, error: evidenceError } = await supabase.from("agent_run_evidence").select("evidence").eq("run_id", runId).eq("tenant_id", tenantId).order("created_at", { ascending: true });
   if (evidenceError) throw new Error(evidenceError.message);
-  return {
-    runId: `run-${data.id}`,
-    tenantId: data.tenant_id,
-    agentKey: data.agent_key,
-    status: data.status,
-    currentStep: data.current_step,
-    input: data.input,
-    plan: data.plan,
-    evidence: (evidenceRows ?? []).map((row: { evidence: unknown }) => row.evidence),
-    policyVerdict: data.policy_verdict,
-    approval: data.approval,
-    execution: data.execution,
-    verification: data.verification,
-    error: data.error,
-    createdAt: data.created_at,
-    updatedAt: data.updated_at,
-  };
+  return { runId: `run-${data.id}`, tenantId: data.tenant_id, agentKey: data.agent_key, status: data.status, currentStep: data.current_step, input: data.input, plan: data.plan, evidence: (evidenceRows ?? []).map((row: { evidence: unknown }) => row.evidence), policyVerdict: data.policy_verdict, approval: data.approval, execution: data.execution, verification: data.verification, error: data.error, createdAt: data.created_at, updatedAt: data.updated_at };
 }
 
 async function persistRun(supabase: any, tenantId: string, run: AgentRunState) {
   const id = run.runId.replace(/^run-/, "");
-  const { error } = await supabase.from("agent_runs").update({
-    status: run.status,
-    current_step: run.currentStep,
-    plan: run.plan,
-    policy_verdict: run.policyVerdict,
-    approval: run.approval,
-    execution: run.execution,
-    verification: run.verification,
-    error: run.error,
-  }).eq("id", id).eq("tenant_id", tenantId);
+  const { error } = await supabase.from("agent_runs").update({ status: run.status, current_step: run.currentStep, plan: run.plan, policy_verdict: run.policyVerdict, approval: run.approval, execution: run.execution, verification: run.verification, error: run.error }).eq("id", id).eq("tenant_id", tenantId);
   if (error) throw new Error(error.message);
 }
 
 async function appendEvent(supabase: any, tenantId: string, runId: string, actorId: string, eventType: string, step: AgentRunStep | null, outcome: string, payload: JsonValue) {
   const { data: last } = await supabase.from("agent_run_events").select("sequence").eq("run_id", runId).eq("tenant_id", tenantId).order("sequence", { ascending: false }).limit(1).maybeSingle();
-  const { error } = await supabase.from("agent_run_events").insert({
-    run_id: runId,
-    tenant_id: tenantId,
-    sequence: Number(last?.sequence ?? 0) + 1,
-    event_type: eventType,
-    step,
-    actor_id: actorId,
-    outcome,
-    payload,
-  });
+  const { error } = await supabase.from("agent_run_events").insert({ run_id: runId, tenant_id: tenantId, sequence: Number(last?.sequence ?? 0) + 1, event_type: eventType, step, actor_id: actorId, outcome, payload });
   if (error) throw new Error(error.message);
 }
 
@@ -83,22 +39,13 @@ async function saveEvidence(supabase: any, tenantId: string, runId: string, evid
 }
 
 async function loadEnabledCapabilities(supabase: any, tenantId: string, agentKey: string) {
-  const { data, error } = await supabase
-    .from("agent_integration_bindings")
-    .select("capability_id, capabilities!inner(capability_key,display_name), enabled")
-    .eq("tenant_id", tenantId)
-    .eq("agent_key", agentKey)
-    .eq("enabled", true);
+  const { data, error } = await supabase.from("agent_integration_bindings").select("capability_id, capabilities!inner(capability_key,display_name), enabled").eq("tenant_id", tenantId).eq("agent_key", agentKey).eq("enabled", true);
   if (error) throw new Error(error.message);
-  return (data ?? []).map((row: any) => ({
-    capability: String(row.capabilities?.capability_key ?? ""),
-    name: String(row.capabilities?.display_name ?? ""),
-  })).filter((row: { capability: string }) => row.capability);
+  return (data ?? []).map((row: any) => ({ capability: String(row.capabilities?.capability_key ?? ""), name: String(row.capabilities?.display_name ?? "") })).filter((row: { capability: string }) => row.capability);
 }
 
 async function executeGenericReadRun(supabase: any, userId: string, run: AgentRunState, now: number) {
-  const tenantId = run.tenantId;
-  const enabled = await loadEnabledCapabilities(supabase, tenantId, run.agentKey);
+  const enabled = await loadEnabledCapabilities(supabase, run.tenantId, run.agentKey);
   const evidence: JsonValue[] = [];
   const warnings: string[] = [];
   let executableCount = 0;
@@ -106,73 +53,51 @@ async function executeGenericReadRun(supabase: any, userId: string, run: AgentRu
   for (const capability of [...new Map(enabled.map((item: { capability: string; name: string }) => [item.capability, item])).values()]) {
     if (capability.capability === "repo_inventory") {
       const result = await githubCapabilityRouter.getRepositories(supabase, userId, run.agentKey, { now });
-      if (result.denied) warnings.push(result.denied.message);
-      else {
-        executableCount++;
-        evidence.push({ capability: capability.capability, records: result.records, sources: result.sources, warnings: result.warnings, evaluatedAt: result.evaluatedAt } as JsonValue);
-      }
+      if (result.denied) warnings.push(result.denied.message); else { executableCount++; evidence.push({ capability: capability.capability, records: result.records, sources: result.sources, warnings: result.warnings, evaluatedAt: result.evaluatedAt } as JsonValue); }
       continue;
     }
     if (capability.capability === "security_findings") {
       const result = await githubCapabilityRouter.getSecurityFindings(supabase, userId, run.agentKey, { now });
-      if (result.denied) warnings.push(result.denied.message);
-      else {
-        executableCount++;
-        evidence.push({ capability: capability.capability, records: result.records, sources: result.sources, warnings: result.warnings, evaluatedAt: result.evaluatedAt } as JsonValue);
-      }
+      if (result.denied) warnings.push(result.denied.message); else { executableCount++; evidence.push({ capability: capability.capability, records: result.records, sources: result.sources, warnings: result.warnings, evaluatedAt: result.evaluatedAt } as JsonValue); }
       continue;
     }
     const call = CAPABILITY_ROUTER_CALLS[capability.capability];
-    if (!call) {
-      warnings.push(`${capability.name || capability.capability} is configured for this agent but has no executable runtime adapter.`);
-      continue;
-    }
+    if (!call) { warnings.push(`${capability.name || capability.capability} is configured for this agent but has no executable runtime adapter.`); continue; }
     const result = await call(supabase, userId, run.agentKey, { now });
-    if (result.denied) warnings.push(result.denied.message);
-    else {
-      executableCount++;
-      evidence.push({ capability: capability.capability, records: result.records, sources: result.sources, warnings: result.warnings, evaluatedAt: result.evaluatedAt } as JsonValue);
-      warnings.push(...result.warnings);
-    }
+    if (result.denied) warnings.push(result.denied.message); else { executableCount++; evidence.push({ capability: capability.capability, records: result.records, sources: result.sources, warnings: result.warnings, evaluatedAt: result.evaluatedAt } as JsonValue); warnings.push(...result.warnings); }
   }
 
-  if (!enabled.length) {
-    return { run: { ...run, status: "failed" as const, error: "No enabled capabilities are bound to this agent for this tenant." }, evidence, warnings };
-  }
-  if (!executableCount) {
-    return { run: { ...run, status: "failed" as const, error: warnings.join(" ") || "No configured agent capability has an executable runtime adapter." }, evidence, warnings };
-  }
+  if (!enabled.length) return { run: { ...run, status: "failed" as const, error: "No enabled capabilities are bound to this agent for this tenant." }, evidence, warnings };
+  if (!executableCount) return { run: { ...run, status: "failed" as const, error: warnings.join(" ") || "No configured agent capability has an executable runtime adapter." }, evidence, warnings };
 
-  let next = run;
   const clock = { now: () => new Date(now).toISOString() };
-  next = transitionAgentRun(next, { type: "start" }, clock);
+  let next = run;
+  if (next.status === "planned") next = transitionAgentRun(next, { type: "start" }, clock);
+  next = transitionAgentRun(next, { type: "complete_step", step: "plan", value: { agentKey: run.agentKey, capabilities: enabled.map((item: { capability: string }) => item.capability), executionClass: "read_only" } }, clock);
   next = transitionAgentRun(next, { type: "complete_step", step: "investigate", value: { executableCapabilities: executableCount, warnings } }, clock);
   next = transitionAgentRun(next, { type: "complete_step", step: "policy", value: { decision: "allow", executionClass: "read_only", approvalRequired: false } }, clock);
+  next = transitionAgentRun(next, { type: "complete_step", step: "approval", value: { status: "not_required", reason: "Read-only capability execution." } }, clock);
+  next = transitionAgentRun(next, { type: "complete_step", step: "execute", value: { executed: true, mutations: false, evidenceSources: evidence.length } }, clock);
   next = transitionAgentRun(next, { type: "complete_step", step: "verify", value: { evidenceSources: evidence.length, warnings } }, clock);
   return { run: next, evidence, warnings };
 }
 
-export const orchestrateAgentRun = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input: { runId: string }) => ({ runId: String(input.runId ?? "").trim() }))
-  .handler(async ({ data, context }) => {
-    try {
-      if (!data.runId) throw new Error("A run id is required.");
-      const tenant = await resolveTenantContext(context.supabase, context.userId);
-      const run = await loadRun(context.supabase, tenant.tenantId, data.runId);
-      if (run.agentKey === "agent-security") {
-        const result = await orchestrateSecurityRun(context.supabase, context.userId, run);
-        await persistRun(context.supabase, tenant.tenantId, result.run);
-        return { ok: true as const, ...result, events: [] };
-      }
-
-      const result = await executeGenericReadRun(context.supabase, context.userId, run, Date.now());
-      const runId = data.runId;
-      if (result.evidence.length) await saveEvidence(context.supabase, tenant.tenantId, runId, result.evidence);
+export const orchestrateAgentRun = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { runId: string }) => ({ runId: String(input.runId ?? "").trim() })).handler(async ({ data, context }) => {
+  try {
+    if (!data.runId) throw new Error("A run id is required.");
+    const tenant = await resolveTenantContext(context.supabase, context.userId);
+    const run = await loadRun(context.supabase, tenant.tenantId, data.runId);
+    if (run.agentKey === "agent-security") {
+      const result = await orchestrateSecurityRun(context.supabase, context.userId, run);
       await persistRun(context.supabase, tenant.tenantId, result.run);
-      await appendEvent(context.supabase, tenant.tenantId, runId, context.userId, result.run.status === "failed" ? "run_failed" : "stage_completed", result.run.status === "failed" ? result.run.currentStep : "verify", result.run.status, { evidenceCount: result.evidence.length, warnings: result.warnings } as JsonValue);
-      return { ok: true as const, run: result.run, warnings: result.warnings, events: [] };
-    } catch (error) {
-      return runtimeError(error);
+      return { ok: true as const, ...result, events: [] };
     }
-  });
+    const result = await executeGenericReadRun(context.supabase, context.userId, run, Date.now());
+    if (result.evidence.length) await saveEvidence(context.supabase, tenant.tenantId, data.runId, result.evidence);
+    await persistRun(context.supabase, tenant.tenantId, result.run);
+    await appendEvent(context.supabase, tenant.tenantId, data.runId, context.userId, result.run.status === "failed" ? "run_failed" : "stage_completed", result.run.status === "failed" ? result.run.currentStep : "verify", result.run.status, { evidenceCount: result.evidence.length, warnings: result.warnings } as JsonValue);
+    return { ok: true as const, run: result.run, warnings: result.warnings, events: [] };
+  } catch (error) {
+    return runtimeError(error);
+  }
+});
