@@ -62,7 +62,32 @@ export function classifyCenOpsIntent(message: string): CenOpsAiIntentResult {
   if (hasAny(text, ["feature", "features", "capability", "capabilities", "what can it do", "what does cenops do", "how does cenops work"])) {
     return { intent: "product_feature", confidence: 0.9, productQuestion: true, requiresLiveEvidence: false };
   }
-  if (hasAny(text, ["tell me more", "what is this platform", "what is cenops", "overview", "about this platform", "what is this"])) {
+
+  // Keep platform-overview detection separate from feature detection so natural questions
+  // about the product are answered from CenOps product knowledge instead of being rejected.
+  if (hasAny(text, [
+    "tell me more",
+    "what is this platform",
+    "what is this platform about",
+    "what this platform is about",
+    "what does this platform do",
+    "what does the platform do",
+    "what is cenops",
+    "what is cenops about",
+    "what does cenops do",
+    "what is cenops used for",
+    "what problem does cenops solve",
+    "why does cenops exist",
+    "why would i use cenops",
+    "how does cenops help",
+    "overview",
+    "about this platform",
+    "explain cenops",
+    "explain the platform",
+    "describe cenops",
+    "describe the platform",
+    "what is this",
+  ])) {
     return { intent: "platform_overview", confidence: 0.98, productQuestion: true, requiresLiveEvidence: false };
   }
 
