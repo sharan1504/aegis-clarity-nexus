@@ -7,9 +7,7 @@ import { orchestrateSecurityRun } from "@/lib/agent-runtime-orchestrator.server"
 import { transitionAgentRun, type AgentRunState, type AgentRunStep } from "@/lib/agent-runtime";
 import type { JsonValue } from "@/lib/json";
 
-function runtimeError(error: unknown) {
-  return { ok: false as const, error: error instanceof Error ? error.message : "Agent runtime operation failed." };
-}
+function runtimeError(error: unknown) { return { ok: false as const, error: error instanceof Error ? error.message : "Agent runtime operation failed." }; }
 
 async function loadRun(supabase: any, tenantId: string, runId: string): Promise<AgentRunState> {
   const { data, error } = await supabase.from("agent_runs").select("id,tenant_id,agent_key,status,current_step,input,plan,policy_verdict,approval,execution,verification,error,created_at,updated_at").eq("id", runId).eq("tenant_id", tenantId).single();
@@ -67,8 +65,8 @@ async function executeGenericReadRun(supabase: any, userId: string, run: AgentRu
     if (result.denied) warnings.push(result.denied.message); else { executableCount++; evidence.push({ capability: capability.capability, records: result.records, sources: result.sources, warnings: result.warnings, evaluatedAt: result.evaluatedAt } as JsonValue); warnings.push(...result.warnings); }
   }
 
-  if (!enabled.length) return { run: { ...run, status: "failed" as const, error: "No enabled capabilities are bound to this agent for this tenant." }, evidence, warnings };
-  if (!executableCount) return { run: { ...run, status: "failed" as const, error: warnings.join(" ") || "No configured agent capability has an executable runtime adapter." }, evidence, warnings };
+  if (!enabled.length) return { run: { ...run, status: "failed" as const, error: "No enabled capabilities are bound to this agent for this tenant." }, evidence, warnings, executableCount: 0 };
+  if (!executableCount) return { run: { ...run, status: "failed" as const, error: warnings.join(" ") || "No configured agent capability has an executable runtime adapter." }, evidence, warnings, executableCount: 0 };
 
   const clock = { now: () => new Date(now).toISOString() };
   let next = run;
@@ -79,7 +77,7 @@ async function executeGenericReadRun(supabase: any, userId: string, run: AgentRu
   next = transitionAgentRun(next, { type: "complete_step", step: "approval", value: { status: "not_required", reason: "Read-only capability execution." } }, clock);
   next = transitionAgentRun(next, { type: "complete_step", step: "execute", value: { executed: true, mutations: false, evidenceSources: evidence.length } }, clock);
   next = transitionAgentRun(next, { type: "complete_step", step: "verify", value: { evidenceSources: evidence.length, warnings } }, clock);
-  return { run: next, evidence, warnings };
+  return { run: next, evidence, warnings, executableCount };
 }
 
 export const orchestrateAgentRun = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { runId: string }) => ({ runId: String(input.runId ?? "").trim() })).handler(async ({ data, context }) => {
@@ -96,7 +94,7 @@ export const orchestrateAgentRun = createServerFn({ method: "POST" }).middleware
     if (result.evidence.length) await saveEvidence(context.supabase, tenant.tenantId, data.runId, result.evidence);
     await persistRun(context.supabase, tenant.tenantId, result.run);
     await appendEvent(context.supabase, tenant.tenantId, data.runId, context.userId, result.run.status === "failed" ? "run_failed" : "stage_completed", result.run.status === "failed" ? result.run.currentStep : "verify", result.run.status, { evidenceCount: result.evidence.length, warnings: result.warnings } as JsonValue);
-    return { ok: true as const, run: result.run, warnings: result.warnings, events: [] };
+    return { ok: true as const, run: result.run, recommendationCount: 0, evaluatedCount: result.executableCount, excludedCount: 0, warnings: result.warnings, events: [] };
   } catch (error) {
     return runtimeError(error);
   }
