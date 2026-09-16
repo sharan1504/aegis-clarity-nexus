@@ -32,6 +32,12 @@ describe("CenOps productivity intent routing", () => {
     expect(result.requiresLiveEvidence).toBe(false);
   });
 
+  it("recognizes natural platform-overview wording", () => {
+    expect(classifyCenOpsIntent("What this platform is about?").intent).toBe("platform_overview");
+    expect(classifyCenOpsIntent("What is this platform about?").intent).toBe("platform_overview");
+    expect(classifyCenOpsIntent("What does this platform do?").intent).toBe("platform_overview");
+  });
+
   it("preserves representative platform operational and product routing", () => {
     expect(classifyCenOpsIntent("What is CenOps?").intent).toBe("platform_overview");
     expect(classifyCenOpsIntent("What integrations are supported?").intent).toBe("integration_discovery");
