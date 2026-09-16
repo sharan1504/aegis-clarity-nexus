@@ -10,6 +10,7 @@ import { startZendeskOAuth as startZendesk, completeZendeskOAuth as completeZend
 import { startGitLabOAuth as startGitLab, completeGitLabOAuth as completeGitLab } from "./oauth-gitlab.server";
 import { startFreshworksOAuth as startFreshworks, completeFreshworksOAuth as completeFreshworks } from "./oauth-freshworks.server";
 import { startZohoOAuth as startZoho, completeZohoOAuth as completeZoho } from "./oauth-zoho.server";
+import { startConfluenceOAuth as startConfluence, completeConfluenceOAuth as completeConfluence } from "./oauth-confluence.server";
 
 async function tenantFor(context: any) { const { tenantId, roles } = await resolveTenant(context.supabase, context.userId); if (!roles.includes("admin") && !roles.includes("manager")) throw new Error("Admin/manager access is required to connect an integration."); return tenantId; }
 
@@ -31,3 +32,5 @@ export const startFreshworksOAuth = createServerFn({ method: "POST" }).middlewar
 export const completeFreshworksOAuth = createServerFn({ method: "POST" }).inputValidator((input: { state: string; code: string }) => input).handler(async ({ data }) => completeFreshworks(data.state, data.code));
 export const startZohoOAuth = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { connectionId?: string; accountsUrl: string; clientId: string; clientSecret: string; redirectUri: string; displayName?: string; environment?: string }) => input).handler(async ({ data, context }) => startZoho({ tenantId: await tenantFor(context), ...data }));
 export const completeZohoOAuth = createServerFn({ method: "POST" }).inputValidator((input: { state: string; code: string }) => input).handler(async ({ data }) => completeZoho(data.state, data.code));
+export const startConfluenceOAuth = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { connectionId?: string; clientId: string; clientSecret: string; redirectUri: string; displayName?: string; environment?: string }) => input).handler(async ({ data, context }) => startConfluence({ tenantId: await tenantFor(context), userId: context.userId, ...data }));
+export const completeConfluenceOAuth = createServerFn({ method: "POST" }).inputValidator((input: { state: string; code: string }) => input).handler(async ({ data }) => completeConfluence(data.state, data.code));
