@@ -14,13 +14,13 @@ SECURITY DEFINER
 SET search_path = public, app_private
 AS $$
 BEGIN
-  IF OLD.execution IS DISTINCT FROM NEW.execution
+  IF (OLD.execution -> 'action') IS DISTINCT FROM (NEW.execution -> 'action')
      AND EXISTS (
        SELECT 1 FROM public.change_approvals ca
        WHERE ca.change_record_id = OLD.id
          AND ca.status IN ('approved', 'pending')
      ) THEN
-    RAISE EXCEPTION 'The provider action is immutable once the change record has an approval step.';
+    RAISE EXCEPTION 'The approved provider action is immutable once the change record has an approval step.';
   END IF;
   RETURN NEW;
 END;
