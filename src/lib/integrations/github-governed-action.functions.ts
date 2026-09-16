@@ -7,9 +7,9 @@ export const executeApprovedGitHubAction = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { changeRecordId: string }) => ({ changeRecordId: String(input.changeRecordId ?? "").trim() }))
   .handler(async ({ data, context }) => {
-    if (!data.changeRecordId) return { ok: false as const, error: "A change record id is required." };
+    if (!data.changeRecordId) return { ok: false as const, error: "A change record id is required.", reasons: ["A change record id is required."], decision: "block" as const, requiredActions: ["Provide a change record id."] };
     const actor = await resolveActor(context.supabase, context.userId);
     const result = await executeApprovedAction(context.supabase, actor, data.changeRecordId);
-    if (!result.ok) return { ok: false as const, error: result.reasons.join(" "), decision: result.decision, requiredActions: result.requiredActions };
+    if (!result.ok) return { ok: false as const, error: result.reasons.join(" "), reasons: result.reasons, decision: result.decision, requiredActions: result.requiredActions };
     return result;
   });
