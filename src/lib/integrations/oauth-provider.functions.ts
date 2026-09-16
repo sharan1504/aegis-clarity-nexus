@@ -6,6 +6,7 @@ import { startSalesforceOAuth as startSalesforce, completeSalesforceOAuth as com
 import { startServiceNowOAuth as startServiceNow, completeServiceNowOAuth as completeServiceNow } from "./oauth-servicenow.server";
 import { startSlackOAuth as startSlack, completeSlackOAuth as completeSlack } from "./oauth-slack.server";
 import { startHubSpotOAuth as startHubSpot, completeHubSpotOAuth as completeHubSpot } from "./oauth-hubspot.server";
+import { startZendeskOAuth as startZendesk, completeZendeskOAuth as completeZendesk } from "./oauth-zendesk.server";
 
 async function tenantFor(context: any) { const { tenantId, roles } = await resolveTenant(context.supabase, context.userId); if (!roles.includes("admin") && !roles.includes("manager")) throw new Error("Admin/manager access is required to connect an integration."); return tenantId; }
 
@@ -23,3 +24,6 @@ export const completeSlackOAuth = createServerFn({ method: "POST" }).inputValida
 
 export const startHubSpotOAuth = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { connectionId?: string; clientId: string; clientSecret: string; redirectUri: string; displayName?: string; environment?: string }) => input).handler(async ({ data, context }) => startHubSpot({ tenantId: await tenantFor(context), ...data }));
 export const completeHubSpotOAuth = createServerFn({ method: "POST" }).inputValidator((input: { state: string; code: string }) => input).handler(async ({ data }) => completeHubSpot(data.state, data.code));
+
+export const startZendeskOAuth = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { connectionId?: string; subdomain: string; clientId: string; clientSecret: string; redirectUri: string; displayName?: string; environment?: string }) => input).handler(async ({ data, context }) => startZendesk({ tenantId: await tenantFor(context), ...data }));
+export const completeZendeskOAuth = createServerFn({ method: "POST" }).inputValidator((input: { state: string; code: string }) => input).handler(async ({ data }) => completeZendesk(data.state, data.code));
