@@ -3,6 +3,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveTenantContext } from "@/lib/tenant-context.server";
 import { CAPABILITY_ROUTER_CALLS } from "@/lib/capabilities/router.server";
 import { githubCapabilityRouter } from "@/lib/capabilities/github-router.server";
+import { microsoft365CapabilityRouter } from "@/lib/capabilities/microsoft365-router.server";
 import { orchestrateSecurityRun } from "@/lib/agent-runtime-orchestrator.server";
 import { transitionAgentRun, type AgentRunState, type AgentRunStep } from "@/lib/agent-runtime";
 import type { JsonValue } from "@/lib/json";
@@ -59,8 +60,17 @@ async function executeGenericReadRun(supabase: any, userId: string, run: AgentRu
       if (result.denied) warnings.push(result.denied.message); else { executableCount++; evidence.push({ capability: capability.capability, records: result.records, sources: result.sources, warnings: result.warnings, evaluatedAt: result.evaluatedAt } as JsonValue); }
       continue;
     }
+    if (capability.capability === "license_inventory" && run.agentKey !== "agent-license") {
+      // Microsoft 365 and Genesys both implement this capability. The provider
+      // binding remains the authorization source; the provider router handles
+      // credential-vault differences.
+    }
     const call = CAPABILITY_ROUTER_CALLS[capability.capability];
     if (!call) { warnings.push(`${capability.name || capability.capability} is configured for this agent but has no executable runtime adapter.`); continue; }
+    if (capability.capability === "license_inventory" || capability.capability === "user_inventory") {
+      const m365Result = await microsoft365CapabilityRouter[capability.capability === "license_inventory" ? "getLicenseInventory" : "getUsers"](supabase, userId, run.agentKey, { now });
+      if (!m365Result.denied && m365Result.records.length) { executableCount++; evidence.push({ capability: capability.capability, records: m365Result.records, sources: m365Result.sources, warnings: m365Result.warnings, evaluatedAt: m365Result.evaluatedAt } as JsonValue); warnings.push(...m365Result.warnings); continue; }
+    }
     const result = await call(supabase, userId, run.agentKey, { now });
     if (result.denied) warnings.push(result.denied.message); else { executableCount++; evidence.push({ capability: capability.capability, records: result.records, sources: result.sources, warnings: result.warnings, evaluatedAt: result.evaluatedAt } as JsonValue); warnings.push(...result.warnings); }
   }
@@ -95,7 +105,5 @@ export const orchestrateAgentRun = createServerFn({ method: "POST" }).middleware
     await persistRun(context.supabase, tenant.tenantId, result.run);
     await appendEvent(context.supabase, tenant.tenantId, data.runId, context.userId, result.run.status === "failed" ? "run_failed" : "stage_completed", result.run.status === "failed" ? result.run.currentStep : "verify", result.run.status, { evidenceCount: result.evidence.length, warnings: result.warnings } as JsonValue);
     return { ok: true as const, run: result.run, recommendationCount: 0, evaluatedCount: result.executableCount, excludedCount: 0, warnings: result.warnings, events: [] };
-  } catch (error) {
-    return runtimeError(error);
-  }
+  } catch (error) { return runtimeError(error); }
 });
