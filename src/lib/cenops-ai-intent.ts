@@ -10,7 +10,7 @@ function isClearlyOutOfScope(text: string): boolean {
   if (/^write (me )?(a )?(poem|song|story)\b/.test(text)) return true;
   if (/^(tell me )?(a )?joke\b/.test(text)) return true;
   if (/\bweather\b/.test(text) && !/\b(cenops|platform|integration|agent)\b/.test(text)) return true;
-  if (/^tell me what is \d+\s*[*]\s*\d+$/.test(text)) return true;
+  if (/^tell me what is \d+\s+\d+$/.test(text)) return true;
   return false;
 }
 export function classifyCenOpsIntent(message: string): CenOpsAiIntentResult {
