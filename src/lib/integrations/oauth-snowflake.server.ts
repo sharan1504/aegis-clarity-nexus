@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { createOAuthState, consumeOAuthState, getAdminClient, readConnectionCredentials, storeOAuthConnection, markReconnectRequired } from "./oauth-framework.server";
+import { createOAuthState, consumeOAuthState, createPkcePair, getAdminClient, readConnectionCredentials, storeOAuthConnection, markReconnectRequired } from "./oauth-framework.server";
 import { encryptCredentials } from "./credential-vault.server";
 
 export const SNOWFLAKE_SCOPES = ["session:role:PUBLIC"] as const;
@@ -10,7 +10,7 @@ function accountUrl(value: string) {
   return url.toString().replace(/\/$/, "");
 }
 
-export function buildSnowflakeAuthorizeUrl(input: { accountUrl: string; clientId: string; redirectUri: string; state: string; scope?: string }) {
+export function buildSnowflakeAuthorizeUrl(input: { accountUrl: string; clientId: string; redirectUri: string; state: string; scope?: string; codeChallenge: string }) {
   const base = accountUrl(input.accountUrl);
   const url = new URL(`${base}/oauth/authorize`);
   url.searchParams.set("client_id", input.clientId);
@@ -18,6 +18,8 @@ export function buildSnowflakeAuthorizeUrl(input: { accountUrl: string; clientId
   url.searchParams.set("redirect_uri", input.redirectUri);
   url.searchParams.set("state", input.state);
   url.searchParams.set("scope", input.scope ?? SNOWFLAKE_SCOPES[0]);
+  url.searchParams.set("code_challenge", input.codeChallenge);
+  url.searchParams.set("code_challenge_method", "S256");
   return url.toString();
 }
 
@@ -34,16 +36,18 @@ export async function startSnowflakeOAuth(input: { tenantId: string; connectionI
   const db = await getAdminClient();
   const connectionId = input.connectionId ?? crypto.randomUUID();
   const normalized = accountUrl(input.accountUrl);
+  const { verifier, challenge } = createPkcePair();
   await db.from("provider_connections").upsert({ id: connectionId, tenant_id: input.tenantId, provider: "snowflake", display_name: input.displayName ?? "Snowflake", environment: input.environment ?? "Production", status: "failed", encrypted_credentials: encryptCredentials({ clientId: input.clientId.trim(), clientSecret: input.clientSecret, accountUrl: normalized }), last_error: "OAuth authorization in progress", updated_at: new Date().toISOString() }, { onConflict: "id" });
-  const state = await createOAuthState(db, { tenantId: input.tenantId, provider: "snowflake", redirectUri: input.redirectUri, connectionId });
-  return { connectionId, authorizeUrl: buildSnowflakeAuthorizeUrl({ accountUrl: normalized, clientId: input.clientId, redirectUri: input.redirectUri, state }) };
+  const state = await createOAuthState(db, { tenantId: input.tenantId, provider: "snowflake", redirectUri: input.redirectUri, connectionId, codeVerifier: verifier });
+  return { connectionId, authorizeUrl: buildSnowflakeAuthorizeUrl({ accountUrl: normalized, clientId: input.clientId, redirectUri: input.redirectUri, state, codeChallenge: challenge }) };
 }
 
 export async function completeSnowflakeOAuth(state: string, code: string) {
   const db = await getAdminClient();
   const stateRecord = await consumeOAuthState(db, state, "snowflake");
+  if (!stateRecord.codeVerifier) throw new Error("Snowflake PKCE verifier is missing. Please reconnect the integration.");
   const credentials = await readConnectionCredentials<{ clientId: string; clientSecret: string; accountUrl: string }>(db, stateRecord.connectionId, stateRecord.tenantId);
-  const body = new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: stateRecord.redirectUri });
+  const body = new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: stateRecord.redirectUri, code_verifier: stateRecord.codeVerifier });
   const token = await tokenRequest({ ...credentials, body });
   const expiresAt = new Date(Date.now() + Number(token.expires_in ?? 600) * 1000).toISOString();
   await storeOAuthConnection(db, { connectionId: stateRecord.connectionId, tenantId: stateRecord.tenantId, provider: "snowflake", externalId: new URL(credentials.accountUrl).hostname, displayName: "Snowflake", credentials: { ...credentials, accessToken: token.access_token, refreshToken: token.refresh_token, scopes: token.scope?.split(/\s+/).filter(Boolean) ?? [...SNOWFLAKE_SCOPES] }, expiresAt });
