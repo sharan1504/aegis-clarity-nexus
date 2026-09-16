@@ -66,7 +66,8 @@ export async function createOAuthState(input: { tenantId: string; region: string
 export async function consumeOAuthState(state: string, tenantId: string): Promise<{ region: string; redirectUri: string }> {
   const db = await admin(); const { data } = await db.from("integration_oauth_states").select("state, tenant_id, region, redirect_uri, expires_at, consumed_at").eq("state", state).maybeSingle();
   if (!data || data.tenant_id !== tenantId || data.consumed_at || new Date(data.expires_at).getTime() < Date.now()) throw new IntegrationError("oauth_state_invalid");
-  await db.from("integration_oauth_states").update({ consumed_at: new Date().toISOString() }).eq("state", state);
+  const { data: consumedState, error } = await db.from("integration_oauth_states").update({ consumed_at: new Date().toISOString() }).eq("state", state).eq("tenant_id", tenantId).is("consumed_at", null).select("state").maybeSingle();
+  if (error || !consumedState) throw new IntegrationError("oauth_state_invalid");
   return { region: normalizeGenesysRegion(data.region), redirectUri: data.redirect_uri };
 }
 
