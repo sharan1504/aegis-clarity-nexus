@@ -5,8 +5,9 @@ import { resolveTenant } from "@/lib/genesys/store.server";
 import { getAdminClient, storeOAuthConnection, markReconnectRequired } from "./oauth-framework.server";
 import { encryptCredentials } from "./credential-vault.server";
 
-const API_BASE_URL = "https://api.security.microsoft.com";
-const RESOURCE_SCOPE = "https://api.security.microsoft.com/.default";
+export const DEFENDER_API_BASE_URL = "https://api.security.microsoft.com";
+export const DEFENDER_RESOURCE_SCOPE = "https://api.security.microsoft.com/.default";
+export const DEFENDER_VALIDATION_PATH = "/api/alerts?$top=1";
 
 type DefenderCredentials = { tenantId: string; clientId: string; clientSecret: string; accessToken?: string; expiresAt?: string };
 
@@ -14,7 +15,7 @@ async function tokenRequest(input: DefenderCredentials) {
   const response = await fetch(`https://login.microsoftonline.com/${encodeURIComponent(input.tenantId)}/oauth2/v2.0/token`, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded", accept: "application/json" },
-    body: new URLSearchParams({ grant_type: "client_credentials", client_id: input.clientId, client_secret: input.clientSecret, scope: RESOURCE_SCOPE }),
+    body: new URLSearchParams({ grant_type: "client_credentials", client_id: input.clientId, client_secret: input.clientSecret, scope: DEFENDER_RESOURCE_SCOPE }),
   });
   const text = await response.text();
   if (!response.ok) throw new Error(`Microsoft Defender OAuth failed (${response.status}): ${text.slice(0, 300)}`);
@@ -23,8 +24,8 @@ async function tokenRequest(input: DefenderCredentials) {
   return { accessToken: json.access_token as string, expiresAt: new Date(Date.now() + Number(json.expires_in ?? 3600) * 1000).toISOString() };
 }
 
-async function validateAccess(accessToken: string) {
-  const response = await fetch(`${API_BASE_URL}/api/incidents?$top=1`, { headers: { authorization: `Bearer ${accessToken}`, accept: "application/json" } });
+export async function validateDefenderAccess(accessToken: string) {
+  const response = await fetch(`${DEFENDER_API_BASE_URL}${DEFENDER_VALIDATION_PATH}`, { headers: { authorization: `Bearer ${accessToken}`, accept: "application/json" } });
   const text = await response.text();
   if (!response.ok) throw new Error(`Microsoft Defender validation failed (${response.status}): ${text.slice(0, 300)}`);
 }
@@ -34,7 +35,7 @@ export async function connectDefender(input: { tenantId: string; userId: string;
   const credentials = { tenantId: targetTenantId, clientId: input.clientId.trim(), clientSecret: input.clientSecret };
   if (!credentials.tenantId || !credentials.clientId || !credentials.clientSecret) throw new Error("Microsoft Defender tenant ID, client ID and client secret are required.");
   const tokens = await tokenRequest(credentials);
-  await validateAccess(tokens.accessToken);
+  await validateDefenderAccess(tokens.accessToken);
   const db = await getAdminClient();
   const connectionId = input.connectionId ?? crypto.randomUUID();
   const displayName = input.displayName?.trim() || "Microsoft Defender";
