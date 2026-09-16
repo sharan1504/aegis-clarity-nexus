@@ -60,19 +60,22 @@ export async function consumeOAuthState(
   if (!data || data.provider !== expectedProvider || data.consumed_at || new Date(data.expires_at).getTime() <= Date.now()) {
     throw new Error("OAuth state is invalid or expired. Please reconnect the integration.");
   }
-  const { error: consumeError } = await db.from("integration_oauth_states")
+  const { data: consumedState, error: consumeError } = await db.from("integration_oauth_states")
     .update({ consumed_at: new Date().toISOString() })
     .eq("state", state)
-    .is("consumed_at", null);
+    .is("consumed_at", null)
+    .select("state,tenant_id,provider,redirect_uri,connection_id,metadata,expires_at,consumed_at")
+    .maybeSingle();
   if (consumeError) throw new Error(`Unable to consume OAuth state: ${consumeError.message}`);
-  const metadata = (data.metadata ?? {}) as Record<string, string>;
+  if (!consumedState) throw new Error("OAuth state is invalid or already consumed. Please reconnect the integration.");
+  const metadata = (consumedState.metadata ?? {}) as Record<string, string>;
   return {
-    state: data.state,
-    tenantId: data.tenant_id,
-    provider: data.provider,
-    redirectUri: data.redirect_uri,
-    connectionId: data.connection_id,
-    expiresAt: data.expires_at,
+    state: consumedState.state,
+    tenantId: consumedState.tenant_id,
+    provider: consumedState.provider,
+    redirectUri: consumedState.redirect_uri,
+    connectionId: consumedState.connection_id,
+    expiresAt: consumedState.expires_at,
     metadata,
     codeVerifier: metadata.codeVerifier,
   };
