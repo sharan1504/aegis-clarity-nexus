@@ -25,18 +25,12 @@ export interface ProviderConnectionEvidence {
   sync: ProviderSyncEvidence;
 }
 
-/**
- * The only place where a generic provider connection becomes "connected".
- * A stored credential or successful OAuth exchange is not enough: the provider
- * must also have a successful health check and a successful initial/latest sync.
- */
+/** The only place where a generic provider connection becomes connected. */
 export function deriveConnectorStatus(input: ProviderConnectionEvidence): ConnectorStatus {
   if (input.configuredStatus === "disconnected") return "disconnected";
   if (!input.credentialPresent) return "failed";
   if (input.health.status === "unhealthy" || input.sync.status === "failed") return "failed";
-  if (input.health.status === "healthy" && input.sync.status === "success" && input.sync.lastSuccessfulAt) {
-    return "connected";
-  }
+  if (input.health.status === "healthy" && input.sync.status === "success" && input.sync.lastSuccessfulAt) return "connected";
   return "pending";
 }
 
@@ -53,11 +47,7 @@ export interface ProviderConnectorContract {
   executeApprovedAction: (...args: never[]) => Promise<{ ok: false; errorCode: "provider_action_unsupported" }>;
 }
 
-/**
- * These providers have a real read/sync path today. Other catalog entries may
- * still be displayed as integrations, but must not be represented as connected
- * until a contract implementation exists.
- */
+/** Providers with a real read/sync path through the production contract. */
 export const CONTRACT_IMPLEMENTED_PROVIDERS = new Set([
   "genesys",
   "github",
@@ -65,6 +55,7 @@ export const CONTRACT_IMPLEMENTED_PROVIDERS = new Set([
   "slack",
   "salesforce",
   "servicenow",
+  "m365",
 ]);
 
 export function isContractImplementedProvider(provider: string): boolean {
