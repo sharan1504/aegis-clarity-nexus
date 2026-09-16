@@ -34,6 +34,22 @@ The provider-sync worker currently dispatches GitHub jobs to `/api/internal/prov
 
 Queues use five total attempts (initial attempt + four retries), exponential backoff starting at 30 seconds, and dedicated dead-letter queues. The application tables remain the source of tenant-visible delivery/sync status; pg-boss is the durable execution layer.
 
+## Safe enablement checklist
+
+Do not enable durable scheduling merely by setting queue environment variables. Before enabling it in production:
+
+1. Provision a persistent Node 22 worker host/process manager (or an equivalent container deployment) outside short-lived Edge Functions.
+2. Configure `PGBOSS_DATABASE_URL`/`DATABASE_URL` with a role permitted to create/manage the pg-boss schema and verify connectivity from the worker host.
+3. Configure `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `AEGIS_JOB_QUEUE_SECRET` only in the worker secret store.
+4. Configure the application-side `JOB_QUEUE_URL` and `AEGIS_JOB_QUEUE_SECRET` only after the worker endpoint is reachable over the intended private/authenticated path.
+5. Configure and verify `PROVIDER_SYNC_INTERNAL_URL` and its shared secret; never expose the internal sync endpoint without its server-side authentication.
+6. Start the worker and verify its health/readiness endpoint, process restart behavior, queue connection, and pg-boss schema migration.
+7. Enqueue a non-destructive test job for a tenant with a real contract-backed provider and confirm the application records the expected sync evidence.
+8. Confirm failures retry and land in the expected dead-letter path, and that tenant-visible status reports the failure rather than a false success.
+9. Only then enable production schedules. Record the worker host/deployment and verification evidence in the operations runbook.
+
+If any prerequisite is missing, leave durable scheduling disabled. Manual `Sync Now` remains the supported path for contract-backed provider syncs and must not depend on the worker.
+
 ## Operational requirement
 
 When enabled, the worker is a persistent Node 22 process. It must run alongside the application deployment rather than inside a short-lived Supabase Edge Function. Edge Functions only discover due work, claim it, and enqueue it; side effects execute in the worker.
