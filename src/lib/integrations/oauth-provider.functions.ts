@@ -16,6 +16,7 @@ import { startCrowdStrikeOAuth as startCrowdStrike } from "./oauth-crowdstrike.s
 import { startGoogleCloudConnection as startGoogleCloud } from "./google-cloud.server";
 import { startGoogleWorkspaceConnection as startGoogleWorkspace } from "./google-workspace.server";
 import { connectNewRelic as connectNewRelicProvider } from "./api-newrelic.server";
+import { startSapOAuth as startSap, completeSapOAuth as completeSap } from "./oauth-sap.server";
 
 async function tenantFor(context: any) { const { tenantId, roles } = await resolveTenant(context.supabase, context.userId); if (!roles.includes("admin") && !roles.includes("manager")) throw new Error("Admin/manager access is required to connect an integration."); return tenantId; }
 
@@ -45,3 +46,5 @@ export const startCrowdStrikeOAuth = createServerFn({ method: "POST" }).middlewa
 export const startGoogleCloudConnection = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { connectionId?: string; clientEmail: string; privateKey: string; projectId: string; displayName?: string; environment?: string }) => input).handler(async ({ data, context }) => startGoogleCloud({ tenantId: await tenantFor(context), userId: context.userId, ...data }));
 export const startGoogleWorkspaceConnection = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { connectionId?: string; clientEmail: string; privateKey: string; delegatedAdminEmail: string; displayName?: string; environment?: string }) => input).handler(async ({ data, context }) => startGoogleWorkspace({ tenantId: await tenantFor(context), userId: context.userId, ...data }));
 export const connectNewRelic = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { connectionId?: string; apiKey: string; region?: "us" | "eu" | "jp"; displayName?: string; environment?: string }) => input).handler(async ({ data, context }) => connectNewRelicProvider({ tenantId: await tenantFor(context), ...data }));
+export const startSapOAuth = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { connectionId?: string; clientId: string; clientSecret: string; authorizationUrl: string; tokenUrl: string; apiBaseUrl?: string; scope?: string; redirectUri: string; displayName?: string; environment?: string }) => input).handler(async ({ data, context }) => startSap({ tenantId: await tenantFor(context), ...data }));
+export const completeSapOAuth = createServerFn({ method: "POST" }).inputValidator((input: { state: string; code: string }) => input).handler(async ({ data }) => completeSap(data.state, data.code));
