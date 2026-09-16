@@ -10,6 +10,7 @@ import { connectVeeam } from "./oauth-veeam.server";
 import { connectSplunk } from "./provider-splunk.server";
 import { connectOkta } from "./api-okta.server";
 import { connectDefender } from "./oauth-defender.server";
+import { startWorkdayOAuth } from "./oauth-workday.server";
 
 async function tenantFor(context: any) {
   const { tenantId, roles } = await resolveTenant(context.supabase, context.userId);
@@ -27,3 +28,4 @@ export const startVeeamConnection = createServerFn({ method: "POST" }).middlewar
 export const startSplunkConnection = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { connectionId?: string; baseUrl: string; token: string; displayName?: string; environment?: string }) => input).handler(async ({ data, context }) => connectSplunk({ tenantId: await tenantFor(context), userId: context.userId, ...data }));
 export const startOktaConnection = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { connectionId?: string; baseUrl: string; apiToken: string; displayName?: string; environment?: string }) => input).handler(async ({ data, context }) => connectOkta({ tenantId: await tenantFor(context), userId: context.userId, ...data }));
 export const startDefenderConnection = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { connectionId?: string; clientId: string; clientSecret: string; customerTenantId?: string; displayName?: string; environment?: string }) => input).handler(async ({ data, context }) => connectDefender({ tenantId: await tenantFor(context), userId: context.userId, ...data }));
+export const startWorkdayConnection = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { connectionId?: string; region: "us" | "usWcp" | "eu" | "sg" | "uk"; tenantAlias: string; clientId: string; clientSecret: string; redirectUri: string; displayName?: string; environment?: string }) => input).handler(async ({ data, context }) => startWorkdayOAuth({ tenantId: await tenantFor(context), ...data }));
