@@ -8,6 +8,7 @@ import { startSlackOAuth as startSlack, completeSlackOAuth as completeSlack } fr
 import { startHubSpotOAuth as startHubSpot, completeHubSpotOAuth as completeHubSpot } from "./oauth-hubspot.server";
 import { startZendeskOAuth as startZendesk, completeZendeskOAuth as completeZendesk } from "./oauth-zendesk.server";
 import { startGitLabOAuth as startGitLab, completeGitLabOAuth as completeGitLab } from "./oauth-gitlab.server";
+import { startFreshworksOAuth as startFreshworks, completeFreshworksOAuth as completeFreshworks } from "./oauth-freshworks.server";
 
 async function tenantFor(context: any) { const { tenantId, roles } = await resolveTenant(context.supabase, context.userId); if (!roles.includes("admin") && !roles.includes("manager")) throw new Error("Admin/manager access is required to connect an integration."); return tenantId; }
 
@@ -31,3 +32,6 @@ export const completeZendeskOAuth = createServerFn({ method: "POST" }).inputVali
 
 export const startGitLabOAuth = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { connectionId?: string; instanceUrl: string; clientId: string; clientSecret: string; redirectUri: string; displayName?: string; environment?: string }) => input).handler(async ({ data, context }) => startGitLab({ tenantId: await tenantFor(context), ...data }));
 export const completeGitLabOAuth = createServerFn({ method: "POST" }).inputValidator((input: { state: string; code: string }) => input).handler(async ({ data }) => completeGitLab(data.state, data.code));
+
+export const startFreshworksOAuth = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { connectionId?: string; orgUrl: string; clientId: string; clientSecret: string; redirectUri: string; displayName?: string; environment?: string }) => input).handler(async ({ data, context }) => startFreshworks({ tenantId: await tenantFor(context), ...data }));
+export const completeFreshworksOAuth = createServerFn({ method: "POST" }).inputValidator((input: { state: string; code: string }) => input).handler(async ({ data }) => completeFreshworks(data.state, data.code));
