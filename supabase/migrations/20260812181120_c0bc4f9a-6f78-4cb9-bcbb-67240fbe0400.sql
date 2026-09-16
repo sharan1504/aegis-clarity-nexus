@@ -1,1 +1,0 @@
-REVOKE ALL ON FUNCTION public.audit_log_force_actor() FROM anon, authenticated, PUBLIC;
