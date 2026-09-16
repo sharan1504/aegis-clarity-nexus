@@ -8,6 +8,7 @@ import { connectRubrik } from "./oauth-rubrik.server";
 import { connectVeeam } from "./oauth-veeam.server";
 import { connectSplunk } from "./provider-splunk.server";
 import { connectOkta } from "./api-okta.server";
+import { connectDefender } from "./oauth-defender.server";
 
 async function tenantFor(context: any) {
   const { tenantId, roles } = await resolveTenant(context.supabase, context.userId);
@@ -23,3 +24,4 @@ export const startRubrikConnection = createServerFn({ method: "POST" }).middlewa
 export const startVeeamConnection = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { connectionId?: string; baseUrl: string; username: string; password: string; displayName?: string; environment?: string }) => input).handler(async ({ data, context }) => connectVeeam({ tenantId: await tenantFor(context), userId: context.userId, ...data }));
 export const startSplunkConnection = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { connectionId?: string; baseUrl: string; token: string; displayName?: string; environment?: string }) => input).handler(async ({ data, context }) => connectSplunk({ tenantId: await tenantFor(context), userId: context.userId, ...data }));
 export const startOktaConnection = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { connectionId?: string; baseUrl: string; apiToken: string; displayName?: string; environment?: string }) => input).handler(async ({ data, context }) => connectOkta({ tenantId: await tenantFor(context), userId: context.userId, ...data }));
+export const startDefenderConnection = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { connectionId?: string; clientId: string; clientSecret: string; customerTenantId?: string; displayName?: string; environment?: string }) => input).handler(async ({ data, context }) => connectDefender({ tenantId: await tenantFor(context), userId: context.userId, ...data }));
