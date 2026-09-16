@@ -1,5 +1,5 @@
-import { Outlet, useNavigate } from "@tanstack/react-router";
-import { LogOut, Moon, ShieldCheck, Sun, AlertTriangle, ChevronDown } from "lucide-react";
+import { Outlet, useNavigate, Link } from "@tanstack/react-router";
+import { LogOut, Moon, ShieldCheck, Sun, AlertTriangle, ChevronDown, CircleHelp } from "lucide-react";
 import { useState } from "react";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -68,6 +68,7 @@ function AppShell() {
             <div className="ml-auto flex shrink-0 items-center gap-1.5">
               <Badge variant="outline" className="hidden h-8 gap-1.5 rounded-lg border-border bg-card/40 px-2.5 text-[10px] font-medium xl:flex"><span className={`h-1.5 w-1.5 rounded-full ${demo ? "bg-warning" : "bg-success shadow-[0_0_7px_var(--color-success)]"}`} />{tenantName ? tenantName : "All systems operational"}</Badge>
               <EnvironmentModeControl />
+              <Button asChild variant="ghost" size="sm" className="h-8 rounded-lg px-2.5 text-xs text-muted-foreground hover:bg-card hover:text-foreground" title="Open Help Center"><Link to="/help"><CircleHelp className="mr-1.5 h-4 w-4" />Help</Link></Button>
               <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle theme" className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-card hover:text-foreground">{theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}</Button>
               <NotificationCenter />
               <div className="ml-1 flex items-center gap-2 border-l border-border pl-3">
