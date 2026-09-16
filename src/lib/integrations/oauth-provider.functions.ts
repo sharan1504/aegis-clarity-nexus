@@ -11,6 +11,8 @@ import { startGitLabOAuth as startGitLab, completeGitLabOAuth as completeGitLab 
 import { startFreshworksOAuth as startFreshworks, completeFreshworksOAuth as completeFreshworks } from "./oauth-freshworks.server";
 import { startZohoOAuth as startZoho, completeZohoOAuth as completeZoho } from "./oauth-zoho.server";
 import { startConfluenceOAuth as startConfluence, completeConfluenceOAuth as completeConfluence } from "./oauth-confluence.server";
+import { startSnowflakeOAuth as startSnowflake, completeSnowflakeOAuth as completeSnowflake } from "./oauth-snowflake.server";
+import { startCrowdStrikeOAuth as startCrowdStrike } from "./oauth-crowdstrike.server";
 import { connectNewRelic as connectNewRelicProvider } from "./api-newrelic.server";
 
 async function tenantFor(context: any) { const { tenantId, roles } = await resolveTenant(context.supabase, context.userId); if (!roles.includes("admin") && !roles.includes("manager")) throw new Error("Admin/manager access is required to connect an integration."); return tenantId; }
@@ -35,4 +37,7 @@ export const startZohoOAuth = createServerFn({ method: "POST" }).middleware([req
 export const completeZohoOAuth = createServerFn({ method: "POST" }).inputValidator((input: { state: string; code: string }) => input).handler(async ({ data }) => completeZoho(data.state, data.code));
 export const startConfluenceOAuth = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { connectionId?: string; clientId: string; clientSecret: string; redirectUri: string; displayName?: string; environment?: string }) => input).handler(async ({ data, context }) => startConfluence({ tenantId: await tenantFor(context), userId: context.userId, ...data }));
 export const completeConfluenceOAuth = createServerFn({ method: "POST" }).inputValidator((input: { state: string; code: string }) => input).handler(async ({ data }) => completeConfluence(data.state, data.code));
+export const startSnowflakeOAuth = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { connectionId?: string; clientId: string; clientSecret: string; accountUrl: string; redirectUri: string; displayName?: string; environment?: string }) => input).handler(async ({ data, context }) => startSnowflake({ tenantId: await tenantFor(context), ...data }));
+export const completeSnowflakeOAuth = createServerFn({ method: "POST" }).inputValidator((input: { state: string; code: string }) => input).handler(async ({ data }) => completeSnowflake(data.state, data.code));
+export const startCrowdStrikeOAuth = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { connectionId?: string; clientId: string; clientSecret: string; apiBaseUrl: string; displayName?: string; environment?: string }) => input).handler(async ({ data, context }) => startCrowdStrike({ tenantId: await tenantFor(context), ...data }));
 export const connectNewRelic = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { connectionId?: string; apiKey: string; region?: "us" | "eu" | "jp"; displayName?: string; environment?: string }) => input).handler(async ({ data, context }) => connectNewRelicProvider({ tenantId: await tenantFor(context), ...data }));
