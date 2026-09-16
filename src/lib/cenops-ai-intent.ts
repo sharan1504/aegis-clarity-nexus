@@ -1,37 +1,18 @@
 export type CenOpsAiIntent =
-  | "platform_overview"
-  | "product_feature"
-  | "integration_discovery"
-  | "integration_how_to"
-  | "integration_status"
-  | "agent_explanation"
-  | "agent_configuration"
-  | "productivity_analysis"
-  | "productivity_report"
-  | "operational_analysis"
-  | "investigation"
-  | "governance"
-  | "out_of_scope"
-  | "unknown";
+  | "platform_overview" | "product_feature" | "integration_discovery" | "integration_how_to" | "integration_status"
+  | "agent_explanation" | "agent_configuration" | "productivity_analysis" | "productivity_report"
+  | "operational_analysis" | "investigation" | "governance" | "out_of_scope" | "unknown";
 
-export interface CenOpsAiIntentResult {
-  intent: CenOpsAiIntent;
-  confidence: number;
-  productQuestion: boolean;
-  requiresLiveEvidence: boolean;
-}
-
+export interface CenOpsAiIntentResult { intent: CenOpsAiIntent; confidence: number; productQuestion: boolean; requiresLiveEvidence: boolean; }
 const hasAny = (text: string, terms: string[]) => terms.some((term) => text.includes(term));
-
 function isClearlyOutOfScope(text: string): boolean {
   if (/^what is the capital of\b/.test(text)) return true;
   if (/^write (me )?(a )?(poem|song|story)\b/.test(text)) return true;
   if (/^(tell me )?(a )?joke\b/.test(text)) return true;
   if (/\bweather\b/.test(text) && !/\b(cenops|platform|integration|agent)\b/.test(text)) return true;
-  if (/\b\d+(?:\s*[+\-*\/]\s*\d+)+\b/.test(text) && !/\b(cenops|platform|integration|agent)\b/.test(text)) return true;
+  if (/^tell me what is \d+\s*[*]\s*\d+$/.test(text)) return true;
   return false;
 }
-
 export function classifyCenOpsIntent(message: string): CenOpsAiIntentResult {
   const text = message.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   if (hasAny(text, ["productivity agent", "what does the productivity agent", "what is the productivity agent", "explain the productivity agent", "productivity agent do"])) return { intent: "agent_explanation", confidence: 0.95, productQuestion: true, requiresLiveEvidence: false };
