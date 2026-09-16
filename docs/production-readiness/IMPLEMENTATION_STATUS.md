@@ -29,9 +29,9 @@ This currently includes catalog entries such as AWS, Azure, Microsoft 365, GCP, 
 
 ## C. Write + verification status
 
-The governed execution boundary already enforces authenticated tenant identity, server-side guardrails, and approval requirements for writes. The execution handoff also requires a persisted change record whose approval state is `Ready to Execute`. fileciteturn10file0
+The governed execution boundary already enforces authenticated tenant identity, server-side guardrails, and approval requirements for writes. The execution handoff also requires a persisted change record whose approval state is `Ready to Execute`.
 
-However, the provider connector contract still exposes `executeApprovedAction` as an unsupported default, and the current contract-backed providers are not being represented here as having a complete provider mutation -> verification -> post-change sync -> immutable audit path. fileciteturn4file1
+However, the provider connector contract still exposes `executeApprovedAction` as an unsupported default, and the current contract-backed providers are not being represented here as having a complete provider mutation -> verification -> post-change sync -> immutable audit path.
 
 The required target flow is:
 
