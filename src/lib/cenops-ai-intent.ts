@@ -62,7 +62,7 @@ export function classifyCenOpsIntent(message: string): CenOpsAiIntentResult {
   if (hasAny(text, ["feature", "features", "capability", "capabilities", "what can it do", "what does cenops do", "how does cenops work"])) {
     return { intent: "product_feature", confidence: 0.9, productQuestion: true, requiresLiveEvidence: false };
   }
-  if (hasAny(text, ["tell me more", "what is this platform", "what is cenops", "overview", "about this platform", "what is this"])) {
+  if (hasAny(text, ["tell me more", "what is this platform", "what is this platform about", "what this platform is about", "what does this platform do", "what is cenops", "what is cenops about", "what does cenops do", "overview", "about this platform", "what is this"])) {
     return { intent: "platform_overview", confidence: 0.98, productQuestion: true, requiresLiveEvidence: false };
   }
 
