@@ -17,18 +17,46 @@ import { startSapOAuth } from "@/lib/integrations/sap.functions";
 import { startCohesityConnection, startDatadogConnection, startDefenderConnection, startMongoDbConnection, startNewRelicConnection, startOktaConnection, startOracleConnection, startPagerDutyConnection, startRubrikConnection, startSplunkConnection, startVeeamConnection, startWorkdayConnection } from "@/lib/integrations/provider-credential.functions";
 import { DEFAULT_GENESYS_REGION, GENESYS_REGIONS } from "@/lib/genesys/errors";
 
-export const Route = createFileRoute("/_app/integrations")({ head: () => pageHead({ path: "/integrations", title: "Integrations — CenOps", description: "Manage enterprise integration instances and their health." }), component: IntegrationsPage });
+export const Route = createFileRoute("/_app/integrations")({
+  head: () => pageHead({ path: "/integrations", title: "Integrations — CenOps", description: "Manage enterprise integration instances and their health." }),
+  component: IntegrationsPage,
+});
 
 type Catalog = Awaited<ReturnType<typeof getProviderCatalog>>;
 type Provider = Catalog["providers"][number];
 type Connection = Catalog["connections"][number];
 type FormState = Record<string, string | undefined> & { integrationId?: string; provider: string; displayName: string; environment: string };
-const EMPTY: FormState = { provider: "", displayName: "", environment: "Production", clientId: "", clientSecret: "", baseUrl: "", accessToken: "", apiKey: "", appKey: "", apiToken: "", region: DEFAULT_GENESYS_REGION, roleArn: "", externalId: "", trustPolicy: "", tenant: "", tenantAlias: "", customerTenantId: "", projectId: "", clientEmail: "", privateKey: "", delegatedAdminEmail: "", accountsUrl: "https://accounts.zoho.com", orgUrl: "", subdomain: "", accessTokenUri: "", identityDomainUrl: "", scope: "", accountUrl: "", username: "", password: "", token: "", site: "datadoghq.com", authorizationUrl: "", tokenUrl: "" };
 
-function ProviderLogo({ provider }: { provider: Provider }) { const [failed, setFailed] = useState(false); return <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-background p-1.5">{!failed ? <img src={provider.logoUrl} alt="" className="h-full w-full object-contain" loading="lazy" onError={() => setFailed(true)} /> : <span className="text-sm font-semibold text-muted-foreground">{provider.name.slice(0, 1)}</span>}</div>; }
-function statusBadge(status: string) { if (status === "connected") return <Badge variant="outline" className="border-success/30 bg-success/10 text-success"><CheckCircle2 className="mr-1 h-3 w-3" />Connected</Badge>; if (status === "failed") return <Badge variant="outline" className="border-destructive/30 bg-destructive/5 text-destructive"><XCircle className="mr-1 h-3 w-3" />Action required</Badge>; return <Badge variant="outline"><Plug className="mr-1 h-3 w-3" />Disconnected</Badge>; }
-function relative(iso: string | null) { if (!iso) return "Never"; const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000)); if (mins < 1) return "Just now"; if (mins < 60) return `${mins}m ago`; const hours = Math.round(mins / 60); if (hours < 24) return `${hours}h ago`; return `${Math.round(hours / 24)}d ago`; }
-function Field({ label, value, onChange, type = "text", placeholder }: { label: string; value?: string; onChange: (value: string) => void; type?: string; placeholder?: string }) { return <div><label className="mb-1 block text-xs font-medium text-muted-foreground">{label}</label><Input type={type} value={value ?? ""} placeholder={placeholder ?? label} onChange={(e) => onChange(e.target.value)} autoComplete={type === "password" ? "new-password" : "off"} /></div>; }
+const EMPTY: FormState = {
+  provider: "", displayName: "", environment: "Production", clientId: "", clientSecret: "", baseUrl: "", accessToken: "", apiKey: "", appKey: "", apiToken: "", region: DEFAULT_GENESYS_REGION,
+  roleArn: "", externalId: "", trustPolicy: "", tenant: "", tenantAlias: "", customerTenantId: "", projectId: "", clientEmail: "", privateKey: "", delegatedAdminEmail: "",
+  accountsUrl: "https://accounts.zoho.com", orgUrl: "", subdomain: "", accessTokenUri: "", identityDomainUrl: "", scope: "", accountUrl: "", username: "", password: "", token: "", site: "datadoghq.com", authorizationUrl: "", tokenUrl: "",
+};
+
+function ProviderLogo({ provider }: { provider: Provider }) {
+  const [failed, setFailed] = useState(false);
+  return <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-background p-1.5">{!failed ? <img src={provider.logoUrl} alt="" className="h-full w-full object-contain" loading="lazy" onError={() => setFailed(true)} /> : <span className="text-sm font-semibold text-muted-foreground">{provider.name.slice(0, 1)}</span>}</div>;
+}
+
+function statusBadge(status: string) {
+  if (status === "connected") return <Badge variant="outline" className="border-success/30 bg-success/10 text-success"><CheckCircle2 className="mr-1 h-3 w-3" />Connected</Badge>;
+  if (status === "failed") return <Badge variant="outline" className="border-destructive/30 bg-destructive/5 text-destructive"><XCircle className="mr-1 h-3 w-3" />Action required</Badge>;
+  return <Badge variant="outline"><Plug className="mr-1 h-3 w-3" />Disconnected</Badge>;
+}
+
+function relative(iso: string | null) {
+  if (!iso) return "Never";
+  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
+}
+
+function Field({ label, value, onChange, type = "text", placeholder }: { label: string; value?: string; onChange: (value: string) => void; type?: string; placeholder?: string }) {
+  return <div><label className="mb-1 block text-xs font-medium text-muted-foreground">{label}</label><Input type={type} value={value ?? ""} placeholder={placeholder ?? label} onChange={(e) => onChange(e.target.value)} autoComplete={type === "password" ? "new-password" : "off"} /></div>;
+}
 
 function ProviderForm({ target, form, set }: { target: Provider; form: FormState; set: (key: string, value: string) => void }) {
   const id = target.id;
@@ -99,12 +127,86 @@ async function startProvider(target: Provider, form: FormState) {
 }
 
 function IntegrationsPage() {
-  const [catalog, setCatalog] = useState<Catalog | null>(null); const [search, setSearch] = useState(""); const [statusFilter, setStatusFilter] = useState("all"); const [target, setTarget] = useState<Provider | null>(null); const [selected, setSelected] = useState<Connection | null>(null); const [removeTargets, setRemoveTargets] = useState<Connection[]>([]); const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set()); const [form, setForm] = useState<FormState>(EMPTY); const [message, setMessage] = useState<string | null>(null); const [busy, setBusy] = useState(false);
-  const load = async () => { try { setCatalog(await getProviderCatalog()); } catch { setMessage("Unable to load integrations."); } }; useEffect(() => { void load(); }, []);
-  const connections = catalog?.connections ?? []; const filtered = useMemo(() => { const q = search.toLowerCase(); return connections.filter((x) => { const p = catalog?.providers.find((v) => v.id === x.provider); return (!q || [p?.name, x.display_name, x.external_id, x.environment].some((v) => String(v ?? "").toLowerCase().includes(q))) && (statusFilter === "all" || x.status === statusFilter); }); }, [connections, catalog?.providers, search, statusFilter]);
+  const [catalog, setCatalog] = useState<Catalog | null>(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [target, setTarget] = useState<Provider | null>(null);
+  const [selected, setSelected] = useState<Connection | null>(null);
+  const [removeTargets, setRemoveTargets] = useState<Connection[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [form, setForm] = useState<FormState>(EMPTY);
+  const [message, setMessage] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = async () => {
+    try { setCatalog(await getProviderCatalog()); } catch { setMessage("Unable to load integrations."); }
+  };
+  useEffect(() => { void load(); }, []);
+
+  const filtered = useMemo(() => {
+    const connections = catalog?.connections ?? [];
+    const providers = catalog?.providers ?? [];
+    const q = search.toLowerCase();
+    return connections.filter((x) => {
+      const p = providers.find((v) => v.id === x.provider);
+      return (!q || [p?.name, x.display_name, x.external_id, x.environment].some((v) => String(v ?? "").toLowerCase().includes(q))) && (statusFilter === "all" || x.status === statusFilter);
+    });
+  }, [catalog, search, statusFilter]);
+
   const set = (key: string, value: string) => setForm((current) => ({ ...current, [key]: value }));
-  const openAdd = () => { const p = catalog?.providers.find((x) => x.availability === "available"); if (p) { setTarget(p); setForm({ ...EMPTY, provider: p.id }); setMessage(null); } };
-  const connect = async () => { if (!target) return; setBusy(true); setMessage(null); try { if (target.availability !== "available") throw new Error(`${target.name} is not enabled in the current CenOps catalog.`); if (target.id === "github") { const r = await startGitHubAppInstall({ data: { connectionId: form.integrationId, displayName: form.displayName, environment: form.environment } }); if (!r.ok) throw new Error(r.errorMessage); window.location.assign(r.installUrl); return; } if (target.id === "aws" && (!form.externalId || !form.trustPolicy)) { const r = await prepareAwsConnection({ data: { connectionId: form.integrationId } }); if (!r.ok) throw new Error(r.errorMessage); setForm((x) => ({ ...x, integrationId: r.connectionId, externalId: r.externalId, trustPolicy: r.trustPolicy })); setMessage("AWS setup details generated. Create the IAM role with the displayed trust policy, then click Connect & verify again."); return; } const result: any = await startProvider(target, form); if (result?.authorizeUrl) { window.location.assign(result.authorizeUrl); return; } if (result?.ok === false) throw new Error(result.errorMessage ?? result.error ?? "Provider connection failed."); setTarget(null); setForm(EMPTY); await load(); } catch (e) { setMessage(e instanceof Error ? e.message : "Provider connection failed."); } finally { setBusy(false); } };
-  const removeConnections = async () => { setBusy(true); try { const results = await Promise.allSettled(removeTargets.map((c) => c.provider === "genesys" ? deleteGenesysIntegration({ data: { integrationId: c.id } }) : removeProviderIntegration({ data: { connectionId: c.id } }))); if (results.some((r) => r.status === "rejected" || (r.status === "fulfilled" && !r.value.ok))) setMessage("One or more integrations could not be removed."); else { setRemoveTargets([]); setSelectedIds(new Set()); setSelected(null); await load(); } } finally { setBusy(false); } };
-  return <div><PageHeader title="Integrations" description="Manage connected enterprise environments as independent integration instances." /><Card className="mb-4"><CardHeader className="pb-3"><div className="flex flex-col gap-3 lg:flex-row lg:items-center"><div className="relative min-w-0 flex-1"><Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search integrations, accounts, environments…" className="pl-9" /></div><div className="flex gap-2"><select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-9 rounded-md border border-input bg-background px-3 text-sm"><option value="all">All statuses</option><option value="connected">Connected</option><option value="failed">Action required</option><option value="disconnected">Disconnected</option></select><Button onClick={openAdd}><Plus className="mr-1.5 h-4 w-4" />Add integration</Button></div></div></CardHeader></Card><Card><CardHeader><CardTitle>Connected integration instances <span className="ml-1 text-sm font-normal text-muted-foreground">{filtered.length}</span></CardTitle></CardHeader><CardContent className="p-0">{catalog === null ? <div className="p-8 text-center text-sm text-muted-foreground">Loading integrations…</div> : filtered.length === 0 ? <div className="p-8 text-center text-sm text-muted-foreground">No integration instances match your filters.</div> : <div className="divide-y">{filtered.map((c) => { const p = catalog.providers.find((x) => x.id === c.provider); return <div key={c.id} className="flex cursor-pointer items-center gap-3 px-4 py-4 hover:bg-muted/40" onClick={() => setSelected(c)}><input type="checkbox" checked={selectedIds.has(c.id)} onChange={(e) => { e.stopPropagation(); setSelectedIds((s) => { const n = new Set(s); e.target.checked ? n.add(c.id) : n.delete(c.id); return n; }); }} /><ProviderLogo provider={p!} /><div className="min-w-0 flex-1"><div className="truncate font-medium">{c.display_name || p?.name || c.provider}</div><div className="truncate text-xs text-muted-foreground">{c.external_id || "No external account ID"}</div></div><Badge variant="secondary">{c.environment || "Production"}</Badge>{statusBadge(c.status)}<span className="hidden text-xs text-muted-foreground md:block">{relative(c.updated_at)}</span><ChevronRight className="h-4 w-4 text-muted-foreground" /></div>; })}</div>}</CardContent></Card><Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}><DialogContent><DialogHeader><DialogTitle>{selected?.display_name || "Integration details"}</DialogTitle><DialogDescription>Configuration and health for this integration instance.</DialogDescription></DialogHeader>{selected && <div className="space-y-3 text-sm"><div>Platform: <b>{catalog?.providers.find((p) => p.id === selected.provider)?.name}</b></div><div>Environment: <b>{selected.environment}</b></div><div>External account: <b className="break-all">{selected.external_id || "—"}</b></div>{selected.last_error && <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-destructive">{selected.last_error}</div>}<div className="flex items-center gap-2 rounded-md border p-3 text-xs text-muted-foreground"><ShieldCheck className="h-4 w-4" />Credentials remain encrypted and server-side.</div></div>}<DialogFooter><Button variant="outline" onClick={() => setSelected(null)}>Close</Button>{selected && <Button variant="destructive" onClick={() => setRemoveTargets([selected])}>Remove integration</Button>}</DialogFooter></DialogContent></Dialog><AlertDialog open={removeTargets.length > 0} onOpenChange={(o) => !o && setRemoveTargets([])}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Remove integration?</AlertDialogTitle><AlertDialogDescription>This removes the selected integration and its encrypted credentials.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel><AlertDialogAction onClick={(e) => { e.preventDefault(); void removeConnections(); }} disabled={busy}>{busy ? "Removing…" : "Remove integration"}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog><Dialog open={!!target} onOpenChange={(o) => !o && setTarget(null)}><DialogContent className="sm:max-w-lg">{target && <><DialogHeader><DialogTitle>Add {target.name}</DialogTitle><DialogDescription>Enter the provider-specific credentials required by this connector.</DialogDescription></DialogHeader><div className="space-y-4"><select value={target.id} onChange={(e) => { const p = catalog?.providers.find((x) => x.id === e.target.value); if (p) { setTarget(p); setForm({ ...EMPTY, provider: p.id }); setMessage(null); } }} className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm">{catalog?.providers.map((p) => <option key={p.id} value={p.id}>{p.name} — {p.availability === "available" ? "Available" : "Coming soon"}</option>)}</select><Field label="Integration name" value={form.displayName} onChange={(v) => set("displayName", v)} placeholder={`${target.name} Production`} /><Field label="Environment" value={form.environment} onChange={(v) => set("environment", v)} /><ProviderForm target={target} form={form} set={set}/>{message && <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{message}</div>}</div><DialogFooter><Button variant="outline" onClick={() => setTarget(null)}>Cancel</Button><Button onClick={connect} disabled={busy || target.availability !== "available"}>{busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}{target.availability === "available" ? (["jira","salesforce","servicenow","slack","hubspot","zendesk","gitlab","freshworks","zoho","confluence","snowflake","workday","sap"].includes(target.id) ? `Authorize ${target.name}` : "Connect & verify") : "Coming soon"}</Button></DialogFooter></>}</DialogContent></Dialog></div>;
+  const openAdd = () => {
+    const p = catalog?.providers.find((x) => x.availability === "available");
+    if (p) { setTarget(p); setForm({ ...EMPTY, provider: p.id }); setMessage(null); }
+  };
+
+  const connect = async () => {
+    if (!target) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      if (target.availability !== "available") throw new Error(`${target.name} is not enabled in the current CenOps catalog.`);
+      if (target.id === "github") {
+        const r = await startGitHubAppInstall({ data: { connectionId: form.integrationId, displayName: form.displayName, environment: form.environment } });
+        if (!r.ok) throw new Error(r.errorMessage);
+        window.location.assign(r.installUrl);
+        return;
+      }
+      if (target.id === "aws" && (!form.externalId || !form.trustPolicy)) {
+        const r = await prepareAwsConnection({ data: { connectionId: form.integrationId } });
+        if (!r.ok) throw new Error(r.errorMessage);
+        setForm((x) => ({ ...x, integrationId: r.connectionId, externalId: r.externalId, trustPolicy: r.trustPolicy }));
+        setMessage("AWS setup details generated. Create the IAM role with the displayed trust policy, then click Connect & verify again.");
+        return;
+      }
+      const result: any = await startProvider(target, form);
+      if (result?.authorizeUrl) { window.location.assign(result.authorizeUrl); return; }
+      if (result?.ok === false) throw new Error(result.errorMessage ?? result.error ?? "Provider connection failed.");
+      setTarget(null);
+      setForm(EMPTY);
+      await load();
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "Provider connection failed.");
+    } finally { setBusy(false); }
+  };
+
+  const removeConnections = async () => {
+    setBusy(true);
+    try {
+      const results = await Promise.allSettled(removeTargets.map((c) => c.provider === "genesys" ? deleteGenesysIntegration({ data: { integrationId: c.id } }) : removeProviderIntegration({ data: { connectionId: c.id } })));
+      if (results.some((r) => r.status === "rejected" || (r.status === "fulfilled" && !r.value.ok))) {
+        setMessage("One or more integrations could not be removed.");
+      } else {
+        setRemoveTargets([]); setSelectedIds(new Set()); setSelected(null); await load();
+      }
+    } finally { setBusy(false); }
+  };
+
+  return <div>
+    <PageHeader title="Integrations" description="Manage connected enterprise environments as independent integration instances." />
+    <Card className="mb-4"><CardHeader className="pb-3"><div className="flex flex-col gap-3 lg:flex-row lg:items-center"><div className="relative min-w-0 flex-1"><Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search integrations, accounts, environments…" className="pl-9" /></div><div className="flex gap-2"><select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-9 rounded-md border border-input bg-background px-3 text-sm"><option value="all">All statuses</option><option value="connected">Connected</option><option value="failed">Action required</option><option value="disconnected">Disconnected</option></select><Button onClick={openAdd}><Plus className="mr-1.5 h-4 w-4" />Add integration</Button></div></div></CardHeader></Card>
+    <Card><CardHeader><CardTitle>Connected integration instances <span className="ml-1 text-sm font-normal text-muted-foreground">{filtered.length}</span></CardTitle></CardHeader><CardContent className="p-0">{catalog === null ? <div className="p-8 text-center text-sm text-muted-foreground">Loading integrations…</div> : filtered.length === 0 ? <div className="p-8 text-center text-sm text-muted-foreground">No integration instances match your filters.</div> : <div className="divide-y">{filtered.map((c) => { const p = catalog.providers.find((x) => x.id === c.provider); return <div key={c.id} className="flex cursor-pointer items-center gap-3 px-4 py-4 hover:bg-muted/40" onClick={() => setSelected(c)}><input type="checkbox" checked={selectedIds.has(c.id)} onChange={(e) => { e.stopPropagation(); setSelectedIds((s) => { const n = new Set(s); if (e.target.checked) n.add(c.id); else n.delete(c.id); return n; }); }} /><ProviderLogo provider={p!} /><div className="min-w-0 flex-1"><div className="truncate font-medium">{c.display_name || p?.name || c.provider}</div><div className="truncate text-xs text-muted-foreground">{c.external_id || "No external account ID"}</div></div><Badge variant="secondary">{c.environment || "Production"}</Badge>{statusBadge(c.status)}<span className="hidden text-xs text-muted-foreground md:block">{relative(c.updated_at)}</span><ChevronRight className="h-4 w-4 text-muted-foreground" /></div>; })}</div>}</CardContent></Card>
+    <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}><DialogContent><DialogHeader><DialogTitle>{selected?.display_name || "Integration details"}</DialogTitle><DialogDescription>Configuration and health for this integration instance.</DialogDescription></DialogHeader>{selected && <div className="space-y-3 text-sm"><div>Platform: <b>{catalog?.providers.find((p) => p.id === selected.provider)?.name}</b></div><div>Environment: <b>{selected.environment}</b></div><div>External account: <b className="break-all">{selected.external_id || "—"}</b></div>{selected.last_error && <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-destructive">{selected.last_error}</div>}<div className="flex items-center gap-2 rounded-md border p-3 text-xs text-muted-foreground"><ShieldCheck className="h-4 w-4" />Credentials remain encrypted and server-side.</div></div>}<DialogFooter><Button variant="outline" onClick={() => setSelected(null)}>Close</Button>{selected && <Button variant="destructive" onClick={() => setRemoveTargets([selected])}>Remove integration</Button>}</DialogFooter></DialogContent></Dialog>
+    <AlertDialog open={removeTargets.length > 0} onOpenChange={(o) => !o && setRemoveTargets([])}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Remove integration?</AlertDialogTitle><AlertDialogDescription>This removes the selected integration and its encrypted credentials.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel><AlertDialogAction onClick={(e) => { e.preventDefault(); void removeConnections(); }} disabled={busy}>{busy ? "Removing…" : "Remove integration"}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+    <Dialog open={!!target} onOpenChange={(o) => !o && setTarget(null)}><DialogContent className="sm:max-w-lg">{target && <><DialogHeader><DialogTitle>Add {target.name}</DialogTitle><DialogDescription>Enter the provider-specific credentials required by this connector.</DialogDescription></DialogHeader><div className="space-y-4"><select value={target.id} onChange={(e) => { const p = catalog?.providers.find((x) => x.id === e.target.value); if (p) { setTarget(p); setForm({ ...EMPTY, provider: p.id }); setMessage(null); } }} className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm">{catalog?.providers.map((p) => <option key={p.id} value={p.id}>{p.name} — {p.availability === "available" ? "Available" : "Coming soon"}</option>)}</select><Field label="Integration name" value={form.displayName} onChange={(v) => set("displayName", v)} placeholder={`${target.name} Production`} /><Field label="Environment" value={form.environment} onChange={(v) => set("environment", v)} /><ProviderForm target={target} form={form} set={set}/>{message && <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{message}</div>}</div><DialogFooter><Button variant="outline" onClick={() => setTarget(null)}>Cancel</Button><Button onClick={connect} disabled={busy || target.availability !== "available"}>{busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}{target.availability === "available" ? (["jira","salesforce","servicenow","slack","hubspot","zendesk","gitlab","freshworks","zoho","confluence","snowflake","workday","sap"].includes(target.id) ? `Authorize ${target.name}` : "Connect & verify") : "Coming soon"}</Button></DialogFooter></>}</DialogContent></Dialog>
+  </div>;
 }
