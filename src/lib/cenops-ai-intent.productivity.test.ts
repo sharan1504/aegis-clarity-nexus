@@ -33,9 +33,16 @@ describe("CenOps productivity intent routing", () => {
     "tell me what is 98*97",
     "what is the capital of France",
     "write me a poem",
-  ])("classifies general or unrelated requests as out_of_scope: %s", (message) => {
+  ])("classifies clearly unrelated requests as out_of_scope: %s", (message) => {
     const result = classifyCenOpsIntent(message);
     expect(result.intent).toBe("out_of_scope");
+    expect(result.productQuestion).toBe(true);
+    expect(result.requiresLiveEvidence).toBe(false);
+  });
+
+  it("does not convert an ambiguous request into a hard out-of-scope rejection", () => {
+    const result = classifyCenOpsIntent("Can you explain this to me?");
+    expect(result.intent).toBe("unknown");
     expect(result.productQuestion).toBe(true);
     expect(result.requiresLiveEvidence).toBe(false);
   });
