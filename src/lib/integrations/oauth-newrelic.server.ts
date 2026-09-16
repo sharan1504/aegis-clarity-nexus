@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveTenant } from "@/lib/genesys/store.server";
-import { getAdminClient, storeOAuthConnection, markReconnectRequired } from "./oauth-framework.server";
+import { getAdminClient } from "./oauth-framework.server";
 import { encryptCredentials } from "./credential-vault.server";
 
 export const NEW_RELIC_REGIONS = ["us", "eu", "jp"] as const;
