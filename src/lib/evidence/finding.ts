@@ -1,4 +1,4 @@
-export type SharedFindingSeverity = "Critical" | "High" | "Medium" | "Low";
+export type SharedFindingSeverity = "critical" | "high" | "medium" | "low" | "info";
 
 export interface SharedFinding {
   id: string;
