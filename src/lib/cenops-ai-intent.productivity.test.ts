@@ -21,6 +21,14 @@ describe("CenOps productivity intent routing", () => {
     expect(result.productQuestion).toBe(true);
   });
 
+  it("recognizes natural platform-overview wording", () => {
+    expect(classifyCenOpsIntent("What this platform is about?").intent).toBe("platform_overview");
+    expect(classifyCenOpsIntent("What is this platform about?").intent).toBe("platform_overview");
+    expect(classifyCenOpsIntent("What does this platform do?").intent).toBe("platform_overview");
+    expect(classifyCenOpsIntent("What problem does CenOps solve?").intent).toBe("platform_overview");
+    expect(classifyCenOpsIntent("Why would I use CenOps?").intent).toBe("platform_overview");
+  });
+
   it.each([
     "tell me what is 98*97",
     "what is the capital of France",
