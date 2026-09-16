@@ -19,4 +19,16 @@ describe("Snowflake OAuth", () => {
     expect(url.searchParams.get("code_challenge")).toBe("challenge");
     expect(url.searchParams.get("code_challenge_method")).toBe("S256");
   });
+
+  it("allows a caller to select the Snowflake role scope", () => {
+    const url = new URL(buildSnowflakeAuthorizeUrl({
+      accountUrl: "https://example-org-account.snowflakecomputing.com",
+      clientId: "client",
+      redirectUri: "https://cenops.example/integrations/snowflake/callback",
+      state: "state",
+      scope: "session:role:ANALYST refresh_token",
+      codeChallenge: "challenge",
+    }));
+    expect(url.searchParams.get("scope")).toBe("session:role:ANALYST refresh_token");
+  });
 });
