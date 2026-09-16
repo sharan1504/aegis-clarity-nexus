@@ -42,8 +42,21 @@ import { Route as AppApprovalsIndexRouteImport } from './routes/_app.approvals.i
 import { Route as AppApprovalsIdRouteImport } from './routes/_app.approvals.$id'
 import { Route as AppSettingsItsmRoutingRouteImport } from './routes/_app.settings.itsm-routing'
 import { Route as ApiInternalProviderSyncRouteImport } from './routes/api.internal.provider-sync'
+import { Route as IntegrationsConfluenceCallbackRouteImport } from './routes/integrations.confluence.callback'
+import { Route as IntegrationsFreshworksCallbackRouteImport } from './routes/integrations.freshworks.callback'
 import { Route as IntegrationsGenesysCallbackRouteImport } from './routes/integrations.genesys.callback'
 import { Route as IntegrationsGithubSetupRouteImport } from './routes/integrations.github.setup'
+import { Route as IntegrationsGitlabCallbackRouteImport } from './routes/integrations.gitlab.callback'
+import { Route as IntegrationsHubspotCallbackRouteImport } from './routes/integrations.hubspot.callback'
+import { Route as IntegrationsJiraCallbackRouteImport } from './routes/integrations.jira.callback'
+import { Route as IntegrationsSalesforceCallbackRouteImport } from './routes/integrations.salesforce.callback'
+import { Route as IntegrationsSapCallbackRouteImport } from './routes/integrations.sap.callback'
+import { Route as IntegrationsServicenowCallbackRouteImport } from './routes/integrations.servicenow.callback'
+import { Route as IntegrationsSlackCallbackRouteImport } from './routes/integrations.slack.callback'
+import { Route as IntegrationsSnowflakeCallbackRouteImport } from './routes/integrations.snowflake.callback'
+import { Route as IntegrationsWorkdayCallbackRouteImport } from './routes/integrations.workday.callback'
+import { Route as IntegrationsZendeskCallbackRouteImport } from './routes/integrations.zendesk.callback'
+import { Route as IntegrationsZohoCallbackRouteImport } from './routes/integrations.zoho.callback'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -213,6 +226,18 @@ const ApiInternalProviderSyncRoute = ApiInternalProviderSyncRouteImport.update({
   path: '/api/internal/provider-sync',
   getParentRoute: () => rootRouteImport,
 } as any)
+const IntegrationsConfluenceCallbackRoute =
+  IntegrationsConfluenceCallbackRouteImport.update({
+    id: '/integrations/confluence/callback',
+    path: '/integrations/confluence/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const IntegrationsFreshworksCallbackRoute =
+  IntegrationsFreshworksCallbackRouteImport.update({
+    id: '/integrations/freshworks/callback',
+    path: '/integrations/freshworks/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const IntegrationsGenesysCallbackRoute =
   IntegrationsGenesysCallbackRouteImport.update({
     id: '/integrations/genesys/callback',
@@ -224,6 +249,71 @@ const IntegrationsGithubSetupRoute = IntegrationsGithubSetupRouteImport.update({
   path: '/integrations/github/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
+const IntegrationsGitlabCallbackRoute =
+  IntegrationsGitlabCallbackRouteImport.update({
+    id: '/integrations/gitlab/callback',
+    path: '/integrations/gitlab/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const IntegrationsHubspotCallbackRoute =
+  IntegrationsHubspotCallbackRouteImport.update({
+    id: '/integrations/hubspot/callback',
+    path: '/integrations/hubspot/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const IntegrationsJiraCallbackRoute =
+  IntegrationsJiraCallbackRouteImport.update({
+    id: '/integrations/jira/callback',
+    path: '/integrations/jira/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const IntegrationsSalesforceCallbackRoute =
+  IntegrationsSalesforceCallbackRouteImport.update({
+    id: '/integrations/salesforce/callback',
+    path: '/integrations/salesforce/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const IntegrationsSapCallbackRoute = IntegrationsSapCallbackRouteImport.update({
+  id: '/integrations/sap/callback',
+  path: '/integrations/sap/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IntegrationsServicenowCallbackRoute =
+  IntegrationsServicenowCallbackRouteImport.update({
+    id: '/integrations/servicenow/callback',
+    path: '/integrations/servicenow/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const IntegrationsSlackCallbackRoute =
+  IntegrationsSlackCallbackRouteImport.update({
+    id: '/integrations/slack/callback',
+    path: '/integrations/slack/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const IntegrationsSnowflakeCallbackRoute =
+  IntegrationsSnowflakeCallbackRouteImport.update({
+    id: '/integrations/snowflake/callback',
+    path: '/integrations/snowflake/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const IntegrationsWorkdayCallbackRoute =
+  IntegrationsWorkdayCallbackRouteImport.update({
+    id: '/integrations/workday/callback',
+    path: '/integrations/workday/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const IntegrationsZendeskCallbackRoute =
+  IntegrationsZendeskCallbackRouteImport.update({
+    id: '/integrations/zendesk/callback',
+    path: '/integrations/zendesk/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const IntegrationsZohoCallbackRoute =
+  IntegrationsZohoCallbackRouteImport.update({
+    id: '/integrations/zoho/callback',
+    path: '/integrations/zoho/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -257,8 +347,21 @@ export interface FileRoutesByFullPath {
   '/approvals/$id': typeof AppApprovalsIdRoute
   '/settings/itsm-routing': typeof AppSettingsItsmRoutingRoute
   '/api/internal/provider-sync': typeof ApiInternalProviderSyncRoute
+  '/integrations/confluence/callback': typeof IntegrationsConfluenceCallbackRoute
+  '/integrations/freshworks/callback': typeof IntegrationsFreshworksCallbackRoute
   '/integrations/genesys/callback': typeof IntegrationsGenesysCallbackRoute
   '/integrations/github/setup': typeof IntegrationsGithubSetupRoute
+  '/integrations/gitlab/callback': typeof IntegrationsGitlabCallbackRoute
+  '/integrations/hubspot/callback': typeof IntegrationsHubspotCallbackRoute
+  '/integrations/jira/callback': typeof IntegrationsJiraCallbackRoute
+  '/integrations/salesforce/callback': typeof IntegrationsSalesforceCallbackRoute
+  '/integrations/sap/callback': typeof IntegrationsSapCallbackRoute
+  '/integrations/servicenow/callback': typeof IntegrationsServicenowCallbackRoute
+  '/integrations/slack/callback': typeof IntegrationsSlackCallbackRoute
+  '/integrations/snowflake/callback': typeof IntegrationsSnowflakeCallbackRoute
+  '/integrations/workday/callback': typeof IntegrationsWorkdayCallbackRoute
+  '/integrations/zendesk/callback': typeof IntegrationsZendeskCallbackRoute
+  '/integrations/zoho/callback': typeof IntegrationsZohoCallbackRoute
   '/approvals/': typeof AppApprovalsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -293,8 +396,21 @@ export interface FileRoutesByTo {
   '/approvals/$id': typeof AppApprovalsIdRoute
   '/settings/itsm-routing': typeof AppSettingsItsmRoutingRoute
   '/api/internal/provider-sync': typeof ApiInternalProviderSyncRoute
+  '/integrations/confluence/callback': typeof IntegrationsConfluenceCallbackRoute
+  '/integrations/freshworks/callback': typeof IntegrationsFreshworksCallbackRoute
   '/integrations/genesys/callback': typeof IntegrationsGenesysCallbackRoute
   '/integrations/github/setup': typeof IntegrationsGithubSetupRoute
+  '/integrations/gitlab/callback': typeof IntegrationsGitlabCallbackRoute
+  '/integrations/hubspot/callback': typeof IntegrationsHubspotCallbackRoute
+  '/integrations/jira/callback': typeof IntegrationsJiraCallbackRoute
+  '/integrations/salesforce/callback': typeof IntegrationsSalesforceCallbackRoute
+  '/integrations/sap/callback': typeof IntegrationsSapCallbackRoute
+  '/integrations/servicenow/callback': typeof IntegrationsServicenowCallbackRoute
+  '/integrations/slack/callback': typeof IntegrationsSlackCallbackRoute
+  '/integrations/snowflake/callback': typeof IntegrationsSnowflakeCallbackRoute
+  '/integrations/workday/callback': typeof IntegrationsWorkdayCallbackRoute
+  '/integrations/zendesk/callback': typeof IntegrationsZendeskCallbackRoute
+  '/integrations/zoho/callback': typeof IntegrationsZohoCallbackRoute
   '/approvals': typeof AppApprovalsIndexRoute
 }
 export interface FileRoutesById {
@@ -331,8 +447,21 @@ export interface FileRoutesById {
   '/_app/approvals/$id': typeof AppApprovalsIdRoute
   '/_app/settings/itsm-routing': typeof AppSettingsItsmRoutingRoute
   '/api/internal/provider-sync': typeof ApiInternalProviderSyncRoute
+  '/integrations/confluence/callback': typeof IntegrationsConfluenceCallbackRoute
+  '/integrations/freshworks/callback': typeof IntegrationsFreshworksCallbackRoute
   '/integrations/genesys/callback': typeof IntegrationsGenesysCallbackRoute
   '/integrations/github/setup': typeof IntegrationsGithubSetupRoute
+  '/integrations/gitlab/callback': typeof IntegrationsGitlabCallbackRoute
+  '/integrations/hubspot/callback': typeof IntegrationsHubspotCallbackRoute
+  '/integrations/jira/callback': typeof IntegrationsJiraCallbackRoute
+  '/integrations/salesforce/callback': typeof IntegrationsSalesforceCallbackRoute
+  '/integrations/sap/callback': typeof IntegrationsSapCallbackRoute
+  '/integrations/servicenow/callback': typeof IntegrationsServicenowCallbackRoute
+  '/integrations/slack/callback': typeof IntegrationsSlackCallbackRoute
+  '/integrations/snowflake/callback': typeof IntegrationsSnowflakeCallbackRoute
+  '/integrations/workday/callback': typeof IntegrationsWorkdayCallbackRoute
+  '/integrations/zendesk/callback': typeof IntegrationsZendeskCallbackRoute
+  '/integrations/zoho/callback': typeof IntegrationsZohoCallbackRoute
   '/_app/approvals/': typeof AppApprovalsIndexRoute
 }
 export interface FileRouteTypes {
@@ -369,8 +498,21 @@ export interface FileRouteTypes {
     | '/approvals/$id'
     | '/settings/itsm-routing'
     | '/api/internal/provider-sync'
+    | '/integrations/confluence/callback'
+    | '/integrations/freshworks/callback'
     | '/integrations/genesys/callback'
     | '/integrations/github/setup'
+    | '/integrations/gitlab/callback'
+    | '/integrations/hubspot/callback'
+    | '/integrations/jira/callback'
+    | '/integrations/salesforce/callback'
+    | '/integrations/sap/callback'
+    | '/integrations/servicenow/callback'
+    | '/integrations/slack/callback'
+    | '/integrations/snowflake/callback'
+    | '/integrations/workday/callback'
+    | '/integrations/zendesk/callback'
+    | '/integrations/zoho/callback'
     | '/approvals/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -405,8 +547,21 @@ export interface FileRouteTypes {
     | '/approvals/$id'
     | '/settings/itsm-routing'
     | '/api/internal/provider-sync'
+    | '/integrations/confluence/callback'
+    | '/integrations/freshworks/callback'
     | '/integrations/genesys/callback'
     | '/integrations/github/setup'
+    | '/integrations/gitlab/callback'
+    | '/integrations/hubspot/callback'
+    | '/integrations/jira/callback'
+    | '/integrations/salesforce/callback'
+    | '/integrations/sap/callback'
+    | '/integrations/servicenow/callback'
+    | '/integrations/slack/callback'
+    | '/integrations/snowflake/callback'
+    | '/integrations/workday/callback'
+    | '/integrations/zendesk/callback'
+    | '/integrations/zoho/callback'
     | '/approvals'
   id:
     | '__root__'
@@ -442,8 +597,21 @@ export interface FileRouteTypes {
     | '/_app/approvals/$id'
     | '/_app/settings/itsm-routing'
     | '/api/internal/provider-sync'
+    | '/integrations/confluence/callback'
+    | '/integrations/freshworks/callback'
     | '/integrations/genesys/callback'
     | '/integrations/github/setup'
+    | '/integrations/gitlab/callback'
+    | '/integrations/hubspot/callback'
+    | '/integrations/jira/callback'
+    | '/integrations/salesforce/callback'
+    | '/integrations/sap/callback'
+    | '/integrations/servicenow/callback'
+    | '/integrations/slack/callback'
+    | '/integrations/snowflake/callback'
+    | '/integrations/workday/callback'
+    | '/integrations/zendesk/callback'
+    | '/integrations/zoho/callback'
     | '/_app/approvals/'
   fileRoutesById: FileRoutesById
 }
@@ -458,8 +626,21 @@ export interface RootRouteChildren {
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiInternalProviderSyncRoute: typeof ApiInternalProviderSyncRoute
+  IntegrationsConfluenceCallbackRoute: typeof IntegrationsConfluenceCallbackRoute
+  IntegrationsFreshworksCallbackRoute: typeof IntegrationsFreshworksCallbackRoute
   IntegrationsGenesysCallbackRoute: typeof IntegrationsGenesysCallbackRoute
   IntegrationsGithubSetupRoute: typeof IntegrationsGithubSetupRoute
+  IntegrationsGitlabCallbackRoute: typeof IntegrationsGitlabCallbackRoute
+  IntegrationsHubspotCallbackRoute: typeof IntegrationsHubspotCallbackRoute
+  IntegrationsJiraCallbackRoute: typeof IntegrationsJiraCallbackRoute
+  IntegrationsSalesforceCallbackRoute: typeof IntegrationsSalesforceCallbackRoute
+  IntegrationsSapCallbackRoute: typeof IntegrationsSapCallbackRoute
+  IntegrationsServicenowCallbackRoute: typeof IntegrationsServicenowCallbackRoute
+  IntegrationsSlackCallbackRoute: typeof IntegrationsSlackCallbackRoute
+  IntegrationsSnowflakeCallbackRoute: typeof IntegrationsSnowflakeCallbackRoute
+  IntegrationsWorkdayCallbackRoute: typeof IntegrationsWorkdayCallbackRoute
+  IntegrationsZendeskCallbackRoute: typeof IntegrationsZendeskCallbackRoute
+  IntegrationsZohoCallbackRoute: typeof IntegrationsZohoCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -695,6 +876,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiInternalProviderSyncRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/integrations/confluence/callback': {
+      id: '/integrations/confluence/callback'
+      path: '/integrations/confluence/callback'
+      fullPath: '/integrations/confluence/callback'
+      preLoaderRoute: typeof IntegrationsConfluenceCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/integrations/freshworks/callback': {
+      id: '/integrations/freshworks/callback'
+      path: '/integrations/freshworks/callback'
+      fullPath: '/integrations/freshworks/callback'
+      preLoaderRoute: typeof IntegrationsFreshworksCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/integrations/genesys/callback': {
       id: '/integrations/genesys/callback'
       path: '/integrations/genesys/callback'
@@ -707,6 +902,83 @@ declare module '@tanstack/react-router' {
       path: '/integrations/github/setup'
       fullPath: '/integrations/github/setup'
       preLoaderRoute: typeof IntegrationsGithubSetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/integrations/gitlab/callback': {
+      id: '/integrations/gitlab/callback'
+      path: '/integrations/gitlab/callback'
+      fullPath: '/integrations/gitlab/callback'
+      preLoaderRoute: typeof IntegrationsGitlabCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/integrations/hubspot/callback': {
+      id: '/integrations/hubspot/callback'
+      path: '/integrations/hubspot/callback'
+      fullPath: '/integrations/hubspot/callback'
+      preLoaderRoute: typeof IntegrationsHubspotCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/integrations/jira/callback': {
+      id: '/integrations/jira/callback'
+      path: '/integrations/jira/callback'
+      fullPath: '/integrations/jira/callback'
+      preLoaderRoute: typeof IntegrationsJiraCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/integrations/salesforce/callback': {
+      id: '/integrations/salesforce/callback'
+      path: '/integrations/salesforce/callback'
+      fullPath: '/integrations/salesforce/callback'
+      preLoaderRoute: typeof IntegrationsSalesforceCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/integrations/sap/callback': {
+      id: '/integrations/sap/callback'
+      path: '/integrations/sap/callback'
+      fullPath: '/integrations/sap/callback'
+      preLoaderRoute: typeof IntegrationsSapCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/integrations/servicenow/callback': {
+      id: '/integrations/servicenow/callback'
+      path: '/integrations/servicenow/callback'
+      fullPath: '/integrations/servicenow/callback'
+      preLoaderRoute: typeof IntegrationsServicenowCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/integrations/slack/callback': {
+      id: '/integrations/slack/callback'
+      path: '/integrations/slack/callback'
+      fullPath: '/integrations/slack/callback'
+      preLoaderRoute: typeof IntegrationsSlackCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/integrations/snowflake/callback': {
+      id: '/integrations/snowflake/callback'
+      path: '/integrations/snowflake/callback'
+      fullPath: '/integrations/snowflake/callback'
+      preLoaderRoute: typeof IntegrationsSnowflakeCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/integrations/workday/callback': {
+      id: '/integrations/workday/callback'
+      path: '/integrations/workday/callback'
+      fullPath: '/integrations/workday/callback'
+      preLoaderRoute: typeof IntegrationsWorkdayCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/integrations/zendesk/callback': {
+      id: '/integrations/zendesk/callback'
+      path: '/integrations/zendesk/callback'
+      fullPath: '/integrations/zendesk/callback'
+      preLoaderRoute: typeof IntegrationsZendeskCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/integrations/zoho/callback': {
+      id: '/integrations/zoho/callback'
+      path: '/integrations/zoho/callback'
+      fullPath: '/integrations/zoho/callback'
+      preLoaderRoute: typeof IntegrationsZohoCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -805,8 +1077,21 @@ const rootRouteChildren: RootRouteChildren = {
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiInternalProviderSyncRoute: ApiInternalProviderSyncRoute,
+  IntegrationsConfluenceCallbackRoute: IntegrationsConfluenceCallbackRoute,
+  IntegrationsFreshworksCallbackRoute: IntegrationsFreshworksCallbackRoute,
   IntegrationsGenesysCallbackRoute: IntegrationsGenesysCallbackRoute,
   IntegrationsGithubSetupRoute: IntegrationsGithubSetupRoute,
+  IntegrationsGitlabCallbackRoute: IntegrationsGitlabCallbackRoute,
+  IntegrationsHubspotCallbackRoute: IntegrationsHubspotCallbackRoute,
+  IntegrationsJiraCallbackRoute: IntegrationsJiraCallbackRoute,
+  IntegrationsSalesforceCallbackRoute: IntegrationsSalesforceCallbackRoute,
+  IntegrationsSapCallbackRoute: IntegrationsSapCallbackRoute,
+  IntegrationsServicenowCallbackRoute: IntegrationsServicenowCallbackRoute,
+  IntegrationsSlackCallbackRoute: IntegrationsSlackCallbackRoute,
+  IntegrationsSnowflakeCallbackRoute: IntegrationsSnowflakeCallbackRoute,
+  IntegrationsWorkdayCallbackRoute: IntegrationsWorkdayCallbackRoute,
+  IntegrationsZendeskCallbackRoute: IntegrationsZendeskCallbackRoute,
+  IntegrationsZohoCallbackRoute: IntegrationsZohoCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
