@@ -1,20 +1,7 @@
 export type ProviderCapability = "read" | "write" | "sync" | "events";
 export type ProviderAvailability = "available" | "coming_soon";
-
-export interface ProviderDefinition {
-  id: string;
-  name: string;
-  category: string;
-  description: string;
-  auth: "OAuth 2.0" | "API Key" | "Access Keys" | "AWS IAM Role" | "GitHub App" | "MCP";
-  scopes: string[];
-  capabilities: ProviderCapability[];
-  availability: ProviderAvailability;
-  logoUrl: string;
-}
-
+export interface ProviderDefinition { id: string; name: string; category: string; description: string; auth: "OAuth 2.0" | "API Key" | "Access Keys" | "AWS IAM Role" | "GitHub App" | "MCP"; scopes: string[]; capabilities: ProviderCapability[]; availability: ProviderAvailability; logoUrl: string; }
 const logo = (slug: string) => `https://cdn.simpleicons.org/${slug}`;
-
 export const PROVIDER_REGISTRY: ProviderDefinition[] = [
   { id: "genesys", name: "Genesys Cloud", category: "Contact Center", description: "Voice, digital, workforce and license telemetry.", auth: "OAuth 2.0", scopes: ["organization:readonly", "users:readonly", "license:readonly", "routing:readonly", "analytics:readonly"], capabilities: ["read", "sync"], availability: "available", logoUrl: logo("genesys") },
   { id: "aws", name: "AWS", category: "Cloud", description: "EC2, S3, IAM, Cost Explorer and CloudWatch via cross-account IAM role assumption.", auth: "AWS IAM Role", scopes: ["provider-managed"], capabilities: ["read", "sync"], availability: "available", logoUrl: logo("amazonaws") },
@@ -27,7 +14,7 @@ export const PROVIDER_REGISTRY: ProviderDefinition[] = [
   { id: "freshworks", name: "Freshworks", category: "ITSM & Customer Support", description: "Freshservice, Freshdesk, tickets, assets and SLAs.", auth: "OAuth 2.0", scopes: ["freshservice.tickets.view", "freshservice.tickets.edit", "freshservice.tickets.conversations.create"], capabilities: ["read", "write", "sync"], availability: "coming_soon", logoUrl: logo("freshworks") },
   { id: "zendesk", name: "Zendesk", category: "Customer Support", description: "Support tickets, customers, agents and service metrics.", auth: "OAuth 2.0", scopes: ["provider-managed"], capabilities: ["read", "write", "sync"], availability: "coming_soon", logoUrl: logo("zendesk") },
   { id: "salesforce", name: "Salesforce", category: "CRM", description: "Accounts, opportunities, cases and events.", auth: "OAuth 2.0", scopes: ["api"], capabilities: ["read", "sync"], availability: "available", logoUrl: logo("salesforce") },
-  { id: "zoho", name: "Zoho", category: "CRM & Business", description: "CRM, Desk, Projects and business applications.", auth: "OAuth 2.0", scopes: ["provider-managed"], capabilities: ["read", "write", "sync"], availability: "coming_soon", logoUrl: logo("zoho") },
+  { id: "zoho", name: "Zoho", category: "CRM & Business", description: "Zoho CRM records, users and configuration context.", auth: "OAuth 2.0", scopes: ["ZohoCRM.modules.READ", "ZohoCRM.settings.READ", "ZohoCRM.users.READ"], capabilities: ["read", "sync"], availability: "coming_soon", logoUrl: logo("zoho") },
   { id: "hubspot", name: "HubSpot", category: "CRM & Marketing", description: "CRM records, tickets, engagements and automation context.", auth: "OAuth 2.0", scopes: ["provider-managed"], capabilities: ["read", "sync"], availability: "coming_soon", logoUrl: logo("hubspot") },
   { id: "slack", name: "Slack", category: "Collaboration", description: "Channels, messages and workflow context.", auth: "OAuth 2.0", scopes: ["provider-managed"], capabilities: ["read", "sync"], availability: "available", logoUrl: logo("slack") },
   { id: "github", name: "GitHub", category: "DevOps", description: "Repositories, Actions and security context via GitHub App installation.", auth: "GitHub App", scopes: ["installation-selected-repositories"], capabilities: ["read", "sync"], availability: "available", logoUrl: logo("github") },
