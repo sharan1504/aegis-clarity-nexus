@@ -23,75 +23,37 @@ export interface CenOpsAiIntentResult {
 
 const hasAny = (text: string, terms: string[]) => terms.some((term) => text.includes(term));
 
+function isClearlyOutOfScope(text: string): boolean {
+  if (/^what is the capital of\b/.test(text)) return true;
+  if (/^write (me )?(a )?(poem|song|story)\b/.test(text)) return true;
+  if (/^(tell me )?(a )?joke\b/.test(text)) return true;
+  if (/\bweather\b/.test(text) && !/\b(cenops|platform|integration|agent)\b/.test(text)) return true;
+  if (/\b\d+(?:\s*[+\-*\/]\s*\d+)+\b/.test(text) && !/\b(cenops|platform|integration|agent)\b/.test(text)) return true;
+  return false;
+}
+
 export function classifyCenOpsIntent(message: string): CenOpsAiIntentResult {
   const text = message.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
-  if (hasAny(text, ["productivity agent", "what does the productivity agent", "what is the productivity agent", "explain the productivity agent", "productivity agent do"])) {
-    return { intent: "agent_explanation", confidence: 0.95, productQuestion: true, requiresLiveEvidence: false };
-  }
-  if (hasAny(text, ["productivity report", "generate report", "detailed report", "performance report", "productivity summary"])) {
-    return { intent: "productivity_report", confidence: 0.95, productQuestion: false, requiresLiveEvidence: true };
-  }
-  if (hasAny(text, ["productivity", "tickets handled", "cases handled", "work items handled", "throughput", "cycle time", "how many tickets", "how many cases", "performance this week", "performance this month", "last 3 months", "last 6 months", "last 12 months", "past 3 months", "past 6 months", "past year"])) {
-    return { intent: "productivity_analysis", confidence: 0.94, productQuestion: false, requiresLiveEvidence: true };
-  }
-  if (hasAny(text, ["approval", "permission", "audit", "governance", "read only", "approval gate"])) {
-    return { intent: "governance", confidence: 0.92, productQuestion: true, requiresLiveEvidence: hasAny(text, ["my", "current", "pending", "who approved", "approval status"]) };
-  }
-  if (hasAny(text, ["investigate", "investigation", "root cause", "why did", "what caused", "correlate"])) {
-    return { intent: "investigation", confidence: 0.94, productQuestion: false, requiresLiveEvidence: true };
-  }
-  if (hasAny(text, ["current incidents", "open incidents", "open findings", "current health", "what is happening", "show my", "latest findings", "live status", "right now"])) {
-    return { intent: "operational_analysis", confidence: 0.95, productQuestion: false, requiresLiveEvidence: true };
-  }
-  if (hasAny(text, ["configure agent", "configure the agent", "agent settings", "agent instructions", "agent binding", "bind agent"])) {
-    return { intent: "agent_configuration", confidence: 0.93, productQuestion: true, requiresLiveEvidence: false };
-  }
-  if (hasAny(text, ["agent", "what does the security agent", "what does the incident agent", "what does the license agent", "what does the cloud optimization agent", "knowledge assistant"])) {
-    return { intent: "agent_explanation", confidence: 0.93, productQuestion: true, requiresLiveEvidence: false };
-  }
-  if (hasAny(text, ["not connected", "isn't connected", "isnt connected", "connection status", "connected to", "connected?", "disconnected", "failed connection"])) {
-    return { intent: "integration_status", confidence: 0.94, productQuestion: true, requiresLiveEvidence: true };
-  }
-  if (hasAny(text, ["how to connect", "how do i connect", "guide me through", "setup", "set up", "configure integration", "connect jira", "connect aws", "connect genesys", "authentication"])) {
-    return { intent: "integration_how_to", confidence: 0.95, productQuestion: true, requiresLiveEvidence: false };
-  }
-  if (hasAny(text, ["integrations", "providers", "available integrations", "what can i connect", "supported providers", "integration catalog"])) {
-    return { intent: "integration_discovery", confidence: 0.96, productQuestion: true, requiresLiveEvidence: false };
-  }
-  if (hasAny(text, ["feature", "features", "capability", "capabilities", "what can it do", "what does cenops do", "how does cenops work"])) {
-    return { intent: "product_feature", confidence: 0.9, productQuestion: true, requiresLiveEvidence: false };
-  }
+  if (hasAny(text, ["productivity agent", "what does the productivity agent", "what is the productivity agent", "explain the productivity agent", "productivity agent do"])) return { intent: "agent_explanation", confidence: 0.95, productQuestion: true, requiresLiveEvidence: false };
+  if (hasAny(text, ["productivity report", "generate report", "detailed report", "performance report", "productivity summary"])) return { intent: "productivity_report", confidence: 0.95, productQuestion: false, requiresLiveEvidence: true };
+  if (hasAny(text, ["productivity", "tickets handled", "cases handled", "work items handled", "throughput", "cycle time", "how many tickets", "how many cases", "performance this week", "performance this month", "last 3 months", "last 6 months", "last 12 months", "past 3 months", "past 6 months", "past year"])) return { intent: "productivity_analysis", confidence: 0.94, productQuestion: false, requiresLiveEvidence: true };
+  if (hasAny(text, ["approval", "permission", "audit", "governance", "read only", "approval gate"])) return { intent: "governance", confidence: 0.92, productQuestion: true, requiresLiveEvidence: hasAny(text, ["my", "current", "pending", "who approved", "approval status"]) };
+  if (hasAny(text, ["investigate", "investigation", "root cause", "why did", "what caused", "correlate"])) return { intent: "investigation", confidence: 0.94, productQuestion: false, requiresLiveEvidence: true };
+  if (hasAny(text, ["current incidents", "open incidents", "open findings", "current health", "what is happening", "show my", "latest findings", "live status", "right now"])) return { intent: "operational_analysis", confidence: 0.95, productQuestion: false, requiresLiveEvidence: true };
+  if (hasAny(text, ["configure agent", "configure the agent", "agent settings", "agent instructions", "agent binding", "bind agent"])) return { intent: "agent_configuration", confidence: 0.93, productQuestion: true, requiresLiveEvidence: false };
+  if (hasAny(text, ["agent", "what does the security agent", "what does the incident agent", "what does the license agent", "what does the cloud optimization agent", "knowledge assistant"])) return { intent: "agent_explanation", confidence: 0.93, productQuestion: true, requiresLiveEvidence: false };
+  if (hasAny(text, ["not connected", "isn't connected", "isnt connected", "connection status", "connected to", "connected?", "disconnected", "failed connection"])) return { intent: "integration_status", confidence: 0.94, productQuestion: true, requiresLiveEvidence: true };
+  if (hasAny(text, ["how to connect", "how do i connect", "guide me through", "setup", "set up", "configure integration", "connect jira", "connect aws", "connect genesys", "authentication"])) return { intent: "integration_how_to", confidence: 0.95, productQuestion: true, requiresLiveEvidence: false };
+  if (hasAny(text, ["integrations", "providers", "available integrations", "what can i connect", "supported providers", "integration catalog"])) return { intent: "integration_discovery", confidence: 0.96, productQuestion: true, requiresLiveEvidence: false };
+  if (hasAny(text, ["feature", "features", "capability", "capabilities", "what can it do", "what does cenops do", "how does cenops work"])) return { intent: "product_feature", confidence: 0.9, productQuestion: true, requiresLiveEvidence: false };
+  if (hasAny(text, ["tell me more", "what is this platform", "what is this platform about", "what this platform is about", "what does this platform do", "what does the platform do", "what is cenops", "what is cenops about", "what does cenops do", "what is cenops used for", "what problem does cenops solve", "why does cenops exist", "why would i use cenops", "how does cenops help", "overview", "about this platform", "explain cenops", "explain the platform", "describe cenops", "describe the platform", "what is this"])) return { intent: "platform_overview", confidence: 0.98, productQuestion: true, requiresLiveEvidence: false };
 
-  // Keep platform-overview detection separate from feature detection so natural questions
-  // about the product are answered from CenOps product knowledge instead of being rejected.
-  if (hasAny(text, [
-    "tell me more",
-    "what is this platform",
-    "what is this platform about",
-    "what this platform is about",
-    "what does this platform do",
-    "what does the platform do",
-    "what is cenops",
-    "what is cenops about",
-    "what does cenops do",
-    "what is cenops used for",
-    "what problem does cenops solve",
-    "why does cenops exist",
-    "why would i use cenops",
-    "how does cenops help",
-    "overview",
-    "about this platform",
-    "explain cenops",
-    "explain the platform",
-    "describe cenops",
-    "describe the platform",
-    "what is this",
-  ])) {
-    return { intent: "platform_overview", confidence: 0.98, productQuestion: true, requiresLiveEvidence: false };
-  }
+  if (isClearlyOutOfScope(text)) return { intent: "out_of_scope", confidence: 0.99, productQuestion: true, requiresLiveEvidence: false };
 
-  // The existing Copilot path uses productQuestion as its legacy "no live evidence" gate.
-  // Keep it true here only to prevent provider evidence loading; the authoritative scope is intent=out_of_scope.
-  return { intent: "out_of_scope", confidence: 0.99, productQuestion: true, requiresLiveEvidence: false };
+  // Unknown is intentionally different from out_of_scope. Ambiguous requests are
+  // allowed to reach the model with CenOps product knowledge so the model can
+  // answer, clarify, or decline based on the actual request instead of the
+  // deterministic router silently converting uncertainty into rejection.
+  return { intent: "unknown", confidence: 0.35, productQuestion: true, requiresLiveEvidence: false };
 }
