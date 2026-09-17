@@ -1,8 +1,7 @@
 import { useMemo, useState } from "react";
-import { ArrowLeft, CheckCircle2, Loader2, ShieldCheck, XCircle } from "lucide-react";
+import { ArrowLeft, Loader2, ShieldCheck, XCircle } from "lucide-react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { PageHeader } from "@/components/layout/AppLayout";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,26 +12,14 @@ import { startJiraOAuth, startSalesforceOAuth, startServiceNowOAuth, startSlackO
 import { startSapOAuth } from "@/lib/integrations/sap.functions";
 import { startCohesityConnection, startDatadogConnection, startDefenderConnection, startMongoDbConnection, startNewRelicConnection, startOktaConnection, startOracleConnection, startPagerDutyConnection, startRubrikConnection, startSplunkConnection, startVeeamConnection, startWorkdayConnection } from "@/lib/integrations/provider-credential.functions";
 import { DEFAULT_GENESYS_REGION, GENESYS_REGIONS } from "@/lib/genesys/errors";
-import { ProviderDetailsHeader, CapabilityList, ProviderLogo, ProviderAvailabilityBadge } from "@/lib/integrations/integrations-catalog-ui";
-import type { ProviderDefinition } from "@/lib/integrations/provider-registry";
+import { ProviderDetailsHeader, CapabilityList, ProviderLogo } from "@/lib/integrations/integrations-catalog-ui";
 import { pageHead } from "@/lib/seo";
-
-export const Route = createFileRoute("/_app/integrations/catalog/$providerId")({
-  validateSearch: (search: Record<string, unknown>) => ({ mode: search.mode === "connect" ? "connect" as const : "details" as const }),
-  head: ({ params }) => pageHead({ path: `/integrations/catalog/${params.providerId}`, title: "Integration — CenOps", description: "Review provider details and connect an enterprise integration." }),
-  component: ProviderDetailsPage,
-});
 
 type Catalog = Awaited<ReturnType<typeof getProviderCatalog>>;
 type Provider = Catalog["providers"][number];
 type FormState = Record<string, string | undefined> & { integrationId?: string; provider: string; displayName: string; environment: string };
-
 const EMPTY: FormState = { provider: "", displayName: "", environment: "Production", clientId: "", clientSecret: "", baseUrl: "", accessToken: "", apiKey: "", appKey: "", apiToken: "", region: DEFAULT_GENESYS_REGION, roleArn: "", externalId: "", trustPolicy: "", tenant: "", tenantAlias: "", customerTenantId: "", projectId: "", clientEmail: "", privateKey: "", delegatedAdminEmail: "", accountsUrl: "https://accounts.zoho.com", orgUrl: "", subdomain: "", accessTokenUri: "", identityDomainUrl: "", scope: "", accountUrl: "", username: "", password: "", token: "", site: "datadoghq.com", authorizationUrl: "", tokenUrl: "" };
-
-function Field({ label, value, onChange, type = "text", placeholder }: { label: string; value?: string; onChange: (value: string) => void; type?: string; placeholder?: string }) {
-  return <div><label className="mb-1 block text-xs font-medium text-muted-foreground">{label}</label><Input type={type} value={value ?? ""} placeholder={placeholder ?? label} onChange={(e) => onChange(e.target.value)} autoComplete={type === "password" ? "new-password" : "off"} /></div>;
-}
-
+function Field({ label, value, onChange, type = "text", placeholder }: { label: string; value?: string; onChange: (value: string) => void; type?: string; placeholder?: string }) { return <div><label className="mb-1 block text-xs font-medium text-muted-foreground">{label}</label><Input type={type} value={value ?? ""} placeholder={placeholder ?? label} onChange={(e) => onChange(e.target.value)} autoComplete={type === "password" ? "new-password" : "off"} /></div>; }
 function ProviderForm({ target, form, set }: { target: Provider; form: FormState; set: (key: string, value: string) => void }) {
   const id = target.id;
   if (id === "github") return <div className="rounded-md border p-4 text-sm">CenOps will open GitHub to install the App and select repositories. No GitHub token is entered here.</div>;
@@ -63,13 +50,10 @@ function ProviderForm({ target, form, set }: { target: Provider; form: FormState
   if (id === "mongodb") return <div className="space-y-3"><Field label="MongoDB Atlas account URL" value={form.accountUrl} onChange={(v) => set("accountUrl", v)} /><Field label="OAuth Client ID" value={form.clientId} onChange={(v) => set("clientId", v)} /><Field label="OAuth Client Secret" type="password" value={form.clientSecret} onChange={(v) => set("clientSecret", v)} /></div>;
   return <div className="rounded-md border p-4 text-sm text-muted-foreground">Provider-specific credentials are not exposed in this flow yet. Use the setup guide for prerequisites.</div>;
 }
-
 function ProviderConnectPanel({ target }: { target: Provider }) {
   const navigate = useNavigate();
   const [form, setForm] = useState<FormState>({ ...EMPTY, provider: target.id });
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null); const [success, setSuccess] = useState(false);
   const set = (key: string, value: string) => setForm((current) => ({ ...current, [key]: value }));
   const submit = async () => {
     setBusy(true); setError(null); setSuccess(false);
@@ -88,14 +72,16 @@ function ProviderConnectPanel({ target }: { target: Provider }) {
   };
   return <Card><CardHeader><CardTitle className="flex items-center gap-3"><ProviderLogo provider={target} className="h-9 w-9" />Connect {target.name}</CardTitle><p className="text-sm text-muted-foreground">This provider is fixed for this step. Use Back to catalog to choose another provider.</p></CardHeader><CardContent className="space-y-5"><div className="grid gap-4 sm:grid-cols-2"><Field label="Integration name" value={form.displayName} onChange={(v) => set("displayName", v)} placeholder={`${target.name} production`} /><div><label className="mb-1 block text-xs font-medium text-muted-foreground">Environment</label><select value={form.environment} onChange={(e) => set("environment", e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"><option>Production</option><option>Staging</option><option>Development</option></select></div></div><ProviderForm target={target} form={form} set={set} />{error && <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}{success && <div className="rounded-md border border-success/30 bg-success/10 p-3 text-sm text-success">Connection accepted by the existing provider flow. Final Connected state will only appear after the evidence-derived health and sync checks succeed.</div>}{busy && <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Working…</div>}<div className="flex flex-wrap gap-2"><Button onClick={submit} disabled={busy || target.availability !== "available"}>{busy ? "Connecting…" : target.id === "github" ? "Authorize GitHub App" : target.id === "genesys" || ["jira", "salesforce", "slack", "servicenow", "hubspot", "zendesk", "gitlab", "freshworks", "zoho", "confluence", "snowflake", "crowdstrike", "gcp", "google-workspace", "sap"].includes(target.id) ? `Authorize ${target.name}` : "Connect & verify"}</Button><Button asChild variant="outline"><Link to="/help" search={{ topic: `provider-${target.id}` }}>Setup guide</Link></Button><Button type="button" variant="ghost" onClick={() => navigate({ to: "/integrations/catalog" })}>Back</Button></div></CardContent></Card>;
 }
-
 function ProviderDetailsPage() {
-  const { providerId } = Route.useParams();
-  const { mode } = Route.useSearch();
-  const { providers } = Route.useLoaderData();
+  const { providerId } = Route.useParams(); const { mode } = Route.useSearch(); const { providers } = Route.useLoaderData();
   const provider = useMemo(() => providers.find((item) => item.id === providerId), [providers, providerId]);
   if (!provider) return <Card><CardContent className="py-12 text-center"><XCircle className="mx-auto h-8 w-8 text-destructive" /><p className="mt-3 font-medium">Provider not found</p><Button asChild className="mt-4"><Link to="/integrations/catalog">Back to catalog</Link></Button></CardContent></Card>;
-  return <div className="space-y-6"><PageHeader title={provider.name} description="Review provider requirements, capabilities, and connection details." /><ProviderDetailsHeader provider={provider} /><div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]"><div className="space-y-6"><Card><CardHeader><CardTitle>Capabilities</CardTitle></CardHeader><CardContent><div className="space-y-4"><CapabilityList provider={provider} /><div className="rounded-lg border bg-muted/30 p-4 text-sm"><div className="flex items-center gap-2 font-medium"><ShieldCheck className="h-4 w-4" />Contract status</div><p className="mt-1 text-muted-foreground">{provider.capabilities.includes("read") && provider.capabilities.includes("sync") ? "Provider is represented as read/sync capable in the registry. Actual Connected status remains evidence-derived." : "Provider is registry-only for this flow."}</p></div><div><h3 className="text-sm font-medium">Prerequisites</h3><ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground"><li>Tenant administrator or manager access in CenOps.</li><li>{provider.auth} credentials or authorization access for the provider.</li><li>Required provider-side scopes: {provider.scopes.join(", ")}.</li></ul></div></div></CardContent></Card></div><div className="space-y-4"><Card><CardHeader><CardTitle>{mode === "connect" ? "Install / connect" : "Ready to connect"}</CardTitle></CardHeader><CardContent><p className="text-sm text-muted-foreground">{provider.availability === "available" ? "Continue to the dedicated connection step. The provider cannot be switched mid-flow." : "This provider is currently marked coming soon and cannot be connected."}</p>{mode !== "connect" && <Button asChild className="mt-4 w-full" disabled={provider.availability !== "available"}>{provider.availability === "available" ? <Link to="/integrations/catalog/$providerId" params={{ providerId: provider.id }} search={{ mode: "connect" }}>Install / Connect</Link> : <span>Coming soon</span>}</Button>}</Card></div></div>{mode === "connect" && <ProviderConnectPanel target={provider} />}</div>;
+  return <div className="space-y-6"><PageHeader title={provider.name} description="Review provider requirements, capabilities, and connection details." /><ProviderDetailsHeader provider={provider} /><div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]"><div className="space-y-6"><Card><CardHeader><CardTitle>Capabilities</CardTitle></CardHeader><CardContent><div className="space-y-4"><CapabilityList provider={provider} /><div className="rounded-lg border bg-muted/30 p-4 text-sm"><div className="flex items-center gap-2 font-medium"><ShieldCheck className="h-4 w-4" />Contract status</div><p className="mt-1 text-muted-foreground">{provider.capabilities.includes("read") && provider.capabilities.includes("sync") ? "Provider is represented as read/sync capable in the registry. Actual Connected status remains evidence-derived." : "Provider is registry-only for this flow."}</p></div><div><h3 className="text-sm font-medium">Prerequisites</h3><ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground"><li>Tenant administrator or manager access in CenOps.</li><li>{provider.auth} credentials or authorization access for the provider.</li><li>Required provider-side scopes: {provider.scopes.join(", ")}.</li></ul></div></div></CardContent></Card></div><div className="space-y-4"><Card><CardHeader><CardTitle>{mode === "connect" ? "Install / connect" : "Ready to connect"}</CardTitle></CardHeader><CardContent><p className="text-sm text-muted-foreground">{provider.availability === "available" ? "Continue to the dedicated connection step. The provider cannot be switched mid-flow." : "This provider is currently marked coming soon and cannot be connected."}</p>{mode !== "connect" && <Button asChild className="mt-4 w-full" disabled={provider.availability !== "available"}>{provider.availability === "available" ? <Link to="/integrations/catalog/$providerId" params={{ providerId: provider.id }} search={{ mode: "connect" }}>Install / Connect</Link> : <span>Coming soon</span>}</Button>}</CardContent></Card></div></div>{mode === "connect" && <ProviderConnectPanel target={provider} />}</div>;
 }
 
-export const loader = async () => getProviderCatalog();
+export const Route = createFileRoute("/_app/integrations/catalog/$providerId")({
+  validateSearch: (search: Record<string, unknown>) => ({ mode: search.mode === "connect" ? "connect" as const : "details" as const }),
+  head: ({ params }) => pageHead({ path: `/integrations/catalog/${params.providerId}`, title: "Integration — CenOps", description: "Review provider details and connect an enterprise integration." }),
+  loader: async () => getProviderCatalog(),
+  component: ProviderDetailsPage,
+});
