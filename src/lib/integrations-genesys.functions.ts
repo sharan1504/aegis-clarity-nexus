@@ -3,6 +3,7 @@
 import crypto from "node:crypto";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertDedicatedProviderInstanceCapacity } from "./integrations/provider-instance-limit.server";
 
 export const getGenesysIntegration = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
   const store = await import("./genesys/store.server"); const connector = await import("./genesys/connector.server"); const summary = await import("./genesys/summary.server");
@@ -19,6 +20,7 @@ export const startGenesysOAuth = createServerFn({ method: "POST" }).middleware([
     const region = errors.normalizeGenesysRegion(data.region);
     const credentials = data.clientId && data.clientSecret ? { clientId: data.clientId, clientSecret: data.clientSecret } : connector.getClientCredentials();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await assertDedicatedProviderInstanceCapacity(supabaseAdmin, tenantId, "genesys", data.integrationId || undefined);
     let integrationId = data.integrationId || "";
     if (integrationId) {
       const { data: existing, error: lookupError } = await supabaseAdmin.from("integrations").select("id").eq("id", integrationId).eq("tenant_id", tenantId).eq("provider", "genesys").maybeSingle();
