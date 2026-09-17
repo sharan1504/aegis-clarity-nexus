@@ -23,6 +23,7 @@ import { Route as AppAuditRouteImport } from './routes/_app.audit'
 import { Route as AppChatRouteImport } from './routes/_app.chat'
 import { Route as AppGovernanceRouteImport } from './routes/_app.governance'
 import { Route as AppIntegrationsRouteImport } from './routes/_app.integrations'
+import { Route as AppIntegrationsIndexRouteImport } from './routes/_app.integrations.index'
 import { Route as AppIntegrationsCatalogRouteImport } from './routes/_app.integrations.catalog'
 import { Route as AppIntegrationsCatalogProviderIdRouteImport } from './routes/_app.integrations.catalog.$providerId'
 import { Route as AppInvestigationsRouteImport } from './routes/_app.investigations'
@@ -60,37 +61,12 @@ import { Route as IntegrationsWorkdayCallbackRouteImport } from './routes/integr
 import { Route as IntegrationsZendeskCallbackRouteImport } from './routes/integrations.zendesk.callback'
 import { Route as IntegrationsZohoCallbackRouteImport } from './routes/integrations.zoho.callback'
 
-const AppRoute = AppRouteImport.update({
-  id: '/_app',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const McpRoute = McpRouteImport.update({
-  id: '/mcp',
-  path: '/mcp',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
-  id: '/sitemap.xml',
-  path: '/sitemap.xml',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const Char91DotmcpChar93ListToolsRoute =
-  Char91DotmcpChar93ListToolsRouteImport.update({
-    id: '/.mcp/list-tools',
-    path: '/.mcp/list-tools',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const Char91DotwellKnownChar93OauthProtectedResourceRoute =
-  Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({
-    id: '/.well-known/oauth-protected-resource',
-    path: '/.well-known/oauth-protected-resource',
-    getParentRoute: () => rootRouteImport,
-  } as any)
+const AppRoute = AppRouteImport.update({ id: '/_app', getParentRoute: () => rootRouteImport } as any)
+const AuthRoute = AuthRouteImport.update({ id: '/auth', path: '/auth', getParentRoute: () => rootRouteImport } as any)
+const McpRoute = McpRouteImport.update({ id: '/mcp', path: '/mcp', getParentRoute: () => rootRouteImport } as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({ id: '/sitemap.xml', path: '/sitemap.xml', getParentRoute: () => rootRouteImport } as any)
+const Char91DotmcpChar93ListToolsRoute = Char91DotmcpChar93ListToolsRouteImport.update({ id: '/.mcp/list-tools', path: '/.mcp/list-tools', getParentRoute: () => rootRouteImport } as any)
+const Char91DotwellKnownChar93OauthProtectedResourceRoute = Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({ id: '/.well-known/oauth-protected-resource', path: '/.well-known/oauth-protected-resource', getParentRoute: () => rootRouteImport } as any)
 const AppIndexRoute = AppIndexRouteImport.update({ id: '/', path: '/', getParentRoute: () => AppRoute } as any)
 const AppAgenticStudioRoute = AppAgenticStudioRouteImport.update({ id: '/agentic-studio', path: '/agentic-studio', getParentRoute: () => AppRoute } as any)
 const AppAgentsRoute = AppAgentsRouteImport.update({ id: '/agents', path: '/agents', getParentRoute: () => AppRoute } as any)
@@ -99,8 +75,9 @@ const AppAuditRoute = AppAuditRouteImport.update({ id: '/audit', path: '/audit',
 const AppChatRoute = AppChatRouteImport.update({ id: '/chat', path: '/chat', getParentRoute: () => AppRoute } as any)
 const AppGovernanceRoute = AppGovernanceRouteImport.update({ id: '/governance', path: '/governance', getParentRoute: () => AppRoute } as any)
 const AppIntegrationsRoute = AppIntegrationsRouteImport.update({ id: '/integrations', path: '/integrations', getParentRoute: () => AppRoute } as any)
-const AppIntegrationsCatalogRoute = AppIntegrationsCatalogRouteImport.update({ id: '/integrations/catalog', path: '/integrations/catalog', getParentRoute: () => AppRoute } as any)
-const AppIntegrationsCatalogProviderIdRoute = AppIntegrationsCatalogProviderIdRouteImport.update({ id: '/integrations/catalog/$providerId', path: '/integrations/catalog/$providerId', getParentRoute: () => AppRoute } as any)
+const AppIntegrationsIndexRoute = AppIntegrationsIndexRouteImport.update({ id: '/integrations/', path: '/', getParentRoute: () => AppIntegrationsRoute } as any)
+const AppIntegrationsCatalogRoute = AppIntegrationsCatalogRouteImport.update({ id: '/integrations/catalog', path: '/catalog', getParentRoute: () => AppIntegrationsRoute } as any)
+const AppIntegrationsCatalogProviderIdRoute = AppIntegrationsCatalogProviderIdRouteImport.update({ id: '/integrations/catalog/$providerId', path: '/catalog/$providerId', getParentRoute: () => AppIntegrationsRoute } as any)
 const AppInvestigationsRoute = AppInvestigationsRouteImport.update({ id: '/investigations', path: '/investigations', getParentRoute: () => AppRoute } as any)
 const AppMarketplaceRoute = AppMarketplaceRouteImport.update({ id: '/marketplace', path: '/marketplace', getParentRoute: () => AppRoute } as any)
 const AppOperationalConsoleRoute = AppOperationalConsoleRouteImport.update({ id: '/operational-console', path: '/operational-console', getParentRoute: () => AppRoute } as any)
@@ -149,7 +126,7 @@ export interface FileRoutesByFullPath {
   '/audit': typeof AppAuditRoute
   '/chat': typeof AppChatRoute
   '/governance': typeof AppGovernanceRoute
-  '/integrations': typeof AppIntegrationsRoute
+  '/integrations': typeof AppIntegrationsIndexRoute
   '/integrations/catalog': typeof AppIntegrationsCatalogRoute
   '/integrations/catalog/$providerId': typeof AppIntegrationsCatalogProviderIdRoute
   '/investigations': typeof AppInvestigationsRoute
@@ -199,7 +176,7 @@ export interface FileRoutesByTo {
   '/audit': typeof AppAuditRoute
   '/chat': typeof AppChatRoute
   '/governance': typeof AppGovernanceRoute
-  '/integrations': typeof AppIntegrationsRoute
+  '/integrations': typeof AppIntegrationsIndexRoute
   '/integrations/catalog': typeof AppIntegrationsCatalogRoute
   '/integrations/catalog/$providerId': typeof AppIntegrationsCatalogProviderIdRoute
   '/investigations': typeof AppInvestigationsRoute
@@ -252,7 +229,8 @@ export interface FileRoutesById {
   '/_app/audit': typeof AppAuditRoute
   '/_app/chat': typeof AppChatRoute
   '/_app/governance': typeof AppGovernanceRoute
-  '/_app/integrations': typeof AppIntegrationsRoute
+  '/_app/integrations': typeof AppIntegrationsRouteWithChildren
+  '/_app/integrations/': typeof AppIntegrationsIndexRoute
   '/_app/integrations/catalog': typeof AppIntegrationsCatalogRoute
   '/_app/integrations/catalog/$providerId': typeof AppIntegrationsCatalogProviderIdRoute
   '/_app/investigations': typeof AppInvestigationsRoute
@@ -292,54 +270,53 @@ export interface FileRoutesById {
   '/_app/approvals/': typeof AppApprovalsIndexRoute
 }
 
-const routeTree = rootRouteImport
-  .addChildren({
-    AppRoute: AppRoute.addChildren({
-      AppIndexRoute,
-      AppAgenticStudioRoute: AppAgenticStudioRoute.addChildren({ AppAgenticStudioGovernanceRoute }),
-      AppAgentsRoute,
-      AppAnalyticsRoute,
-      AppAuditRoute,
-      AppChatRoute,
-      AppGovernanceRoute,
-      AppIntegrationsRoute: AppIntegrationsRoute.addChildren({ AppIntegrationsCatalogRoute: AppIntegrationsCatalogRoute.addChildren({ AppIntegrationsCatalogProviderIdRoute }) }),
-      AppInvestigationsRoute,
-      AppMarketplaceRoute,
-      AppOperationalConsoleRoute,
-      AppProductivityRoute,
-      AppReportsRoute,
-      AppSettingsRoute: AppSettingsRoute.addChildren({ AppSettingsItsmRoutingRoute }),
-      AppUsersRoute,
-      AppAgentEvaluationRunIdRoute,
-      AppAgentRunRunIdRoute,
-      AppAgentAgentKeyRoute,
-      AppApprovalsIndexRoute,
-      AppApprovalsIdRoute,
-    }),
-    AuthRoute: AuthRoute.addChildren({ AuthChangePasswordRoute }),
-    McpRoute,
-    SitemapDotxmlRoute,
-    Char91DotmcpChar93ListToolsRoute,
-    Char91DotwellKnownChar93OauthProtectedResourceRoute,
-    ResourcesWhatIsAiopsRoute,
-    DotlovableOauthConsentRoute,
-    Char91DotmcpChar93InvokeToolToolRoute,
-    ApiInternalProviderSyncRoute,
-    IntegrationsConfluenceCallbackRoute,
-    IntegrationsFreshworksCallbackRoute,
-    IntegrationsGenesysCallbackRoute,
-    IntegrationsGithubSetupRoute,
-    IntegrationsGitlabCallbackRoute,
-    IntegrationsHubspotCallbackRoute,
-    IntegrationsJiraCallbackRoute,
-    IntegrationsSalesforceCallbackRoute,
-    IntegrationsSapCallbackRoute,
-    IntegrationsServicenowCallbackRoute,
-    IntegrationsSlackCallbackRoute,
-    IntegrationsSnowflakeCallbackRoute,
-    IntegrationsWorkdayCallbackRoute,
-    IntegrationsZendeskCallbackRoute,
-    IntegrationsZohoCallbackRoute,
-  })
+const routeTree = rootRouteImport.addChildren({
+  AppRoute: AppRoute.addChildren({
+    AppIndexRoute,
+    AppAgenticStudioRoute: AppAgenticStudioRoute.addChildren({ AppAgenticStudioGovernanceRoute }),
+    AppAgentsRoute,
+    AppAnalyticsRoute,
+    AppAuditRoute,
+    AppChatRoute,
+    AppGovernanceRoute,
+    AppIntegrationsRoute: AppIntegrationsRoute.addChildren({ AppIntegrationsIndexRoute, AppIntegrationsCatalogRoute, AppIntegrationsCatalogProviderIdRoute }),
+    AppInvestigationsRoute,
+    AppMarketplaceRoute,
+    AppOperationalConsoleRoute,
+    AppProductivityRoute,
+    AppReportsRoute,
+    AppSettingsRoute: AppSettingsRoute.addChildren({ AppSettingsItsmRoutingRoute }),
+    AppUsersRoute,
+    AppAgentEvaluationRunIdRoute,
+    AppAgentRunRunIdRoute,
+    AppAgentAgentKeyRoute,
+    AppApprovalsIndexRoute,
+    AppApprovalsIdRoute,
+  }),
+  AuthRoute: AuthRoute.addChildren({ AuthChangePasswordRoute }),
+  McpRoute,
+  SitemapDotxmlRoute,
+  Char91DotmcpChar93ListToolsRoute,
+  Char91DotwellKnownChar93OauthProtectedResourceRoute,
+  ResourcesWhatIsAiopsRoute,
+  DotlovableOauthConsentRoute,
+  Char91DotmcpChar93InvokeToolToolRoute,
+  ApiInternalProviderSyncRoute,
+  IntegrationsConfluenceCallbackRoute,
+  IntegrationsFreshworksCallbackRoute,
+  IntegrationsGenesysCallbackRoute,
+  IntegrationsGithubSetupRoute,
+  IntegrationsGitlabCallbackRoute,
+  IntegrationsHubspotCallbackRoute,
+  IntegrationsJiraCallbackRoute,
+  IntegrationsSalesforceCallbackRoute,
+  IntegrationsSapCallbackRoute,
+  IntegrationsServicenowCallbackRoute,
+  IntegrationsSlackCallbackRoute,
+  IntegrationsSnowflakeCallbackRoute,
+  IntegrationsWorkdayCallbackRoute,
+  IntegrationsZendeskCallbackRoute,
+  IntegrationsZohoCallbackRoute,
+})
 
 export const routeTree = routeTree
