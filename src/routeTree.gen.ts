@@ -23,6 +23,8 @@ import { Route as AppAuditRouteImport } from './routes/_app.audit'
 import { Route as AppChatRouteImport } from './routes/_app.chat'
 import { Route as AppGovernanceRouteImport } from './routes/_app.governance'
 import { Route as AppIntegrationsRouteImport } from './routes/_app.integrations'
+import { Route as AppIntegrationsCatalogRouteImport } from './routes/_app.integrations.catalog'
+import { Route as AppIntegrationsCatalogProviderIdRouteImport } from './routes/_app.integrations.catalog.$providerId'
 import { Route as AppInvestigationsRouteImport } from './routes/_app.investigations'
 import { Route as AppMarketplaceRouteImport } from './routes/_app.marketplace'
 import { Route as AppOperationalConsoleRouteImport } from './routes/_app.operational-console'
@@ -89,231 +91,50 @@ const Char91DotwellKnownChar93OauthProtectedResourceRoute =
     path: '/.well-known/oauth-protected-resource',
     getParentRoute: () => rootRouteImport,
   } as any)
-const AppIndexRoute = AppIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppAgenticStudioRoute = AppAgenticStudioRouteImport.update({
-  id: '/agentic-studio',
-  path: '/agentic-studio',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppAgentsRoute = AppAgentsRouteImport.update({
-  id: '/agents',
-  path: '/agents',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppAnalyticsRoute = AppAnalyticsRouteImport.update({
-  id: '/analytics',
-  path: '/analytics',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppAuditRoute = AppAuditRouteImport.update({
-  id: '/audit',
-  path: '/audit',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppChatRoute = AppChatRouteImport.update({
-  id: '/chat',
-  path: '/chat',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppGovernanceRoute = AppGovernanceRouteImport.update({
-  id: '/governance',
-  path: '/governance',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppIntegrationsRoute = AppIntegrationsRouteImport.update({
-  id: '/integrations',
-  path: '/integrations',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppInvestigationsRoute = AppInvestigationsRouteImport.update({
-  id: '/investigations',
-  path: '/investigations',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppMarketplaceRoute = AppMarketplaceRouteImport.update({
-  id: '/marketplace',
-  path: '/marketplace',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppOperationalConsoleRoute = AppOperationalConsoleRouteImport.update({
-  id: '/operational-console',
-  path: '/operational-console',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppProductivityRoute = AppProductivityRouteImport.update({
-  id: '/productivity',
-  path: '/productivity',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppReportsRoute = AppReportsRouteImport.update({
-  id: '/reports',
-  path: '/reports',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppSettingsRoute = AppSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppUsersRoute = AppUsersRouteImport.update({
-  id: '/users',
-  path: '/users',
-  getParentRoute: () => AppRoute,
-} as any)
-const AuthChangePasswordRoute = AuthChangePasswordRouteImport.update({
-  id: '/change-password',
-  path: '/change-password',
-  getParentRoute: () => AuthRoute,
-} as any)
-const ResourcesWhatIsAiopsRoute = ResourcesWhatIsAiopsRouteImport.update({
-  id: '/resources/what-is-aiops',
-  path: '/resources/what-is-aiops',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
-  id: '/.lovable/oauth/consent',
-  path: '/.lovable/oauth/consent',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const Char91DotmcpChar93InvokeToolToolRoute =
-  Char91DotmcpChar93InvokeToolToolRouteImport.update({
-    id: '/.mcp/invoke-tool/$tool',
-    path: '/.mcp/invoke-tool/$tool',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const AppAgentEvaluationRunIdRoute = AppAgentEvaluationRunIdRouteImport.update({
-  id: '/agent-evaluation/$runId',
-  path: '/agent-evaluation/$runId',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppAgentRunRunIdRoute = AppAgentRunRunIdRouteImport.update({
-  id: '/agent-run/$runId',
-  path: '/agent-run/$runId',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppAgentAgentKeyRoute = AppAgentAgentKeyRouteImport.update({
-  id: '/agent/$agentKey',
-  path: '/agent/$agentKey',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppAgenticStudioGovernanceRoute =
-  AppAgenticStudioGovernanceRouteImport.update({
-    id: '/governance',
-    path: '/governance',
-    getParentRoute: () => AppAgenticStudioRoute,
-  } as any)
-const AppApprovalsIndexRoute = AppApprovalsIndexRouteImport.update({
-  id: '/approvals/',
-  path: '/approvals/',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppApprovalsIdRoute = AppApprovalsIdRouteImport.update({
-  id: '/approvals/$id',
-  path: '/approvals/$id',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppSettingsItsmRoutingRoute = AppSettingsItsmRoutingRouteImport.update({
-  id: '/itsm-routing',
-  path: '/itsm-routing',
-  getParentRoute: () => AppSettingsRoute,
-} as any)
-const ApiInternalProviderSyncRoute = ApiInternalProviderSyncRouteImport.update({
-  id: '/api/internal/provider-sync',
-  path: '/api/internal/provider-sync',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const IntegrationsConfluenceCallbackRoute =
-  IntegrationsConfluenceCallbackRouteImport.update({
-    id: '/integrations/confluence/callback',
-    path: '/integrations/confluence/callback',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const IntegrationsFreshworksCallbackRoute =
-  IntegrationsFreshworksCallbackRouteImport.update({
-    id: '/integrations/freshworks/callback',
-    path: '/integrations/freshworks/callback',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const IntegrationsGenesysCallbackRoute =
-  IntegrationsGenesysCallbackRouteImport.update({
-    id: '/integrations/genesys/callback',
-    path: '/integrations/genesys/callback',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const IntegrationsGithubSetupRoute = IntegrationsGithubSetupRouteImport.update({
-  id: '/integrations/github/setup',
-  path: '/integrations/github/setup',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const IntegrationsGitlabCallbackRoute =
-  IntegrationsGitlabCallbackRouteImport.update({
-    id: '/integrations/gitlab/callback',
-    path: '/integrations/gitlab/callback',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const IntegrationsHubspotCallbackRoute =
-  IntegrationsHubspotCallbackRouteImport.update({
-    id: '/integrations/hubspot/callback',
-    path: '/integrations/hubspot/callback',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const IntegrationsJiraCallbackRoute =
-  IntegrationsJiraCallbackRouteImport.update({
-    id: '/integrations/jira/callback',
-    path: '/integrations/jira/callback',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const IntegrationsSalesforceCallbackRoute =
-  IntegrationsSalesforceCallbackRouteImport.update({
-    id: '/integrations/salesforce/callback',
-    path: '/integrations/salesforce/callback',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const IntegrationsSapCallbackRoute = IntegrationsSapCallbackRouteImport.update({
-  id: '/integrations/sap/callback',
-  path: '/integrations/sap/callback',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const IntegrationsServicenowCallbackRoute =
-  IntegrationsServicenowCallbackRouteImport.update({
-    id: '/integrations/servicenow/callback',
-    path: '/integrations/servicenow/callback',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const IntegrationsSlackCallbackRoute =
-  IntegrationsSlackCallbackRouteImport.update({
-    id: '/integrations/slack/callback',
-    path: '/integrations/slack/callback',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const IntegrationsSnowflakeCallbackRoute =
-  IntegrationsSnowflakeCallbackRouteImport.update({
-    id: '/integrations/snowflake/callback',
-    path: '/integrations/snowflake/callback',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const IntegrationsWorkdayCallbackRoute =
-  IntegrationsWorkdayCallbackRouteImport.update({
-    id: '/integrations/workday/callback',
-    path: '/integrations/workday/callback',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const IntegrationsZendeskCallbackRoute =
-  IntegrationsZendeskCallbackRouteImport.update({
-    id: '/integrations/zendesk/callback',
-    path: '/integrations/zendesk/callback',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const IntegrationsZohoCallbackRoute =
-  IntegrationsZohoCallbackRouteImport.update({
-    id: '/integrations/zoho/callback',
-    path: '/integrations/zoho/callback',
-    getParentRoute: () => rootRouteImport,
-  } as any)
+const AppIndexRoute = AppIndexRouteImport.update({ id: '/', path: '/', getParentRoute: () => AppRoute } as any)
+const AppAgenticStudioRoute = AppAgenticStudioRouteImport.update({ id: '/agentic-studio', path: '/agentic-studio', getParentRoute: () => AppRoute } as any)
+const AppAgentsRoute = AppAgentsRouteImport.update({ id: '/agents', path: '/agents', getParentRoute: () => AppRoute } as any)
+const AppAnalyticsRoute = AppAnalyticsRouteImport.update({ id: '/analytics', path: '/analytics', getParentRoute: () => AppRoute } as any)
+const AppAuditRoute = AppAuditRouteImport.update({ id: '/audit', path: '/audit', getParentRoute: () => AppRoute } as any)
+const AppChatRoute = AppChatRouteImport.update({ id: '/chat', path: '/chat', getParentRoute: () => AppRoute } as any)
+const AppGovernanceRoute = AppGovernanceRouteImport.update({ id: '/governance', path: '/governance', getParentRoute: () => AppRoute } as any)
+const AppIntegrationsRoute = AppIntegrationsRouteImport.update({ id: '/integrations', path: '/integrations', getParentRoute: () => AppRoute } as any)
+const AppIntegrationsCatalogRoute = AppIntegrationsCatalogRouteImport.update({ id: '/integrations/catalog', path: '/integrations/catalog', getParentRoute: () => AppRoute } as any)
+const AppIntegrationsCatalogProviderIdRoute = AppIntegrationsCatalogProviderIdRouteImport.update({ id: '/integrations/catalog/$providerId', path: '/integrations/catalog/$providerId', getParentRoute: () => AppRoute } as any)
+const AppInvestigationsRoute = AppInvestigationsRouteImport.update({ id: '/investigations', path: '/investigations', getParentRoute: () => AppRoute } as any)
+const AppMarketplaceRoute = AppMarketplaceRouteImport.update({ id: '/marketplace', path: '/marketplace', getParentRoute: () => AppRoute } as any)
+const AppOperationalConsoleRoute = AppOperationalConsoleRouteImport.update({ id: '/operational-console', path: '/operational-console', getParentRoute: () => AppRoute } as any)
+const AppProductivityRoute = AppProductivityRouteImport.update({ id: '/productivity', path: '/productivity', getParentRoute: () => AppRoute } as any)
+const AppReportsRoute = AppReportsRouteImport.update({ id: '/reports', path: '/reports', getParentRoute: () => AppRoute } as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({ id: '/settings', path: '/settings', getParentRoute: () => AppRoute } as any)
+const AppUsersRoute = AppUsersRouteImport.update({ id: '/users', path: '/users', getParentRoute: () => AppRoute } as any)
+const AuthChangePasswordRoute = AuthChangePasswordRouteImport.update({ id: '/change-password', path: '/change-password', getParentRoute: () => AuthRoute } as any)
+const ResourcesWhatIsAiopsRoute = ResourcesWhatIsAiopsRouteImport.update({ id: '/resources/what-is-aiops', path: '/resources/what-is-aiops', getParentRoute: () => rootRouteImport } as any)
+const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({ id: '/.lovable/oauth/consent', path: '/.lovable/oauth/consent', getParentRoute: () => rootRouteImport } as any)
+const Char91DotmcpChar93InvokeToolToolRoute = Char91DotmcpChar93InvokeToolToolRouteImport.update({ id: '/.mcp/invoke-tool/$tool', path: '/.mcp/invoke-tool/$tool', getParentRoute: () => rootRouteImport } as any)
+const AppAgentEvaluationRunIdRoute = AppAgentEvaluationRunIdRouteImport.update({ id: '/agent-evaluation/$runId', path: '/agent-evaluation/$runId', getParentRoute: () => AppRoute } as any)
+const AppAgentRunRunIdRoute = AppAgentRunRunIdRouteImport.update({ id: '/agent-run/$runId', path: '/agent-run/$runId', getParentRoute: () => AppRoute } as any)
+const AppAgentAgentKeyRoute = AppAgentAgentKeyRouteImport.update({ id: '/agent/$agentKey', path: '/agent/$agentKey', getParentRoute: () => AppRoute } as any)
+const AppAgenticStudioGovernanceRoute = AppAgenticStudioGovernanceRouteImport.update({ id: '/governance', path: '/governance', getParentRoute: () => AppAgenticStudioRoute } as any)
+const AppApprovalsIndexRoute = AppApprovalsIndexRouteImport.update({ id: '/approvals/', path: '/approvals/', getParentRoute: () => AppRoute } as any)
+const AppApprovalsIdRoute = AppApprovalsIdRouteImport.update({ id: '/approvals/$id', path: '/approvals/$id', getParentRoute: () => AppRoute } as any)
+const AppSettingsItsmRoutingRoute = AppSettingsItsmRoutingRouteImport.update({ id: '/itsm-routing', path: '/itsm-routing', getParentRoute: () => AppSettingsRoute } as any)
+const ApiInternalProviderSyncRoute = ApiInternalProviderSyncRouteImport.update({ id: '/api/internal/provider-sync', path: '/api/internal/provider-sync', getParentRoute: () => rootRouteImport } as any)
+const IntegrationsConfluenceCallbackRoute = IntegrationsConfluenceCallbackRouteImport.update({ id: '/integrations/confluence/callback', path: '/integrations/confluence/callback', getParentRoute: () => rootRouteImport } as any)
+const IntegrationsFreshworksCallbackRoute = IntegrationsFreshworksCallbackRouteImport.update({ id: '/integrations/freshworks/callback', path: '/integrations/freshworks/callback', getParentRoute: () => rootRouteImport } as any)
+const IntegrationsGenesysCallbackRoute = IntegrationsGenesysCallbackRouteImport.update({ id: '/integrations/genesys/callback', path: '/integrations/genesys/callback', getParentRoute: () => rootRouteImport } as any)
+const IntegrationsGithubSetupRoute = IntegrationsGithubSetupRouteImport.update({ id: '/integrations/github/setup', path: '/integrations/github/setup', getParentRoute: () => rootRouteImport } as any)
+const IntegrationsGitlabCallbackRoute = IntegrationsGitlabCallbackRouteImport.update({ id: '/integrations/gitlab/callback', path: '/integrations/gitlab/callback', getParentRoute: () => rootRouteImport } as any)
+const IntegrationsHubspotCallbackRoute = IntegrationsHubspotCallbackRouteImport.update({ id: '/integrations/hubspot/callback', path: '/integrations/hubspot/callback', getParentRoute: () => rootRouteImport } as any)
+const IntegrationsJiraCallbackRoute = IntegrationsJiraCallbackRouteImport.update({ id: '/integrations/jira/callback', path: '/integrations/jira/callback', getParentRoute: () => rootRouteImport } as any)
+const IntegrationsSalesforceCallbackRoute = IntegrationsSalesforceCallbackRouteImport.update({ id: '/integrations/salesforce/callback', path: '/integrations/salesforce/callback', getParentRoute: () => rootRouteImport } as any)
+const IntegrationsSapCallbackRoute = IntegrationsSapCallbackRouteImport.update({ id: '/integrations/sap/callback', path: '/integrations/sap/callback', getParentRoute: () => rootRouteImport } as any)
+const IntegrationsServicenowCallbackRoute = IntegrationsServicenowCallbackRouteImport.update({ id: '/integrations/servicenow/callback', path: '/integrations/servicenow/callback', getParentRoute: () => rootRouteImport } as any)
+const IntegrationsSlackCallbackRoute = IntegrationsSlackCallbackRouteImport.update({ id: '/integrations/slack/callback', path: '/integrations/slack/callback', getParentRoute: () => rootRouteImport } as any)
+const IntegrationsSnowflakeCallbackRoute = IntegrationsSnowflakeCallbackRouteImport.update({ id: '/integrations/snowflake/callback', path: '/integrations/snowflake/callback', getParentRoute: () => rootRouteImport } as any)
+const IntegrationsWorkdayCallbackRoute = IntegrationsWorkdayCallbackRouteImport.update({ id: '/integrations/workday/callback', path: '/integrations/workday/callback', getParentRoute: () => rootRouteImport } as any)
+const IntegrationsZendeskCallbackRoute = IntegrationsZendeskCallbackRouteImport.update({ id: '/integrations/zendesk/callback', path: '/integrations/zendesk/callback', getParentRoute: () => rootRouteImport } as any)
+const IntegrationsZohoCallbackRoute = IntegrationsZohoCallbackRouteImport.update({ id: '/integrations/zoho/callback', path: '/integrations/zoho/callback', getParentRoute: () => rootRouteImport } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -329,6 +150,8 @@ export interface FileRoutesByFullPath {
   '/chat': typeof AppChatRoute
   '/governance': typeof AppGovernanceRoute
   '/integrations': typeof AppIntegrationsRoute
+  '/integrations/catalog': typeof AppIntegrationsCatalogRoute
+  '/integrations/catalog/$providerId': typeof AppIntegrationsCatalogProviderIdRoute
   '/investigations': typeof AppInvestigationsRoute
   '/marketplace': typeof AppMarketplaceRoute
   '/operational-console': typeof AppOperationalConsoleRoute
@@ -377,6 +200,8 @@ export interface FileRoutesByTo {
   '/chat': typeof AppChatRoute
   '/governance': typeof AppGovernanceRoute
   '/integrations': typeof AppIntegrationsRoute
+  '/integrations/catalog': typeof AppIntegrationsCatalogRoute
+  '/integrations/catalog/$providerId': typeof AppIntegrationsCatalogProviderIdRoute
   '/investigations': typeof AppInvestigationsRoute
   '/marketplace': typeof AppMarketplaceRoute
   '/operational-console': typeof AppOperationalConsoleRoute
@@ -419,7 +244,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRouteWithChildren
   '/mcp': typeof McpRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
+  '/.mcp/list-tools': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/_app/agentic-studio': typeof AppAgenticStudioRouteWithChildren
   '/_app/agents': typeof AppAgentsRoute
@@ -428,6 +253,8 @@ export interface FileRoutesById {
   '/_app/chat': typeof AppChatRoute
   '/_app/governance': typeof AppGovernanceRoute
   '/_app/integrations': typeof AppIntegrationsRoute
+  '/_app/integrations/catalog': typeof AppIntegrationsCatalogRoute
+  '/_app/integrations/catalog/$providerId': typeof AppIntegrationsCatalogProviderIdRoute
   '/_app/investigations': typeof AppInvestigationsRoute
   '/_app/marketplace': typeof AppMarketplaceRoute
   '/_app/operational-console': typeof AppOperationalConsoleRoute
@@ -464,645 +291,55 @@ export interface FileRoutesById {
   '/integrations/zoho/callback': typeof IntegrationsZohoCallbackRoute
   '/_app/approvals/': typeof AppApprovalsIndexRoute
 }
-export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/auth'
-    | '/mcp'
-    | '/sitemap.xml'
-    | '/.mcp/list-tools'
-    | '/.well-known/oauth-protected-resource'
-    | '/agentic-studio'
-    | '/agents'
-    | '/analytics'
-    | '/audit'
-    | '/chat'
-    | '/governance'
-    | '/integrations'
-    | '/investigations'
-    | '/marketplace'
-    | '/operational-console'
-    | '/productivity'
-    | '/reports'
-    | '/settings'
-    | '/users'
-    | '/auth/change-password'
-    | '/resources/what-is-aiops'
-    | '/.lovable/oauth/consent'
-    | '/.mcp/invoke-tool/$tool'
-    | '/agent-evaluation/$runId'
-    | '/agent-run/$runId'
-    | '/agent/$agentKey'
-    | '/agentic-studio/governance'
-    | '/approvals/$id'
-    | '/settings/itsm-routing'
-    | '/api/internal/provider-sync'
-    | '/integrations/confluence/callback'
-    | '/integrations/freshworks/callback'
-    | '/integrations/genesys/callback'
-    | '/integrations/github/setup'
-    | '/integrations/gitlab/callback'
-    | '/integrations/hubspot/callback'
-    | '/integrations/jira/callback'
-    | '/integrations/salesforce/callback'
-    | '/integrations/sap/callback'
-    | '/integrations/servicenow/callback'
-    | '/integrations/slack/callback'
-    | '/integrations/snowflake/callback'
-    | '/integrations/workday/callback'
-    | '/integrations/zendesk/callback'
-    | '/integrations/zoho/callback'
-    | '/approvals/'
-  fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/auth'
-    | '/mcp'
-    | '/sitemap.xml'
-    | '/.mcp/list-tools'
-    | '/.well-known/oauth-protected-resource'
-    | '/agentic-studio'
-    | '/agents'
-    | '/analytics'
-    | '/audit'
-    | '/chat'
-    | '/governance'
-    | '/integrations'
-    | '/investigations'
-    | '/marketplace'
-    | '/operational-console'
-    | '/productivity'
-    | '/reports'
-    | '/settings'
-    | '/users'
-    | '/auth/change-password'
-    | '/resources/what-is-aiops'
-    | '/'
-    | '/.lovable/oauth/consent'
-    | '/.mcp/invoke-tool/$tool'
-    | '/agent-evaluation/$runId'
-    | '/agent-run/$runId'
-    | '/agent/$agentKey'
-    | '/agentic-studio/governance'
-    | '/approvals/$id'
-    | '/settings/itsm-routing'
-    | '/api/internal/provider-sync'
-    | '/integrations/confluence/callback'
-    | '/integrations/freshworks/callback'
-    | '/integrations/genesys/callback'
-    | '/integrations/github/setup'
-    | '/integrations/gitlab/callback'
-    | '/integrations/hubspot/callback'
-    | '/integrations/jira/callback'
-    | '/integrations/salesforce/callback'
-    | '/integrations/sap/callback'
-    | '/integrations/servicenow/callback'
-    | '/integrations/slack/callback'
-    | '/integrations/snowflake/callback'
-    | '/integrations/workday/callback'
-    | '/integrations/zendesk/callback'
-    | '/integrations/zoho/callback'
-    | '/approvals'
-  id:
-    | '__root__'
-    | '/_app'
-    | '/auth'
-    | '/mcp'
-    | '/sitemap.xml'
-    | '/.mcp/list-tools'
-    | '/.well-known/oauth-protected-resource'
-    | '/_app/agentic-studio'
-    | '/_app/agents'
-    | '/_app/analytics'
-    | '/_app/audit'
-    | '/_app/chat'
-    | '/_app/governance'
-    | '/_app/integrations'
-    | '/_app/investigations'
-    | '/_app/marketplace'
-    | '/_app/operational-console'
-    | '/_app/productivity'
-    | '/_app/reports'
-    | '/_app/settings'
-    | '/_app/users'
-    | '/auth/change-password'
-    | '/resources/what-is-aiops'
-    | '/_app/'
-    | '/.lovable/oauth/consent'
-    | '/.mcp/invoke-tool/$tool'
-    | '/_app/agent-evaluation/$runId'
-    | '/_app/agent-run/$runId'
-    | '/_app/agent/$agentKey'
-    | '/_app/agentic-studio/governance'
-    | '/_app/approvals/$id'
-    | '/_app/settings/itsm-routing'
-    | '/api/internal/provider-sync'
-    | '/integrations/confluence/callback'
-    | '/integrations/freshworks/callback'
-    | '/integrations/genesys/callback'
-    | '/integrations/github/setup'
-    | '/integrations/gitlab/callback'
-    | '/integrations/hubspot/callback'
-    | '/integrations/jira/callback'
-    | '/integrations/salesforce/callback'
-    | '/integrations/sap/callback'
-    | '/integrations/servicenow/callback'
-    | '/integrations/slack/callback'
-    | '/integrations/snowflake/callback'
-    | '/integrations/workday/callback'
-    | '/integrations/zendesk/callback'
-    | '/integrations/zoho/callback'
-    | '/_app/approvals/'
-  fileRoutesById: FileRoutesById
-}
-export interface RootRouteChildren {
-  AppRoute: typeof AppRouteWithChildren
-  AuthRoute: typeof AuthRouteWithChildren
-  McpRoute: typeof McpRoute
-  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
-  Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
-  Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
-  ResourcesWhatIsAiopsRoute: typeof ResourcesWhatIsAiopsRoute
-  DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
-  Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
-  ApiInternalProviderSyncRoute: typeof ApiInternalProviderSyncRoute
-  IntegrationsConfluenceCallbackRoute: typeof IntegrationsConfluenceCallbackRoute
-  IntegrationsFreshworksCallbackRoute: typeof IntegrationsFreshworksCallbackRoute
-  IntegrationsGenesysCallbackRoute: typeof IntegrationsGenesysCallbackRoute
-  IntegrationsGithubSetupRoute: typeof IntegrationsGithubSetupRoute
-  IntegrationsGitlabCallbackRoute: typeof IntegrationsGitlabCallbackRoute
-  IntegrationsHubspotCallbackRoute: typeof IntegrationsHubspotCallbackRoute
-  IntegrationsJiraCallbackRoute: typeof IntegrationsJiraCallbackRoute
-  IntegrationsSalesforceCallbackRoute: typeof IntegrationsSalesforceCallbackRoute
-  IntegrationsSapCallbackRoute: typeof IntegrationsSapCallbackRoute
-  IntegrationsServicenowCallbackRoute: typeof IntegrationsServicenowCallbackRoute
-  IntegrationsSlackCallbackRoute: typeof IntegrationsSlackCallbackRoute
-  IntegrationsSnowflakeCallbackRoute: typeof IntegrationsSnowflakeCallbackRoute
-  IntegrationsWorkdayCallbackRoute: typeof IntegrationsWorkdayCallbackRoute
-  IntegrationsZendeskCallbackRoute: typeof IntegrationsZendeskCallbackRoute
-  IntegrationsZohoCallbackRoute: typeof IntegrationsZohoCallbackRoute
-}
 
-declare module '@tanstack/react-router' {
-  interface FileRoutesByPath {
-    '/_app': {
-      id: '/_app'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AppRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/mcp': {
-      id: '/mcp'
-      path: '/mcp'
-      fullPath: '/mcp'
-      preLoaderRoute: typeof McpRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sitemap.xml': {
-      id: '/sitemap.xml'
-      path: '/sitemap.xml'
-      fullPath: '/sitemap.xml'
-      preLoaderRoute: typeof SitemapDotxmlRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/.mcp/list-tools': {
-      id: '/.mcp/list-tools'
-      path: '/.mcp/list-tools'
-      fullPath: '/.mcp/list-tools'
-      preLoaderRoute: typeof Char91DotmcpChar93ListToolsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/.well-known/oauth-protected-resource': {
-      id: '/.well-known/oauth-protected-resource'
-      path: '/.well-known/oauth-protected-resource'
-      fullPath: '/.well-known/oauth-protected-resource'
-      preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_app/': {
-      id: '/_app/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof AppIndexRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/agentic-studio': {
-      id: '/_app/agentic-studio'
-      path: '/agentic-studio'
-      fullPath: '/agentic-studio'
-      preLoaderRoute: typeof AppAgenticStudioRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/agents': {
-      id: '/_app/agents'
-      path: '/agents'
-      fullPath: '/agents'
-      preLoaderRoute: typeof AppAgentsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/analytics': {
-      id: '/_app/analytics'
-      path: '/analytics'
-      fullPath: '/analytics'
-      preLoaderRoute: typeof AppAnalyticsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/audit': {
-      id: '/_app/audit'
-      path: '/audit'
-      fullPath: '/audit'
-      preLoaderRoute: typeof AppAuditRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/chat': {
-      id: '/_app/chat'
-      path: '/chat'
-      fullPath: '/chat'
-      preLoaderRoute: typeof AppChatRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/governance': {
-      id: '/_app/governance'
-      path: '/governance'
-      fullPath: '/governance'
-      preLoaderRoute: typeof AppGovernanceRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/integrations': {
-      id: '/_app/integrations'
-      path: '/integrations'
-      fullPath: '/integrations'
-      preLoaderRoute: typeof AppIntegrationsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/investigations': {
-      id: '/_app/investigations'
-      path: '/investigations'
-      fullPath: '/investigations'
-      preLoaderRoute: typeof AppInvestigationsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/marketplace': {
-      id: '/_app/marketplace'
-      path: '/marketplace'
-      fullPath: '/marketplace'
-      preLoaderRoute: typeof AppMarketplaceRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/operational-console': {
-      id: '/_app/operational-console'
-      path: '/operational-console'
-      fullPath: '/operational-console'
-      preLoaderRoute: typeof AppOperationalConsoleRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/productivity': {
-      id: '/_app/productivity'
-      path: '/productivity'
-      fullPath: '/productivity'
-      preLoaderRoute: typeof AppProductivityRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/reports': {
-      id: '/_app/reports'
-      path: '/reports'
-      fullPath: '/reports'
-      preLoaderRoute: typeof AppReportsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/settings': {
-      id: '/_app/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof AppSettingsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/users': {
-      id: '/_app/users'
-      path: '/users'
-      fullPath: '/users'
-      preLoaderRoute: typeof AppUsersRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/auth/change-password': {
-      id: '/auth/change-password'
-      path: '/change-password'
-      fullPath: '/auth/change-password'
-      preLoaderRoute: typeof AuthChangePasswordRouteImport
-      parentRoute: typeof AuthRoute
-    }
-    '/resources/what-is-aiops': {
-      id: '/resources/what-is-aiops'
-      path: '/resources/what-is-aiops'
-      fullPath: '/resources/what-is-aiops'
-      preLoaderRoute: typeof ResourcesWhatIsAiopsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/.lovable/oauth/consent': {
-      id: '/.lovable/oauth/consent'
-      path: '/.lovable/oauth/consent'
-      fullPath: '/.lovable/oauth/consent'
-      preLoaderRoute: typeof DotlovableOauthConsentRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/.mcp/invoke-tool/$tool': {
-      id: '/.mcp/invoke-tool/$tool'
-      path: '/.mcp/invoke-tool/$tool'
-      fullPath: '/.mcp/invoke-tool/$tool'
-      preLoaderRoute: typeof Char91DotmcpChar93InvokeToolToolRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_app/agent-evaluation/$runId': {
-      id: '/_app/agent-evaluation/$runId'
-      path: '/agent-evaluation/$runId'
-      fullPath: '/agent-evaluation/$runId'
-      preLoaderRoute: typeof AppAgentEvaluationRunIdRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/agent-run/$runId': {
-      id: '/_app/agent-run/$runId'
-      path: '/agent-run/$runId'
-      fullPath: '/agent-run/$runId'
-      preLoaderRoute: typeof AppAgentRunRunIdRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/agent/$agentKey': {
-      id: '/_app/agent/$agentKey'
-      path: '/agent/$agentKey'
-      fullPath: '/agent/$agentKey'
-      preLoaderRoute: typeof AppAgentAgentKeyRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/agentic-studio/governance': {
-      id: '/_app/agentic-studio/governance'
-      path: '/governance'
-      fullPath: '/agentic-studio/governance'
-      preLoaderRoute: typeof AppAgenticStudioGovernanceRouteImport
-      parentRoute: typeof AppAgenticStudioRoute
-    }
-    '/_app/approvals/': {
-      id: '/_app/approvals/'
-      path: '/approvals'
-      fullPath: '/approvals/'
-      preLoaderRoute: typeof AppApprovalsIndexRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/approvals/$id': {
-      id: '/_app/approvals/$id'
-      path: '/approvals/$id'
-      fullPath: '/approvals/$id'
-      preLoaderRoute: typeof AppApprovalsIdRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/settings/itsm-routing': {
-      id: '/_app/settings/itsm-routing'
-      path: '/itsm-routing'
-      fullPath: '/settings/itsm-routing'
-      preLoaderRoute: typeof AppSettingsItsmRoutingRouteImport
-      parentRoute: typeof AppSettingsRoute
-    }
-    '/api/internal/provider-sync': {
-      id: '/api/internal/provider-sync'
-      path: '/api/internal/provider-sync'
-      fullPath: '/api/internal/provider-sync'
-      preLoaderRoute: typeof ApiInternalProviderSyncRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/integrations/confluence/callback': {
-      id: '/integrations/confluence/callback'
-      path: '/integrations/confluence/callback'
-      fullPath: '/integrations/confluence/callback'
-      preLoaderRoute: typeof IntegrationsConfluenceCallbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/integrations/freshworks/callback': {
-      id: '/integrations/freshworks/callback'
-      path: '/integrations/freshworks/callback'
-      fullPath: '/integrations/freshworks/callback'
-      preLoaderRoute: typeof IntegrationsFreshworksCallbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/integrations/genesys/callback': {
-      id: '/integrations/genesys/callback'
-      path: '/integrations/genesys/callback'
-      fullPath: '/integrations/genesys/callback'
-      preLoaderRoute: typeof IntegrationsGenesysCallbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/integrations/github/setup': {
-      id: '/integrations/github/setup'
-      path: '/integrations/github/setup'
-      fullPath: '/integrations/github/setup'
-      preLoaderRoute: typeof IntegrationsGithubSetupRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/integrations/gitlab/callback': {
-      id: '/integrations/gitlab/callback'
-      path: '/integrations/gitlab/callback'
-      fullPath: '/integrations/gitlab/callback'
-      preLoaderRoute: typeof IntegrationsGitlabCallbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/integrations/hubspot/callback': {
-      id: '/integrations/hubspot/callback'
-      path: '/integrations/hubspot/callback'
-      fullPath: '/integrations/hubspot/callback'
-      preLoaderRoute: typeof IntegrationsHubspotCallbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/integrations/jira/callback': {
-      id: '/integrations/jira/callback'
-      path: '/integrations/jira/callback'
-      fullPath: '/integrations/jira/callback'
-      preLoaderRoute: typeof IntegrationsJiraCallbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/integrations/salesforce/callback': {
-      id: '/integrations/salesforce/callback'
-      path: '/integrations/salesforce/callback'
-      fullPath: '/integrations/salesforce/callback'
-      preLoaderRoute: typeof IntegrationsSalesforceCallbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/integrations/sap/callback': {
-      id: '/integrations/sap/callback'
-      path: '/integrations/sap/callback'
-      fullPath: '/integrations/sap/callback'
-      preLoaderRoute: typeof IntegrationsSapCallbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/integrations/servicenow/callback': {
-      id: '/integrations/servicenow/callback'
-      path: '/integrations/servicenow/callback'
-      fullPath: '/integrations/servicenow/callback'
-      preLoaderRoute: typeof IntegrationsServicenowCallbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/integrations/slack/callback': {
-      id: '/integrations/slack/callback'
-      path: '/integrations/slack/callback'
-      fullPath: '/integrations/slack/callback'
-      preLoaderRoute: typeof IntegrationsSlackCallbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/integrations/snowflake/callback': {
-      id: '/integrations/snowflake/callback'
-      path: '/integrations/snowflake/callback'
-      fullPath: '/integrations/snowflake/callback'
-      preLoaderRoute: typeof IntegrationsSnowflakeCallbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/integrations/workday/callback': {
-      id: '/integrations/workday/callback'
-      path: '/integrations/workday/callback'
-      fullPath: '/integrations/workday/callback'
-      preLoaderRoute: typeof IntegrationsWorkdayCallbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/integrations/zendesk/callback': {
-      id: '/integrations/zendesk/callback'
-      path: '/integrations/zendesk/callback'
-      fullPath: '/integrations/zendesk/callback'
-      preLoaderRoute: typeof IntegrationsZendeskCallbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/integrations/zoho/callback': {
-      id: '/integrations/zoho/callback'
-      path: '/integrations/zoho/callback'
-      fullPath: '/integrations/zoho/callback'
-      preLoaderRoute: typeof IntegrationsZohoCallbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-  }
-}
-
-interface AppAgenticStudioRouteChildren {
-  AppAgenticStudioGovernanceRoute: typeof AppAgenticStudioGovernanceRoute
-}
-
-const AppAgenticStudioRouteChildren: AppAgenticStudioRouteChildren = {
-  AppAgenticStudioGovernanceRoute: AppAgenticStudioGovernanceRoute,
-}
-
-const AppAgenticStudioRouteWithChildren =
-  AppAgenticStudioRoute._addFileChildren(AppAgenticStudioRouteChildren)
-
-interface AppSettingsRouteChildren {
-  AppSettingsItsmRoutingRoute: typeof AppSettingsItsmRoutingRoute
-}
-
-const AppSettingsRouteChildren: AppSettingsRouteChildren = {
-  AppSettingsItsmRoutingRoute: AppSettingsItsmRoutingRoute,
-}
-
-const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
-  AppSettingsRouteChildren,
-)
-
-interface AppRouteChildren {
-  AppAgenticStudioRoute: typeof AppAgenticStudioRouteWithChildren
-  AppAgentsRoute: typeof AppAgentsRoute
-  AppAnalyticsRoute: typeof AppAnalyticsRoute
-  AppAuditRoute: typeof AppAuditRoute
-  AppChatRoute: typeof AppChatRoute
-  AppGovernanceRoute: typeof AppGovernanceRoute
-  AppIntegrationsRoute: typeof AppIntegrationsRoute
-  AppInvestigationsRoute: typeof AppInvestigationsRoute
-  AppMarketplaceRoute: typeof AppMarketplaceRoute
-  AppOperationalConsoleRoute: typeof AppOperationalConsoleRoute
-  AppProductivityRoute: typeof AppProductivityRoute
-  AppReportsRoute: typeof AppReportsRoute
-  AppSettingsRoute: typeof AppSettingsRouteWithChildren
-  AppUsersRoute: typeof AppUsersRoute
-  AppIndexRoute: typeof AppIndexRoute
-  AppAgentEvaluationRunIdRoute: typeof AppAgentEvaluationRunIdRoute
-  AppAgentRunRunIdRoute: typeof AppAgentRunRunIdRoute
-  AppAgentAgentKeyRoute: typeof AppAgentAgentKeyRoute
-  AppApprovalsIdRoute: typeof AppApprovalsIdRoute
-  AppApprovalsIndexRoute: typeof AppApprovalsIndexRoute
-}
-
-const AppRouteChildren: AppRouteChildren = {
-  AppAgenticStudioRoute: AppAgenticStudioRouteWithChildren,
-  AppAgentsRoute: AppAgentsRoute,
-  AppAnalyticsRoute: AppAnalyticsRoute,
-  AppAuditRoute: AppAuditRoute,
-  AppChatRoute: AppChatRoute,
-  AppGovernanceRoute: AppGovernanceRoute,
-  AppIntegrationsRoute: AppIntegrationsRoute,
-  AppInvestigationsRoute: AppInvestigationsRoute,
-  AppMarketplaceRoute: AppMarketplaceRoute,
-  AppOperationalConsoleRoute: AppOperationalConsoleRoute,
-  AppProductivityRoute: AppProductivityRoute,
-  AppReportsRoute: AppReportsRoute,
-  AppSettingsRoute: AppSettingsRouteWithChildren,
-  AppUsersRoute: AppUsersRoute,
-  AppIndexRoute: AppIndexRoute,
-  AppAgentEvaluationRunIdRoute: AppAgentEvaluationRunIdRoute,
-  AppAgentRunRunIdRoute: AppAgentRunRunIdRoute,
-  AppAgentAgentKeyRoute: AppAgentAgentKeyRoute,
-  AppApprovalsIdRoute: AppApprovalsIdRoute,
-  AppApprovalsIndexRoute: AppApprovalsIndexRoute,
-}
-
-const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
-
-interface AuthRouteChildren {
-  AuthChangePasswordRoute: typeof AuthChangePasswordRoute
-}
-
-const AuthRouteChildren: AuthRouteChildren = {
-  AuthChangePasswordRoute: AuthChangePasswordRoute,
-}
-
-const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
-
-const rootRouteChildren: RootRouteChildren = {
-  AppRoute: AppRouteWithChildren,
-  AuthRoute: AuthRouteWithChildren,
-  McpRoute: McpRoute,
-  SitemapDotxmlRoute: SitemapDotxmlRoute,
-  Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
-  Char91DotwellKnownChar93OauthProtectedResourceRoute:
+const routeTree = rootRouteImport
+  .addChildren({
+    AppRoute: AppRoute.addChildren({
+      AppIndexRoute,
+      AppAgenticStudioRoute: AppAgenticStudioRoute.addChildren({ AppAgenticStudioGovernanceRoute }),
+      AppAgentsRoute,
+      AppAnalyticsRoute,
+      AppAuditRoute,
+      AppChatRoute,
+      AppGovernanceRoute,
+      AppIntegrationsRoute: AppIntegrationsRoute.addChildren({ AppIntegrationsCatalogRoute: AppIntegrationsCatalogRoute.addChildren({ AppIntegrationsCatalogProviderIdRoute }) }),
+      AppInvestigationsRoute,
+      AppMarketplaceRoute,
+      AppOperationalConsoleRoute,
+      AppProductivityRoute,
+      AppReportsRoute,
+      AppSettingsRoute: AppSettingsRoute.addChildren({ AppSettingsItsmRoutingRoute }),
+      AppUsersRoute,
+      AppAgentEvaluationRunIdRoute,
+      AppAgentRunRunIdRoute,
+      AppAgentAgentKeyRoute,
+      AppApprovalsIndexRoute,
+      AppApprovalsIdRoute,
+    }),
+    AuthRoute: AuthRoute.addChildren({ AuthChangePasswordRoute }),
+    McpRoute,
+    SitemapDotxmlRoute,
+    Char91DotmcpChar93ListToolsRoute,
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
-  ResourcesWhatIsAiopsRoute: ResourcesWhatIsAiopsRoute,
-  DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
-  Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
-  ApiInternalProviderSyncRoute: ApiInternalProviderSyncRoute,
-  IntegrationsConfluenceCallbackRoute: IntegrationsConfluenceCallbackRoute,
-  IntegrationsFreshworksCallbackRoute: IntegrationsFreshworksCallbackRoute,
-  IntegrationsGenesysCallbackRoute: IntegrationsGenesysCallbackRoute,
-  IntegrationsGithubSetupRoute: IntegrationsGithubSetupRoute,
-  IntegrationsGitlabCallbackRoute: IntegrationsGitlabCallbackRoute,
-  IntegrationsHubspotCallbackRoute: IntegrationsHubspotCallbackRoute,
-  IntegrationsJiraCallbackRoute: IntegrationsJiraCallbackRoute,
-  IntegrationsSalesforceCallbackRoute: IntegrationsSalesforceCallbackRoute,
-  IntegrationsSapCallbackRoute: IntegrationsSapCallbackRoute,
-  IntegrationsServicenowCallbackRoute: IntegrationsServicenowCallbackRoute,
-  IntegrationsSlackCallbackRoute: IntegrationsSlackCallbackRoute,
-  IntegrationsSnowflakeCallbackRoute: IntegrationsSnowflakeCallbackRoute,
-  IntegrationsWorkdayCallbackRoute: IntegrationsWorkdayCallbackRoute,
-  IntegrationsZendeskCallbackRoute: IntegrationsZendeskCallbackRoute,
-  IntegrationsZohoCallbackRoute: IntegrationsZohoCallbackRoute,
-}
-export const routeTree = rootRouteImport
-  ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>()
+    ResourcesWhatIsAiopsRoute,
+    DotlovableOauthConsentRoute,
+    Char91DotmcpChar93InvokeToolToolRoute,
+    ApiInternalProviderSyncRoute,
+    IntegrationsConfluenceCallbackRoute,
+    IntegrationsFreshworksCallbackRoute,
+    IntegrationsGenesysCallbackRoute,
+    IntegrationsGithubSetupRoute,
+    IntegrationsGitlabCallbackRoute,
+    IntegrationsHubspotCallbackRoute,
+    IntegrationsJiraCallbackRoute,
+    IntegrationsSalesforceCallbackRoute,
+    IntegrationsSapCallbackRoute,
+    IntegrationsServicenowCallbackRoute,
+    IntegrationsSlackCallbackRoute,
+    IntegrationsSnowflakeCallbackRoute,
+    IntegrationsWorkdayCallbackRoute,
+    IntegrationsZendeskCallbackRoute,
+    IntegrationsZohoCallbackRoute,
+  })
 
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
+export const routeTree = routeTree
