@@ -1,7 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-
-export const MAX_PROVIDER_INSTANCES = 5;
-export const MAX_PROVIDER_INSTANCES_ERROR = "Maximum of 5 instances allowed for this provider in this workspace.";
+import { MAX_PROVIDER_INSTANCES, MAX_PROVIDER_INSTANCES_ERROR } from "./provider-instance-limit";
+export { MAX_PROVIDER_INSTANCES, MAX_PROVIDER_INSTANCES_ERROR } from "./provider-instance-limit";
 
 type AdminClient = SupabaseClient<any, "public", any>;
 
