@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ArrowLeft, CheckCircle2, ChevronRight, Clock3, Search, ShieldCheck, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock3, Search, XCircle } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,8 +19,7 @@ export function ProviderAvailabilityBadge({ provider }: { provider: CatalogProvi
 }
 
 export function ProviderContractHint({ provider }: { provider: CatalogProvider }) {
-  const hasReadSync = provider.capabilities.includes("read") && provider.capabilities.includes("sync");
-  return <span className="text-xs text-muted-foreground">{hasReadSync ? "Read / sync" : "Catalog only"}</span>;
+  return <span className="text-xs text-muted-foreground">{provider.capabilities.includes("read") && provider.capabilities.includes("sync") ? "Read / sync" : "Catalog only"}</span>;
 }
 
 export function CatalogSearch({ value, onChange, placeholder = "Search integrations" }: { value: string; onChange: (value: string) => void; placeholder?: string }) {
@@ -34,14 +33,7 @@ export function filterProviders(providers: CatalogProvider[], query: string, cat
 
 export function ProviderCatalogCard({ provider }: { provider: CatalogProvider }) {
   const available = provider.availability === "available";
-  return <Card className="flex h-full flex-col transition-colors hover:border-primary/40">
-    <CardHeader className="space-y-4">
-      <div className="flex items-start justify-between gap-3"><ProviderLogo provider={provider} /><ProviderAvailabilityBadge provider={provider} /></div>
-      <div><h3 className="font-semibold tracking-tight">{provider.name}</h3><div className="mt-1 flex flex-wrap items-center gap-2"><Badge variant="secondary">{provider.category}</Badge><ProviderContractHint provider={provider} /></div></div>
-    </CardHeader>
-    <CardContent className="flex-1"><p className="text-sm leading-6 text-muted-foreground">{provider.description}</p><div className="mt-4 text-xs text-muted-foreground">Auth: <span className="font-medium text-foreground">{provider.auth}</span></div></CardContent>
-    <CardFooter className="flex flex-wrap gap-2 border-t pt-4"><Button asChild size="sm"><Link to="/integrations/catalog/$providerId" params={{ providerId: provider.id }}>Details</Link></Button><Button asChild size="sm" variant="outline"><Link to="/help" search={{ topic: `provider-${provider.id}` }}>Setup guide</Link></Button><Button asChild size="sm" variant={available ? "default" : "outline"} disabled={!available}>{available ? <Link to="/integrations/catalog/$providerId" params={{ providerId: provider.id }} search={{ mode: "connect" }}>Connect</Link> : <span>Coming soon</span>}</Button></CardFooter>
-  </Card>;
+  return <Card className="flex h-full flex-col transition-colors hover:border-primary/40"><CardHeader className="space-y-4"><div className="flex items-start justify-between gap-3"><ProviderLogo provider={provider} /><ProviderAvailabilityBadge provider={provider} /></div><div><h3 className="font-semibold tracking-tight">{provider.name}</h3><div className="mt-1 flex flex-wrap items-center gap-2"><Badge variant="secondary">{provider.category}</Badge><ProviderContractHint provider={provider} /></div></div></CardHeader><CardContent className="flex-1"><p className="text-sm leading-6 text-muted-foreground">{provider.description}</p><div className="mt-4 text-xs text-muted-foreground">Auth: <span className="font-medium text-foreground">{provider.auth}</span></div></CardContent><CardFooter className="flex flex-wrap gap-2 border-t pt-4"><Button asChild size="sm" variant="outline"><Link to="/integrations/catalog/$providerId" params={{ providerId: provider.id }}>Details</Link></Button><Button asChild size="sm" variant="outline"><Link to="/help" search={{ topic: `provider-${provider.id}` }}>Setup guide</Link></Button>{available ? <Button asChild size="sm"><Link to="/integrations/catalog/$providerId" params={{ providerId: provider.id }} search={{ mode: "connect" }}>Connect</Link></Button> : <Button size="sm" variant="outline" disabled>Coming soon</Button>}</CardFooter></Card>;
 }
 
 export function ProviderCatalogGrid({ providers }: { providers: CatalogProvider[] }) {
@@ -49,7 +41,7 @@ export function ProviderCatalogGrid({ providers }: { providers: CatalogProvider[
   const [category, setCategory] = useState("");
   const categories = useMemo(() => Array.from(new Set(providers.map((provider) => provider.category))).sort(), [providers]);
   const filtered = useMemo(() => filterProviders(providers, query, category), [providers, query, category]);
-  return <div className="space-y-6"><div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><CatalogSearch value={query} onChange={setQuery} placeholder="Search by provider, category, or description" /><div className="flex gap-2 overflow-x-auto pb-1">{["", ...categories].map((value) => <Button key={value || "all"} type="button" size="sm" variant={category === value ? "default" : "outline"} onClick={() => setCategory(value)} className="shrink-0">{value || "All"}</Button>)}</div></div>{filtered.length ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{filtered.map((provider) => <ProviderCatalogCard key={provider.id} provider={provider} />)}</div> : <Card><CardContent className="py-12 text-center"><Search className="mx-auto h-8 w-8 text-muted-foreground" /><p className="mt-3 font-medium">No integrations found</p><p className="mt-1 text-sm text-muted-foreground">Try a different provider, category, or search term.</p></CardContent></Card>}</div>;
+  return <div className="space-y-6"><div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><CatalogSearch value={query} onChange={setQuery} placeholder="Search by provider, category, or description" /><div className="flex max-w-full gap-2 overflow-x-auto pb-1">{["", ...categories].map((value) => <Button key={value || "all"} type="button" size="sm" variant={category === value ? "default" : "outline"} onClick={() => setCategory(value)} className="shrink-0">{value || "All"}</Button>)}</div></div>{filtered.length ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{filtered.map((provider) => <ProviderCatalogCard key={provider.id} provider={provider} />)}</div> : <Card><CardContent className="py-12 text-center"><Search className="mx-auto h-8 w-8 text-muted-foreground" /><p className="mt-3 font-medium">No integrations found</p><p className="mt-1 text-sm text-muted-foreground">Try a different provider, category, or search term.</p></CardContent></Card>}</div>;
 }
 
 export function ProviderDetailsHeader({ provider }: { provider: CatalogProvider }) {
