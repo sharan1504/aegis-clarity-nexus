@@ -5,13 +5,22 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { MAX_PROVIDER_INSTANCES } from "./provider-instance-limit";
 import type { ProviderDefinition } from "./provider-registry";
 
-export type CatalogProvider = ProviderDefinition;
+export type CatalogProvider = ProviderDefinition & {
+  configured: boolean;
+  connections: Array<{
+    id: string;
+    display_name: string | null;
+    environment: string;
+    status: string;
+  }>;
+};
 
 export function ProviderLogo({ provider, className = "h-10 w-10" }: { provider: CatalogProvider; className?: string }) {
   const [failed, setFailed] = useState(false);
-  return <div className={`flex shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-background p-2 ${className}`}>{!failed ? <img src={provider.logoUrl} alt="" className="h-full w-full object-contain" loading="lazy" onError={() => setFailed(true)} /> : <span className="text-sm font-semibold text-muted-foreground">{provider.name.slice(0, 1)}</span>}</div>;
+  return <div className={`flex shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-background p-2 ${className}`}>{!failed ? <img src={provider.logoUrl} alt="" aria-hidden="true" className="h-full w-full object-contain" loading="lazy" onError={() => setFailed(true)} /> : <span className="text-sm font-semibold text-muted-foreground" aria-hidden="true">{provider.name.slice(0, 1)}</span>}</div>;
 }
 
 export function ProviderAvailabilityBadge({ provider }: { provider: CatalogProvider }) {
@@ -33,7 +42,9 @@ export function filterProviders(providers: CatalogProvider[], query: string, cat
 
 export function ProviderCatalogCard({ provider }: { provider: CatalogProvider }) {
   const available = provider.availability === "available";
-  return <Card className="flex h-full flex-col transition-colors hover:border-primary/40"><CardHeader className="space-y-4"><div className="flex items-start justify-between gap-3"><ProviderLogo provider={provider} /><ProviderAvailabilityBadge provider={provider} /></div><div><h3 className="font-semibold tracking-tight">{provider.name}</h3><div className="mt-1 flex flex-wrap items-center gap-2"><Badge variant="secondary">{provider.category}</Badge><ProviderContractHint provider={provider} /></div></div></CardHeader><CardContent className="flex-1"><p className="text-sm leading-6 text-muted-foreground">{provider.description}</p><div className="mt-4 text-xs text-muted-foreground">Auth: <span className="font-medium text-foreground">{provider.auth}</span></div></CardContent><CardFooter className="flex flex-wrap gap-2 border-t pt-4"><Button asChild size="sm" variant="outline"><Link to="/integrations/catalog/$providerId" params={{ providerId: provider.id }}>Details</Link></Button><Button asChild size="sm" variant="outline"><Link to="/help" search={{ topic: `provider-${provider.id}` }}>Setup guide</Link></Button>{available ? <Button asChild size="sm"><Link to="/integrations/catalog/$providerId" params={{ providerId: provider.id }} search={{ mode: "connect" }}>Connect</Link></Button> : <Button size="sm" variant="outline" disabled>Coming soon</Button>}</CardFooter></Card>;
+  const installedCount = provider.connections.length;
+  const atCap = installedCount >= MAX_PROVIDER_INSTANCES;
+  return <Card className="flex h-full flex-col transition-colors hover:border-primary/40"><CardHeader className="space-y-4"><div className="flex items-start justify-between gap-3"><ProviderLogo provider={provider} /><div className="flex flex-wrap justify-end gap-2"><Badge variant="secondary">Installed {installedCount}/{MAX_PROVIDER_INSTANCES}</Badge><ProviderAvailabilityBadge provider={provider} /></div></div><div><h3 className="font-semibold tracking-tight">{provider.name}</h3><div className="mt-1 flex flex-wrap items-center gap-2"><Badge variant="secondary">{provider.category}</Badge><ProviderContractHint provider={provider} /></div></div></CardHeader><CardContent className="flex-1"><p className="text-sm leading-6 text-muted-foreground">{provider.description}</p><div className="mt-4 text-xs text-muted-foreground">Auth: <span className="font-medium text-foreground">{provider.auth}</span></div></CardContent><CardFooter className="flex flex-wrap gap-2 border-t pt-4"><Button asChild size="sm" variant="outline"><Link to="/integrations/catalog/$providerId" params={{ providerId: provider.id }}>Details</Link></Button><Button asChild size="sm" variant="outline"><Link to="/help" search={{ topic: `provider-${provider.id}` }}>Setup guide</Link></Button>{available && !atCap ? <Button asChild size="sm"><Link to="/integrations/catalog/$providerId" params={{ providerId: provider.id }} search={{ mode: "connect" }}>Connect</Link></Button> : available ? <Button size="sm" variant="outline" disabled>Limit reached</Button> : <Button size="sm" variant="outline" disabled>Coming soon</Button>}</CardFooter></Card>;
 }
 
 export function ProviderCatalogGrid({ providers }: { providers: CatalogProvider[] }) {
@@ -45,7 +56,7 @@ export function ProviderCatalogGrid({ providers }: { providers: CatalogProvider[
 }
 
 export function ProviderDetailsHeader({ provider }: { provider: CatalogProvider }) {
-  return <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div className="flex items-start gap-4"><ProviderLogo provider={provider} className="h-14 w-14" /><div><div className="flex flex-wrap items-center gap-2"><h1 className="text-2xl font-semibold tracking-tight">{provider.name}</h1><ProviderAvailabilityBadge provider={provider} /></div><div className="mt-2 flex flex-wrap gap-2"><Badge variant="secondary">{provider.category}</Badge><Badge variant="outline">{provider.auth}</Badge><ProviderContractHint provider={provider} /></div><p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">{provider.description}</p></div></div><Button asChild variant="outline"><Link to="/integrations/catalog"><ArrowLeft className="mr-2 h-4 w-4" />Back to catalog</Link></Button></div>;
+  return <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div className="flex items-start gap-4"><ProviderLogo provider={provider} className="h-14 w-14" /><div><div className="flex flex-wrap items-center gap-2"><h1 className="text-2xl font-semibold tracking-tight">{provider.name}</h1><ProviderAvailabilityBadge provider={provider} /><Badge variant="secondary">Installed {provider.connections.length}/{MAX_PROVIDER_INSTANCES}</Badge></div><div className="mt-2 flex flex-wrap gap-2"><Badge variant="secondary">{provider.category}</Badge><Badge variant="outline">{provider.auth}</Badge><ProviderContractHint provider={provider} /></div><p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">{provider.description}</p></div></div><Button asChild variant="outline"><Link to="/integrations/catalog"><ArrowLeft className="mr-2 h-4 w-4" />Back to catalog</Link></Button></div>;
 }
 
 export function CapabilityList({ provider }: { provider: CatalogProvider }) {

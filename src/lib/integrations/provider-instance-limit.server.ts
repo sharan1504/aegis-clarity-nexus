@@ -1,0 +1,33 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { MAX_PROVIDER_INSTANCES, MAX_PROVIDER_INSTANCES_ERROR } from "./provider-instance-limit";
+export { MAX_PROVIDER_INSTANCES, MAX_PROVIDER_INSTANCES_ERROR } from "./provider-instance-limit";
+
+type AdminClient = SupabaseClient<any, "public", any>;
+
+export async function assertProviderInstanceCapacity(db: AdminClient, tenantId: string, provider: string, connectionId?: string) {
+  let editingExisting = false;
+  if (connectionId) {
+    const { data: existing, error } = await db.from("provider_connections").select("id").eq("id", connectionId).eq("tenant_id", tenantId).eq("provider", provider).maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!existing) throw new Error("The requested integration instance was not found for this workspace.");
+    editingExisting = true;
+  }
+  const { count, error } = await db.from("provider_connections").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("provider", provider);
+  if (error) throw new Error(error.message);
+  const otherInstanceCount = Math.max(0, (count ?? 0) - (editingExisting ? 1 : 0));
+  if (otherInstanceCount >= MAX_PROVIDER_INSTANCES) throw new Error(MAX_PROVIDER_INSTANCES_ERROR);
+}
+
+export async function assertDedicatedProviderInstanceCapacity(db: AdminClient, tenantId: string, provider: string, connectionId?: string) {
+  let editingExisting = false;
+  if (connectionId) {
+    const { data: existing, error } = await db.from("integrations").select("id").eq("id", connectionId).eq("tenant_id", tenantId).eq("provider", provider).maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!existing) throw new Error("The requested integration instance was not found for this workspace.");
+    editingExisting = true;
+  }
+  const { count, error } = await db.from("integrations").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).eq("provider", provider);
+  if (error) throw new Error(error.message);
+  const otherInstanceCount = Math.max(0, (count ?? 0) - (editingExisting ? 1 : 0));
+  if (otherInstanceCount >= MAX_PROVIDER_INSTANCES) throw new Error(MAX_PROVIDER_INSTANCES_ERROR);
+}

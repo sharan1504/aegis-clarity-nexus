@@ -10,6 +10,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveTenantContext } from "@/lib/tenant-context.server";
 import { recordOperationalIssueSafely } from "@/lib/operational-issues.server";
+import { assertProviderInstanceCapacity } from "./provider-instance-limit.server";
 import {
   assertStateMatchesActor,
   buildInstallUrl,
@@ -51,9 +52,12 @@ export const startGitHubAppInstall = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     try {
       const tenant = await requireAdminOrManager(context.supabase, context.userId);
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      await assertProviderInstanceCapacity(supabaseAdmin, tenant.tenantId, "github", data.connectionId);
       const config = getGitHubAppConfig();
+      const connectionId = data.connectionId ?? crypto.randomUUID();
       const state = signInstallState(
-        { tenantId: tenant.tenantId, userId: context.userId, connectionId: data.connectionId, displayName: data.displayName, environment: data.environment },
+        { tenantId: tenant.tenantId, userId: context.userId, connectionId, displayName: data.displayName, environment: data.environment },
         resolveStateSecret(),
       );
       return { ok: true as const, installUrl: buildInstallUrl(config.slug, state) };
@@ -94,16 +98,15 @@ export const completeGitHubAppInstall = createServerFn({ method: "POST" })
       };
 
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const connectionId = installState.connectionId ?? crypto.randomUUID();
+      await assertProviderInstanceCapacity(supabaseAdmin, tenant.tenantId, "github", connectionId);
       const now = new Date().toISOString();
-      const existing = installState.connectionId
-        ? { id: installState.connectionId }
-        : (await supabaseAdmin.from("provider_connections").select("id").eq("tenant_id", tenant.tenantId).eq("provider", "github").eq("external_id", installation.accountId).maybeSingle()).data;
 
       const { data: connection, error } = await supabaseAdmin
         .from("provider_connections")
         .upsert(
           {
-            id: existing?.id ?? undefined,
+            id: connectionId,
             tenant_id: tenant.tenantId,
             provider: "github",
             external_id: installation.accountId,
