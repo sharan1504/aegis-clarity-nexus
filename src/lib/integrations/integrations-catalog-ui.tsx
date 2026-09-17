@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { MAX_PROVIDER_INSTANCES } from "./provider-instance-limit.server";
+import { MAX_PROVIDER_INSTANCES } from "./provider-instance-limit";
 import type { ProviderDefinition } from "./provider-registry";
 
 export type CatalogProvider = ProviderDefinition & {
