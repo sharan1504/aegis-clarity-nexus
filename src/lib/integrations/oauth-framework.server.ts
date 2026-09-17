@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { encryptCredentials, decryptCredentials } from "./credential-vault.server";
+import { assertProviderInstanceCapacity } from "./provider-instance-limit.server";
 
 const STATE_TTL_MS = 10 * 60_000;
 
@@ -27,6 +28,7 @@ export function createOAuthStateValue(): string {
 }
 
 export async function createOAuthState(db: AdminClient, input: Omit<OAuthStateRecord, "state" | "expiresAt"> & { codeVerifier?: string }): Promise<string> {
+  await assertProviderInstanceCapacity(db, input.tenantId, input.provider, input.connectionId);
   const state = createOAuthStateValue();
   const metadata = { ...(input.metadata ?? {}) };
   if (input.codeVerifier) metadata.codeVerifier = input.codeVerifier;
