@@ -3,6 +3,9 @@ import { createFakeSupabase, type Tables } from "./__fixtures__/fake-supabase";
 
 const connector = vi.hoisted(() => ({ sync: vi.fn() }));
 vi.mock("@/lib/microsoft365/connector.server", () => ({ Microsoft365LicenseConnector: class { sync = connector.sync; } }));
+vi.mock("@/lib/integrations/credential-vault.server", () => ({
+  decryptCredentials: vi.fn(() => ({ tenantId: "tenant-a", clientId: "client", clientSecret: "secret" })),
+}));
 
 const privileged = vi.hoisted(() => ({ data: {} as Tables }));
 vi.mock("@/integrations/supabase/client.server", async () => {
