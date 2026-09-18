@@ -7,7 +7,6 @@ import { evaluateGuardrails } from "@/lib/guardrails/engine.server";
 import type { GuardrailVerdict } from "@/lib/guardrails/evaluate";
 import { sanitizeOutput } from "@/lib/guardrails/sanitize";
 import { Microsoft365LicenseConnector, type Microsoft365Connection } from "@/lib/microsoft365/connector.server";
-import { readConnectionCredentials } from "@/lib/integrations/oauth-framework.server";
 import { authorizeCapabilityAccess, DENIAL_MESSAGES, type AuthorizedSource, type AuthorizationDecision } from "./authorization.server";
 import { evaluateFreshness, worstFreshness } from "./freshness";
 import type { AgentPolicy, PolicyRevision } from "./policy";
