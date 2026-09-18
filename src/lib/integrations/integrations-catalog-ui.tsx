@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { ArrowLeft, CheckCircle2, Clock3, Search, XCircle } from "lucide-react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
@@ -41,22 +41,11 @@ export function filterProviders(providers: CatalogProvider[], query: string, cat
 }
 
 export function ProviderCatalogCard({ provider }: { provider: CatalogProvider }) {
-  const navigate = useNavigate();
   const available = provider.availability === "available";
   const installedCount = provider.connections.length;
   const atCap = installedCount >= MAX_PROVIDER_INSTANCES;
-  return <Card className="flex h-full flex-col transition-colors hover:border-primary/40"><CardHeader className="space-y-4"><div className="flex items-start justify-between gap-3"><ProviderLogo provider={provider} /><div className="flex flex-wrap justify-end gap-2"><Badge variant="secondary">Installed {installedCount}/{MAX_PROVIDER_INSTANCES}</Badge><ProviderAvailabilityBadge provider={provider} /></div></div><div><h3 className="font-semibold tracking-tight">{provider.name}</h3><div className="mt-1 flex flex-wrap items-center gap-2"><Badge variant="secondary">{provider.category}</Badge><ProviderContractHint provider={provider} /></div></div></CardHeader><CardContent className="flex-1"><p className="text-sm leading-6 text-muted-foreground">{provider.description}</p><div className="mt-4 text-xs text-muted-foreground">Auth: <span className="font-medium text-foreground">{provider.auth}</span></div></CardContent><CardFooter className="flex flex-wrap gap-2 border-t pt-4"><Button asChild size="sm" variant="outline"><Link to="/integrations/catalog/$providerId" params={{ providerId: provider.id }}>Details</Link></Button><Button asChild size="sm" variant="outline"><Link to="/help" search={{ topic: `provider-${provider.id}` }}>Setup guide</Link></Button>{available && !atCap ? <Button
-  type="button"
-  size="sm"
-  onClick={() =>
-    navigate({
-      to: "/integrations/catalog/$providerId",
-      params: { providerId: provider.id },
-      search: { mode: "connect" },
-    })
-  }
->
-  Connect
+  return <Card className="flex h-full flex-col transition-colors hover:border-primary/40"><CardHeader className="space-y-4"><div className="flex items-start justify-between gap-3"><ProviderLogo provider={provider} /><div className="flex flex-wrap justify-end gap-2"><Badge variant="secondary">Installed {installedCount}/{MAX_PROVIDER_INSTANCES}</Badge><ProviderAvailabilityBadge provider={provider} /></div></div><div><h3 className="font-semibold tracking-tight">{provider.name}</h3><div className="mt-1 flex flex-wrap items-center gap-2"><Badge variant="secondary">{provider.category}</Badge><ProviderContractHint provider={provider} /></div></div></CardHeader><CardContent className="flex-1"><p className="text-sm leading-6 text-muted-foreground">{provider.description}</p><div className="mt-4 text-xs text-muted-foreground">Auth: <span className="font-medium text-foreground">{provider.auth}</span></div></CardContent><CardFooter className="flex flex-wrap gap-2 border-t pt-4"><Button asChild size="sm" variant="outline"><Link to="/integrations/catalog/$providerId" params={{ providerId: provider.id }}>Details</Link></Button><Button asChild size="sm" variant="outline"><Link to="/help" search={{ topic: `provider-${provider.id}` }}>Setup guide</Link></Button>{available && !atCap ? <Button asChild size="sm">
+  <a href={`/integrations/catalog/${encodeURIComponent(provider.id)}?mode=connect`}>Connect</a>
 </Button> : available ? <Button size="sm" variant="outline" disabled>Limit reached</Button> : <Button size="sm" variant="outline" disabled>Coming soon</Button>}</CardFooter></Card>;
 }
 
