@@ -51,20 +51,24 @@ export const executeLicenseOptimization = createServerFn({ method: "POST" })
       throw new Error(users.denied.message);
     }
 
-    const byLicense = new Map<string, { name: string | null; count: number }>();
+    const byLicense = new Map<string, { name: string | null; count: number; provider: string; integrationId: string }>();
     const byUser = new Map<string, Set<string>>();
     let usersWithoutActivity = 0;
 
     for (const entitlement of entitlements.records) {
-      const license = byLicense.get(entitlement.entitlementId) ?? {
+      const licenseKey = `${entitlement.provider}::${entitlement.integrationId}::${entitlement.entitlementId}`;
+      const license = byLicense.get(licenseKey) ?? {
         name: entitlement.entitlementName,
         count: 0,
+        provider: entitlement.provider,
+        integrationId: entitlement.integrationId,
       };
       license.count += 1;
       if (!license.name && entitlement.entitlementName) license.name = entitlement.entitlementName;
-      byLicense.set(entitlement.entitlementId, license);
+      byLicense.set(licenseKey, license);
 
-      const licenses = byUser.get(entitlement.userId) ?? new Set<string>();
+      const userKey = `${entitlement.provider}::${entitlement.integrationId}::${entitlement.userId}`;
+      const licenses = byUser.get(userKey) ?? new Set<string>();
       licenses.add(entitlement.entitlementId);
       byUser.set(entitlement.userId, licenses);
 
@@ -86,7 +90,7 @@ export const executeLicenseOptimization = createServerFn({ method: "POST" })
         title: "Multiple-license assignments detected",
         statement: `${multiLicenseUsers} users have more than one assigned license. This is a review opportunity, not proof that any license should be removed.`,
         evidence: [
-          `${multiLicenseUsers} users have multiple license IDs in the current assignment snapshot.`,
+          ...[...new Set(entitlements.records.map((record) => `${record.provider} / ${record.integrationId}`))].map((source) => `${source}: assignments were evaluated from the current normalized snapshot.`),
           `${entitlements.records.length} total license assignments were evaluated.`,
         ],
         confidence: "high",
@@ -99,7 +103,7 @@ export const executeLicenseOptimization = createServerFn({ method: "POST" })
         kind: "review_area",
         title: "License allocation concentration",
         statement: "The current snapshot shows where assignments are concentrated, which can guide customer questions about tiering, duplication, or demand.",
-        evidence: topLicenses.map((license) => `${license.name ?? "Unnamed license"}: ${license.count} assignments.`),
+        evidence: topLicenses.map((license) => `${license.provider} / ${license.integrationId} — ${license.name ?? "Unnamed license"}: ${license.count} assignments.`),
         confidence: "high",
       });
     }

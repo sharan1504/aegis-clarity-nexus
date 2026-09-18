@@ -58,10 +58,7 @@ export const LICENSE_ERROR_MESSAGES: Record<LicenseErrorCode, string> = {
   unavailable: "The license analysis could not be completed.",
 };
 
-export interface FilterIssue {
-  field: string;
-  message: string;
-}
+export interface FilterIssue { field: string; message: string; }
 
 export interface ProvenanceRef {
   provider: string;
@@ -75,31 +72,24 @@ export interface ProvenanceRef {
   freshness: FreshnessState;
 }
 
-/** Metadata attached to every response, denied or not. */
 export interface LicenseResultMeta {
   operation: LicenseOperation;
   evaluatedAt: string;
   freshness: FreshnessState;
   sources: CapabilitySource[];
   warnings: string[];
-  /** Policy in force per integration, echoed for auditability. */
   policies: Record<string, { version: number; policy: AgentPolicy }>;
-  /** True when a guardrail or policy ceiling truncated the payload. */
   truncated: boolean;
   readOnly: true;
 }
 
 export type LicenseResult<T> =
   | { ok: true; data: T; meta: LicenseResultMeta }
-  | {
-      ok: false;
-      error: { code: LicenseErrorCode; message: string; issues: FilterIssue[] };
-      meta: LicenseResultMeta;
-    };
-
-// --- Operation payloads ----------------------------------------------------
+  | { ok: false; error: { code: LicenseErrorCode; message: string; issues: FilterIssue[] }; meta: LicenseResultMeta };
 
 export interface LicenseTypeUsage {
+  provider: string;
+  integrationId: string;
   licenseId: string;
   licenseName: string | null;
   assignmentCount: number;
@@ -120,14 +110,13 @@ export interface LicenseSummary {
     userEmail: string | null;
     licenseCount: number;
     licenseIds: string[];
+    provider: string;
+    integrationId: string;
   }>;
   usersWithMultipleLicenseCount: number;
 }
 
-export interface LicenseUsage {
-  licenses: LicenseTypeUsage[];
-  matchedLicenseTypes: number;
-}
+export interface LicenseUsage { licenses: LicenseTypeUsage[]; matchedLicenseTypes: number; }
 
 export interface LicenseAssignment {
   userId: string;
@@ -141,10 +130,7 @@ export interface LicenseAssignment {
   provenance: ProvenanceRef;
 }
 
-export interface LicenseAssignmentPage {
-  assignments: LicenseAssignment[];
-  totalMatched: number;
-}
+export interface LicenseAssignmentPage { assignments: LicenseAssignment[]; totalMatched: number; }
 
 export interface UserLicenseDetails {
   userId: string;
@@ -154,13 +140,7 @@ export interface UserLicenseDetails {
   lastActivityAt: string | null;
   inactivityDays: number | null;
   accountCreatedAt: string | null;
-  licenses: Array<{
-    licenseId: string;
-    licenseName: string | null;
-    lastActivityAt: string | null;
-    inactivityDays: number | null;
-    provenance: ProvenanceRef;
-  }>;
+  licenses: Array<{ licenseId: string; licenseName: string | null; lastActivityAt: string | null; inactivityDays: number | null; provenance: ProvenanceRef }>;
   provenance: ProvenanceRef | null;
 }
 
@@ -182,30 +162,19 @@ export interface ReclamationRecommendation {
   dataFreshness: FreshnessState;
 }
 
-/** A record that could NOT be concluded on, and why. Never a recommendation. */
-export interface InconclusiveRecord {
-  userId: string;
-  email: string | null;
-  licenseId: string;
-  code: LicenseErrorCode | "excluded_by_policy" | "below_threshold" | "below_minimum_confidence";
-  reason: string;
-}
-
+export interface InconclusiveRecord { userId: string; email: string | null; licenseId: string; code: LicenseErrorCode | "excluded_by_policy" | "below_threshold" | "below_minimum_confidence"; reason: string; }
 export interface UnusedLicenseCandidates {
   recommendations: ReclamationRecommendation[];
   inconclusive: InconclusiveRecord[];
   excludedCount: number;
   evaluatedAssignments: number;
   policyCeilingExceeded: boolean;
-  appliedPolicyByIntegration: Record<
-    string,
-    { version: number; inactivityThresholdDays: number; minimumConfidence: number }
-  >;
+  appliedPolicyByIntegration: Record<string, { version: number; inactivityThresholdDays: number; minimumConfidence: number }>;
 }
 
-// --- Filters ---------------------------------------------------------------
-
 export interface LicenseFilters {
+  provider?: string;
+  integrationId?: string;
   licenseId?: string;
   licenseName?: string;
   userId?: string;
@@ -216,44 +185,22 @@ export interface LicenseFilters {
 const MAX_FILTER_LENGTH = 320;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** Validates untrusted filter input. Unknown or malformed values are rejected. */
-export function parseLicenseFilters(
-  input: unknown,
-  allowed: Array<keyof LicenseFilters>,
-): { ok: true; filters: LicenseFilters } | { ok: false; issues: FilterIssue[] } {
+export function parseLicenseFilters(input: unknown, allowed: Array<keyof LicenseFilters>): { ok: true; filters: LicenseFilters } | { ok: false; issues: FilterIssue[] } {
   const issues: FilterIssue[] = [];
   if (input === undefined || input === null) return { ok: true, filters: {} };
-  if (typeof input !== "object" || Array.isArray(input)) {
-    return { ok: false, issues: [{ field: "filters", message: "Filters must be an object." }] };
-  }
-
+  if (typeof input !== "object" || Array.isArray(input)) return { ok: false, issues: [{ field: "filters", message: "Filters must be an object." }] };
   const raw = input as Record<string, unknown>;
   const filters: LicenseFilters = {};
   const allowedSet = new Set<string>(allowed);
-
   for (const [key, value] of Object.entries(raw)) {
     if (value === undefined || value === null || value === "") continue;
-    if (!allowedSet.has(key)) {
-      issues.push({ field: key, message: `"${key}" is not a supported filter here.` });
-      continue;
-    }
-    if (typeof value !== "string") {
-      issues.push({ field: key, message: `${key} must be text.` });
-      continue;
-    }
-    const trimmed = value.trim();
-    if (!trimmed) continue;
-    if (trimmed.length > MAX_FILTER_LENGTH) {
-      issues.push({ field: key, message: `${key} is too long.` });
-      continue;
-    }
-    if (key === "userEmail" && !EMAIL_RE.test(trimmed)) {
-      issues.push({ field: "userEmail", message: "userEmail must be a valid email address." });
-      continue;
-    }
+    if (!allowedSet.has(key)) { issues.push({ field: key, message: `"${key}" is not a supported filter here.` }); continue; }
+    if (typeof value !== "string") { issues.push({ field: key, message: `${key} must be text.` }); continue; }
+    const trimmed = value.trim(); if (!trimmed) continue;
+    if (trimmed.length > MAX_FILTER_LENGTH) { issues.push({ field: key, message: `${key} is too long.` }); continue; }
+    if (key === "userEmail" && !EMAIL_RE.test(trimmed)) { issues.push({ field: "userEmail", message: "userEmail must be a valid email address." }); continue; }
     filters[key as keyof LicenseFilters] = trimmed;
   }
-
   if (issues.length) return { ok: false, issues };
   return { ok: true, filters };
 }
