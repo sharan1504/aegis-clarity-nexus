@@ -127,3 +127,88 @@ COMMENT ON FUNCTION public.append_agent_run_event IS
 
 COMMENT ON COLUMN public.agent_runs.trace_id IS 'Stable trace identifier shared by all spans/events in this run.';
 COMMENT ON COLUMN public.agent_runs.checkpoint IS 'Durable runtime checkpoint; never treated as authorization.';
+
+
+CREATE OR REPLACE FUNCTION public.claim_agent_budget(
+  p_run_id uuid,
+  p_tenant_id uuid,
+  p_kind text,
+  p_input_tokens integer DEFAULT 0,
+  p_output_tokens integer DEFAULT 0,
+  p_cost_usd numeric DEFAULT 0
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, app_private
+AS $$
+DECLARE
+  r public.agent_runs;
+  next_steps integer;
+  next_tools integer;
+  next_retries integer;
+  next_input integer;
+  next_output integer;
+  next_cost numeric;
+  allowed boolean := true;
+  reason text := null;
+BEGIN
+  IF NOT app_private.is_tenant_member(p_tenant_id) THEN
+    RETURN jsonb_build_object('allowed', false, 'reason', 'tenant access denied');
+  END IF;
+
+  SELECT * INTO r
+  FROM public.agent_runs
+  WHERE id = p_run_id AND tenant_id = p_tenant_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('allowed', false, 'reason', 'agent run not found');
+  END IF;
+
+  IF r.cancel_requested THEN
+    RETURN jsonb_build_object('allowed', false, 'reason', 'agent run cancellation was requested');
+  END IF;
+
+  IF r.deadline_at IS NOT NULL AND now() > r.deadline_at THEN
+    RETURN jsonb_build_object('allowed', false, 'reason', 'agent run wall-time budget was exceeded');
+  END IF;
+
+  next_steps := r.step_count + CASE WHEN p_kind = 'step' THEN 1 ELSE 0 END;
+  next_tools := r.tool_call_count + CASE WHEN p_kind = 'tool' THEN 1 ELSE 0 END;
+  next_retries := r.retry_count + CASE WHEN p_kind = 'retry' THEN 1 ELSE 0 END;
+  next_input := r.input_tokens + GREATEST(p_input_tokens, 0);
+  next_output := r.output_tokens + GREATEST(p_output_tokens, 0);
+  next_cost := r.cost_usd + GREATEST(p_cost_usd, 0);
+
+  IF next_steps > r.max_steps THEN allowed := false; reason := 'maximum agent step budget exceeded'; END IF;
+  IF allowed AND next_tools > r.max_tool_calls THEN allowed := false; reason := 'maximum tool-call budget exceeded'; END IF;
+  IF allowed AND next_retries > r.max_retries THEN allowed := false; reason := 'maximum retry budget exceeded'; END IF;
+  IF allowed AND next_input > r.max_input_tokens THEN allowed := false; reason := 'maximum input-token budget exceeded'; END IF;
+  IF allowed AND next_output > r.max_output_tokens THEN allowed := false; reason := 'maximum output-token budget exceeded'; END IF;
+  IF allowed AND next_cost > r.max_cost_usd THEN allowed := false; reason := 'maximum AI cost budget exceeded'; END IF;
+
+  IF NOT allowed THEN
+    RETURN jsonb_build_object(
+      'allowed', false, 'reason', reason, 'stepCount', r.step_count,
+      'toolCallCount', r.tool_call_count, 'retryCount', r.retry_count,
+      'inputTokens', r.input_tokens, 'outputTokens', r.output_tokens, 'costUsd', r.cost_usd
+    );
+  END IF;
+
+  UPDATE public.agent_runs
+  SET step_count = next_steps, tool_call_count = next_tools, retry_count = next_retries,
+      input_tokens = next_input, output_tokens = next_output, cost_usd = next_cost,
+      updated_at = now()
+  WHERE id = r.id AND tenant_id = r.tenant_id;
+
+  RETURN jsonb_build_object(
+    'allowed', true, 'stepCount', next_steps, 'toolCallCount', next_tools,
+    'retryCount', next_retries, 'inputTokens', next_input, 'outputTokens', next_output,
+    'costUsd', next_cost
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.claim_agent_budget(uuid, uuid, text, integer, integer, numeric)
+  TO authenticated, service_role;
