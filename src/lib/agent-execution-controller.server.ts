@@ -62,8 +62,8 @@ export function sanitizeTracePayload(value: unknown): unknown {
   if (value === null || value === undefined) return value;
   if (typeof value === "string") {
     return value
-      .replace(/Bearer\\s+[A-Za-z0-9._-]+/gi, "Bearer [REDACTED]")
-      .replace(/(access[_-]?token|refresh[_-]?token|api[_-]?key|client[_-]?secret|password)\\s*[:=]\\s*["']?[^,"'\\s}]+/gi, "$1=[REDACTED]")
+      .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer [REDACTED]")
+      .replace(/(access[_-]?token|refresh[_-]?token|api[_-]?key|client[_-]?secret|password)\s*[:=]\s*["']?[^,"'\s}]+/gi, "$1=[REDACTED]")
       .slice(0, 4000);
   }
   if (Array.isArray(value)) return value.slice(0, 50).map(sanitizeTracePayload);
@@ -81,7 +81,7 @@ export function sanitizeTracePayload(value: unknown): unknown {
 
 export function isRetryableAgentError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
-  return /\\b(429|502|503|504|timeout|timed out|temporar|rate limit|network)\\b/i.test(message);
+  return /\b(429|502|503|504|timeout|timed out|temporar|rate limit|network)\b/i.test(message);
 }
 
 export async function withAgentRetry<T>(
