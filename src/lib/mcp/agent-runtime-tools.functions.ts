@@ -3,7 +3,7 @@ import { getRequest } from "@tanstack/react-start/server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveTenantContext } from "@/lib/tenant-context.server";
 import { getAgentMcpToolAvailability } from "./agent-tool-availability.server";
-import { requireAgentBudget, sanitizeTracePayload } from "@/lib/agent-execution-controller.server";
+import { requireAgentBudget, sanitizeTracePayload, withAgentRetry } from "@/lib/agent-execution-controller.server";
 import { MCP_TOOL_REGISTRY } from "./gateway-catalog";
 
 function runtimeToolError(error: unknown) {
@@ -67,7 +67,7 @@ export const invokeAgentRuntimeTool = createServerFn({ method: "POST" })
       if (!selected.available) throw new Error(selected.reasons.join(" "));
 
       await requireAgentBudget(context.supabase, tenant.tenantId, data.runId, "tool");
-      const result = await MCP_TOOL_REGISTRY.invoke(data.toolName, data.input, {
+      const result = await withAgentRetry(context.supabase, tenant.tenantId, data.runId, () => MCP_TOOL_REGISTRY.invoke(data.toolName, data.input, {
         isAuthenticated: () => true,
         token: requestToken(),
         userId: context.userId,
