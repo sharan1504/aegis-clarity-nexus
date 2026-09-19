@@ -16,12 +16,6 @@ function requestToken(): string {
   return header.slice("Bearer ".length).trim();
 }
 
-async function nextEventSequence(supabase: any, runId: string, tenantId: string) {
-  const { data, error } = await supabase.from("agent_run_events").select("sequence").eq("run_id", runId).eq("tenant_id", tenantId).order("sequence", { ascending: false }).limit(1).maybeSingle();
-  if (error) throw new Error(`Unable to allocate agent event sequence: ${error.message}`);
-  return Number(data?.sequence ?? 0) + 1;
-}
-
 export const listAgentRuntimeTools = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { agentKey: string }) => ({ agentKey: String(input.agentKey ?? "").trim() }))
@@ -71,7 +65,7 @@ export const invokeAgentRuntimeTool = createServerFn({ method: "POST" })
         isAuthenticated: () => true,
         token: requestToken(),
         userId: context.userId,
-      });
+      }) as Promise<any>);
 
       const { error: eventError } = await (context.supabase as any).rpc("append_agent_run_event", {
         p_run_id: data.runId,
