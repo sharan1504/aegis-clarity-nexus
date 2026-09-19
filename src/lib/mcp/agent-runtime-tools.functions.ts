@@ -3,6 +3,7 @@ import { getRequest } from "@tanstack/react-start/server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveTenantContext } from "@/lib/tenant-context.server";
 import { getAgentMcpToolAvailability } from "./agent-tool-availability.server";
+import { requireAgentBudget, sanitizeTracePayload } from "@/lib/agent-execution-controller.server";
 import { MCP_TOOL_REGISTRY } from "./gateway-catalog";
 
 function runtimeToolError(error: unknown) {
@@ -28,7 +29,7 @@ export const listAgentRuntimeTools = createServerFn({ method: "POST" })
     try {
       if (!data.agentKey) throw new Error("An agent key is required.");
       const tenant = await resolveTenantContext(context.supabase, context.userId);
-      const tools = await getAgentMcpToolAvailability(context.supabase, data.agentKey);
+      const tools = await getAgentMcpToolAvailability(context.supabase, tenant.tenantId, data.agentKey);
       return { ok: true as const, tenantId: tenant.tenantId, tools };
     } catch (error) {
       return runtimeToolError(error);
@@ -60,28 +61,28 @@ export const invokeAgentRuntimeTool = createServerFn({ method: "POST" })
         throw new Error(`Tool invocation is not allowed during the ${run.current_step ?? "unknown"} stage.`);
       }
 
-      const availability = await getAgentMcpToolAvailability(context.supabase, run.agent_key);
+      const availability = await getAgentMcpToolAvailability(context.supabase, tenant.tenantId, run.agent_key);
       const selected = availability.find((tool) => tool.name === data.toolName);
       if (!selected) throw new Error(`Unknown MCP tool: ${data.toolName}`);
       if (!selected.available) throw new Error(selected.reasons.join(" "));
 
+      await requireAgentBudget(context.supabase, tenant.tenantId, data.runId, "tool");
       const result = await MCP_TOOL_REGISTRY.invoke(data.toolName, data.input, {
         isAuthenticated: () => true,
         token: requestToken(),
         userId: context.userId,
       });
 
-      const { error: eventError } = await context.supabase.from("agent_run_events").insert({
-        run_id: data.runId,
-        tenant_id: tenant.tenantId,
-        sequence: await nextEventSequence(context.supabase, data.runId, tenant.tenantId),
-        event_type: "tool_call",
-        step: run.current_step,
-        actor_id: context.userId,
-        provider: selected.provider,
-        capability_key: selected.capability,
-        outcome: (result as { isError?: boolean })?.isError ? "denied" : "completed",
-        payload: { toolName: selected.name, actionKey: selected.actionKey },
+      const { error: eventError } = await (context.supabase as any).rpc("append_agent_run_event", {
+        p_run_id: data.runId,
+        p_tenant_id: tenant.tenantId,
+        p_actor_id: context.userId,
+        p_event_type: "tool_call",
+        p_step: run.current_step,
+        p_provider: selected.provider,
+        p_capability_key: selected.capability,
+        p_outcome: (result as { isError?: boolean })?.isError ? "denied" : "completed",
+        p_payload: sanitizeTracePayload({ toolName: selected.name, actionKey: selected.actionKey }),
       });
       if (eventError) console.error("[agent-runtime-tools] event log failed", eventError.message);
 
