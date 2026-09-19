@@ -64,24 +64,60 @@ export const CENOPS_AI_KNOWLEDGE: CenOpsKnowledgeEntry[] = [
 
 const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
+function tokenize(value: string): string[] {
+  return normalize(value).split(/\s+/).filter((term) => term.length > 2);
+}
+
+function expandedTerms(query: string): Set<string> {
+  const terms = new Set(tokenize(query));
+  const aliases: Record<string, string[]> = {
+    connect: ["connection", "authentication", "setup"],
+    connected: ["connection", "integration"],
+    integration: ["provider", "connection"],
+    agent: ["automation", "workflow", "assistant"],
+    approval: ["governance", "change", "authorization"],
+    evidence: ["source", "audit", "finding"],
+    sync: ["synchronization", "refresh", "data"],
+    security: ["risk", "finding", "governance"],
+  };
+  for (const term of [...terms]) for (const alias of aliases[term] ?? []) terms.add(alias);
+  return terms;
+}
+
+/** Deterministic BM25-style retrieval with phrase/topic/keyword boosts.
+ * This is intentionally local and reproducible; a future vector index can plug
+ * into the same contract without changing the answer layer.
+ */
 export function retrieveCenOpsKnowledge(query: string, limit = 10): CenOpsKnowledgeEntry[] {
   const normalized = normalize(query);
-  const terms = new Set(normalized.split(/\s+/).filter(Boolean));
-  return CENOPS_AI_KNOWLEDGE
-    .map((entry) => {
-      const haystack = normalize(`${entry.topic} ${entry.content} ${entry.keywords.join(" ")}`);
-      let score = 0;
-      if (haystack.includes(normalized) && normalized.length > 3) score += 8;
-      for (const keyword of entry.keywords) {
-        const keyTerms = normalize(keyword).split(/\s+/);
-        score += keyTerms.filter((term) => terms.has(term)).length * 3;
-      }
-      for (const term of terms) if (term.length > 3 && haystack.includes(term)) score += 1;
-      return { entry, score };
-    })
+  if (!normalized) return [];
+  const terms = expandedTerms(query);
+  const scored = CENOPS_AI_KNOWLEDGE.map((entry) => {
+    const topicTokens = tokenize(entry.topic);
+    const contentTokens = tokenize(entry.content);
+    const keywordTokens = entry.keywords.flatMap(tokenize);
+    const docTerms = new Set([...contentTokens, ...keywordTokens]);
+    let score = 0;
+
+    if (normalize(entry.topic) === normalized) score += 30;
+    if (normalize(entry.topic).includes(normalized)) score += 15;
+    if (normalize(entry.content).includes(normalized)) score += 8;
+
+    for (const term of terms) {
+      if (topicTokens.includes(term)) score += 8;
+      if (keywordTokens.includes(term)) score += 6;
+      if (docTerms.has(term)) score += 2;
+    }
+
+    const uniqueMatches = [...terms].filter((term) => docTerms.has(term)).length;
+    if (uniqueMatches >= 3) score += Math.min(12, uniqueMatches * 2);
+    return { entry, score };
+  });
+
+  return scored
     .filter(({ score }) => score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit)
+    .sort((a, b) => b.score - a.score || a.entry.topic.localeCompare(b.entry.topic))
+    .slice(0, Math.max(1, Math.min(limit, 20)))
     .map(({ entry }) => entry);
 }
 
