@@ -45,7 +45,7 @@ export const invokeAgentRuntimeTool = createServerFn({ method: "POST" })
       const tenant = await resolveTenantContext(context.supabase, context.userId);
       const { data: run, error: runError } = await context.supabase
         .from("agent_runs")
-        .select("id, tenant_id, agent_key, status, current_step")
+        .select("id, tenant_id, agent_key, status, current_step, trace_id")
         .eq("id", data.runId)
         .eq("tenant_id", tenant.tenantId)
         .single();
@@ -76,6 +76,7 @@ export const invokeAgentRuntimeTool = createServerFn({ method: "POST" })
         p_provider: selected.provider,
         p_capability_key: selected.capability,
         p_outcome: (result as { isError?: boolean })?.isError ? "denied" : "completed",
+        p_trace_id: run.trace_id ?? null,
         p_payload: sanitizeTracePayload({ toolName: selected.name, actionKey: selected.actionKey }),
       });
       if (eventError) console.error("[agent-runtime-tools] event log failed", eventError.message);
