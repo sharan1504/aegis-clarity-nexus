@@ -9,16 +9,18 @@ describe("agent MCP tool availability", () => {
       from: () => ({
         select: () => ({
           eq: () => ({
-            eq: async () => ({
+            eq: () => ({
+              eq: async () => ({
               data: [{ enabled: true, capabilities: { capability_key: "change_records" } }],
               error: null,
+              }),
             }),
           }),
         }),
       }),
     };
 
-    const tools = await getAgentMcpToolAvailability(supabase as never, "agent-security");
+    const tools = await getAgentMcpToolAvailability(supabase as never, "tenant-1", "agent-security");
     expect(tools.find((tool) => tool.name === "list_change_records")?.available).toBe(true);
     expect(tools.find((tool) => tool.name === "list_agents")?.available).toBe(false);
   });
