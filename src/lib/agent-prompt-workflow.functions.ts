@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { loadAgentDetail } from "@/lib/agent-detail.server";
 import { defaultModelGateway } from "@/lib/model-gateway";
+import { z } from "zod";
 
 export type GeneratedAgentWorkflowStep = {
   id: string;
@@ -26,8 +27,26 @@ function text(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value.trim() : fallback;
 }
 
+const generatedWorkflowSchema = z.object({
+  summary: z.string().trim().min(1).max(1000),
+  trigger: z.string().trim().min(1).max(500),
+  config: z.record(z.union([z.string(), z.number(), z.boolean(), z.null()])).default({}),
+  steps: z.array(z.object({
+    id: z.string().trim().min(1).max(100),
+    name: z.string().trim().min(1).max(120),
+    type: z.string().trim().min(1).max(48),
+    provider: z.string().trim().max(100).optional(),
+    capability: z.string().trim().max(120).optional(),
+    action: z.string().trim().min(1).max(1200),
+    requiresApproval: z.boolean(),
+    verification: z.string().trim().max(600).optional(),
+  })).min(1).max(12),
+  assumptions: z.array(z.string().trim().max(400)).max(8).default([]),
+});
+
 function normalizeWorkflow(raw: unknown): GeneratedAgentWorkflow {
-  const value = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
+  const parsed = generatedWorkflowSchema.safeParse(raw);
+  const value = parsed.success ? parsed.data as Record<string, unknown> : (raw && typeof raw === "object" ? raw as Record<string, unknown> : {});
   const rawSteps = Array.isArray(value.steps) ? value.steps : [];
   const steps: GeneratedAgentWorkflowStep[] = rawSteps.slice(0, 12).map((candidate, index) => {
     const row = candidate && typeof candidate === "object" ? candidate as Record<string, unknown> : {};
@@ -117,5 +136,9 @@ export const generateAgentWorkflowFromPrompt = createServerFn({ method: "POST" }
       customerRequest: data.prompt,
     });
     const generated = await generateWithLovable([{ role: "system", content: system }, { role: "user", content: user }]);
-    return { ok: true as const, model: generated.model, ...normalizeWorkflow(generated.content) };
+    const workflow = normalizeWorkflow(generated.content);
+    const allowed = new Set(capabilities.map((item) => `${item.provider}:${item.capability}`));
+    const unsafe = workflow.steps.filter((step) => step.provider && step.capability && !allowed.has(`${step.provider}:${step.capability}`));
+    if (unsafe.length) throw new Error(`The generated workflow referenced capability bindings that are not enabled for this agent: ${unsafe.map((step) => `${step.provider}/${step.capability}`).join(", ")}.`);
+    return { ok: true as const, model: generated.model, ...workflow };
   });
