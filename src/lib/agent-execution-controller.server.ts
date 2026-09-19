@@ -106,3 +106,20 @@ export async function withAgentRetry<T>(
   }
   throw lastError instanceof Error ? lastError : new Error("Agent operation failed after retries.");
 }
+
+
+export async function assertAgentRunOperator(
+  supabase: UserClient,
+  tenantId: string,
+  userId: string,
+  runId: string,
+): Promise<void> {
+  const [{ data: run, error: runError }, { data: roles, error: roleError }] = await Promise.all([
+    (supabase as any).from("agent_runs").select("created_by").eq("id", runId).eq("tenant_id", tenantId).single(),
+    (supabase as any).from("user_roles").select("role").eq("user_id", userId).eq("tenant_id", tenantId),
+  ]);
+  if (runError || !run) throw new Error("Agent run was not found.");
+  if (roleError) throw new Error("Unable to resolve agent run operator permissions.");
+  const elevated = (roles ?? []).some((row: { role?: string }) => row.role === "admin" || row.role === "manager");
+  if (!elevated && run.created_by !== userId) throw new Error("Only the run creator or a workspace admin/manager may control this agent run.");
+}
