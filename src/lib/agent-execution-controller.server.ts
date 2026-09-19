@@ -77,3 +77,32 @@ export function sanitizeTracePayload(value: unknown): unknown {
   }
   return value;
 }
+
+
+export function isRetryableAgentError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /\\b(429|502|503|504|timeout|timed out|temporar|rate limit|network)\\b/i.test(message);
+}
+
+export async function withAgentRetry<T>(
+  supabase: UserClient,
+  tenantId: string,
+  runId: string,
+  operation: () => Promise<T>,
+  options: { maxAttempts?: number; baseDelayMs?: number } = {},
+): Promise<T> {
+  const maxAttempts = Math.max(1, Math.min(options.maxAttempts ?? 2, 3));
+  const baseDelayMs = Math.max(50, Math.min(options.baseDelayMs ?? 250, 2000));
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      if (attempt >= maxAttempts || !isRetryableAgentError(error)) throw error;
+      await requireAgentBudget(supabase, tenantId, runId, "retry");
+      await new Promise((resolve) => setTimeout(resolve, baseDelayMs * 2 ** (attempt - 1)));
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Agent operation failed after retries.");
+}
