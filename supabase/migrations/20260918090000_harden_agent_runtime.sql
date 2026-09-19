@@ -110,7 +110,7 @@ BEGIN
     p_run_id, p_tenant_id, v_sequence, p_event_type, p_step, p_actor_id,
     p_provider, p_capability_key, p_outcome, COALESCE(p_payload, '{}'::jsonb),
     p_trace_id, p_parent_event_id, p_duration_ms, GREATEST(p_attempt, 1), true,
-    encode(digest(COALESCE(p_payload, '{}'::jsonb)::text, 'sha256'), 'hex')
+    md5(COALESCE(p_payload, '{}'::jsonb)::text)
   )
   RETURNING * INTO v_row;
 
