@@ -46,7 +46,11 @@ const generatedWorkflowSchema = z.object({
 
 function normalizeWorkflow(raw: unknown): GeneratedAgentWorkflow {
   const parsed = generatedWorkflowSchema.safeParse(raw);
-  const value = parsed.success ? parsed.data as Record<string, unknown> : (raw && typeof raw === "object" ? raw as Record<string, unknown> : {});
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    throw new Error(`The AI returned an invalid workflow schema at ${issue?.path.join(".") || "root"}: ${issue?.message ?? "schema validation failed"}.`);
+  }
+  const value = parsed.data as Record<string, unknown>;
   const rawSteps = Array.isArray(value.steps) ? value.steps : [];
   const steps: GeneratedAgentWorkflowStep[] = rawSteps.slice(0, 12).map((candidate, index) => {
     const row = candidate && typeof candidate === "object" ? candidate as Record<string, unknown> : {};
