@@ -47,10 +47,11 @@ async function resolveRequestTenant(): Promise<{ tenantId: string; userId: strin
     const token = authorization.slice("Bearer ".length).trim();
     const payload = token.split(".")[1];
     if (!payload) return null;
-    const userId = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")).sub;
-    if (typeof userId !== "string" || !userId) return null;
-
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !authData.user?.id) return null;
+    const userId = authData.user.id;
+
     const { data: profile } = await (supabaseAdmin as any).from("profiles").select("tenant_id").eq("id", userId).maybeSingle();
     const tenantId = profile?.tenant_id;
     return typeof tenantId === "string" && tenantId ? { tenantId, userId } : null;

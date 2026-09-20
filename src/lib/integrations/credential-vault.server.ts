@@ -23,3 +23,22 @@ export function decryptCredentials<T>(value: string): T {
   decipher.setAuthTag(Buffer.from(tagRaw, "base64url"));
   return JSON.parse(Buffer.concat([decipher.update(Buffer.from(ciphertextRaw, "base64url")), decipher.final()]).toString("utf8")) as T;
 }
+
+
+export interface CredentialKeyProvider {
+  currentKeyId(): Promise<string>;
+  keyFor(keyId: string): Promise<Buffer>;
+}
+
+export async function credentialEnvelopeMetadata(value: string): Promise<{ keyId: string; algorithm: "aes-256-gcm" }> {
+  const keyId = process.env.AEGIS_CREDENTIAL_KEY_ID?.trim() || "legacy-static-v1";
+  return { keyId, algorithm: "aes-256-gcm" };
+}
+
+export function assertCredentialKeyLifecycleConfigured(): void {
+  const keyId = process.env.AEGIS_CREDENTIAL_KEY_ID?.trim();
+  const keySource = process.env.AEGIS_CREDENTIAL_KEY_PROVIDER?.trim();
+  if (!keyId || !keySource) {
+    throw new Error("Managed credential key lifecycle is not configured. Set AEGIS_CREDENTIAL_KEY_ID and AEGIS_CREDENTIAL_KEY_PROVIDER before production key rotation.");
+  }
+}

@@ -6,10 +6,11 @@ export interface AgentToolAvailability extends McpToolDescriptor {
   reasons: string[];
 }
 
-export async function getAgentMcpToolAvailability(supabase: UserClient, agentKey: string): Promise<AgentToolAvailability[]> {
+export async function getAgentMcpToolAvailability(supabase: UserClient, tenantId: string, agentKey: string): Promise<AgentToolAvailability[]> {
   const { data: bindings, error } = await supabase
     .from("agent_integration_bindings")
     .select("enabled, capabilities!inner(capability_key)")
+    .eq("tenant_id", tenantId)
     .eq("agent_key", agentKey)
     .eq("enabled", true);
   if (error) throw new Error(`Unable to resolve agent tool availability: ${error.message}`);
