@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUp, Bot, BookOpen, Building2, ClipboardCheck, FileText, History, MessageSquare, Plus, Search, ShieldAlert, Sparkles, Trash2 } from "lucide-react";
+import { ArrowUp, BookOpen, Building2, ClipboardCheck, FileText, History, MessageSquare, Plus, Search, ShieldAlert, Sparkles, Trash2 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
