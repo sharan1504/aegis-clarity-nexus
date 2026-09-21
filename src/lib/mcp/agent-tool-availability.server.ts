@@ -76,12 +76,20 @@ export async function getAgentMcpToolAvailability(supabase: UserClient, tenantId
     const definitionEnabled = Boolean(tool.capability && enabledDefinitionCapabilities.has(tool.capability));
     const bindingEnabled = Boolean(tool.capability && enabledCapabilities.has(tool.capability));
     const explicitExternal = tool.origin === "external" && Boolean(idByName.get(tool.name) && explicitToolBindings.has(idByName.get(tool.name)!));
-    const authorized = tool.origin === "external" ? explicitExternal && enabledDefinitionCapabilities.has("external_tools") : (platformGlobal ? definitionEnabled : bindingEnabled);
+
+    // Platform control-plane reads are tenant-scoped by their handlers and do not
+    // require a provider integration binding. Any defined agent can use them.
+    const authorized = tool.origin === "external"
+      ? explicitExternal && enabledDefinitionCapabilities.has("external_tools")
+      : platformGlobal
+        ? true
+        : bindingEnabled;
+
     if (!authorized && tool.capability) {
       reasons.push(tool.origin === "external"
         ? "External MCP tool is not explicitly bound to this agent by a workspace admin or manager."
-        : platformGlobal
-          ? "Agent definition " + agentKey + " does not have the " + tool.capability + " platform capability enabled."
+        : definitionEnabled
+          ? "Agent has capability " + tool.capability + " in its definition but no enabled integration binding. Connect and bind a provider that implements " + tool.capability + "."
           : "Agent " + agentKey + " does not have the " + tool.capability + " capability enabled for a tenant integration binding.");
     }
     return { ...tool, available: authorized || !tool.capability, reasons };
