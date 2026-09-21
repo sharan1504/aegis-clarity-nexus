@@ -29,8 +29,8 @@ export const executeEnterpriseChat = createServerFn({ method: "POST" }).middlewa
   if (!data.sessionId) return { ok: false as const, error: "A chat session is required." };
   if (!latest) return { ok: false as const, error: "Please enter a message." };
   const { environmentMode } = await resolveTenantContext(context.supabase, context.userId);
-  const intent = classifyCenOpsIntent(latest);
-  const productQuestion = intent.productQuestion || isProductQuestion(latest);
+  let intent = classifyCenOpsIntent(latest, data.messages.slice(0, -1));
+  let productQuestion = intent.productQuestion || isProductQuestion(latest);
   if (environmentMode === "demo" && !productQuestion) {
     const investigation = DEMO_INVESTIGATIONS[0];
     const response = demoResponse(latest);
@@ -48,6 +48,8 @@ export const executeEnterpriseChat = createServerFn({ method: "POST" }).middlewa
     const { data: storedMessages, error: historyError } = await db.from("chat_messages").select("role,content").eq("session_id", data.sessionId).eq("tenant_id", tenantId).eq("user_id", context.userId).order("created_at", { ascending: false }).limit(12);
     if (historyError) throw new Error(historyError.message);
     const conversation = (storedMessages ?? []).reverse() as EnterpriseChatMessage[];
+    intent = classifyCenOpsIntent(latest, conversation.slice(0, -1));
+    productQuestion = intent.productQuestion || isProductQuestion(latest);
     let stepNumber = 1;
     try { investigationId = await startCustomerInvestigation(db, { tenantId, userId: context.userId, conversationId: data.sessionId, interactionId: data.sessionId, channel: "chat", subject: latest.slice(0, 160) }); await recordInvestigationStep(db, investigationId, tenantId, { stepNumber: stepNumber++, stepType: "intent", name: "Customer request classified", input: { message: latest, intent: intent.intent, confidence: intent.confidence }, finding: `CenOps classified this request as ${intent.intent}.` }); } catch (error) { console.error("[customer-investigation] could not initialize", error); }
     const toolContext = { tenantId, investigationId, conversationId: data.sessionId, interactionId: data.sessionId, userId: context.userId };
