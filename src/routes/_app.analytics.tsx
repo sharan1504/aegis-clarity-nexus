@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { FileBarChart, RefreshCw, Settings2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock3, FileBarChart, PanelLeft, RefreshCw, Settings2 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/AppLayout";
@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTenantContext } from "@/lib/tenant";
 import { useRole } from "@/lib/rbac";
 import { getAnalytics, updateAnalyticsSettings } from "@/lib/analytics.functions";
@@ -20,11 +22,17 @@ import { ANALYTICS_REPORT_TEMPLATES, hasAnalyticsReportData, rowsForAnalyticsRep
 import { getReportRetentionDays, setReportRetentionDays } from "@/lib/reports-retention.functions";
 import { pageHead } from "@/lib/seo";
 import { ANALYTICS_VIEW_GROUPS, ANALYTICS_VIEWS, getAnalyticsView, type AnalyticsViewId } from "@/lib/analytics-workspace";
-import { AdminActivityView, AiUsageView, AgentsView, EmptyPanel, GovernanceView, IntegrationsEvidenceView, Metric, OverviewView, PRESETS } from "@/routes/_app.analytics.workspace";
+import { AdminActivityView, AiUsageView, AgentsView, EmptyPanel, GovernanceView, IntegrationsEvidenceView, Metric, OverviewView, PRESETS, type AnalyticsDrillDown } from "@/routes/_app.analytics.workspace";
 import type { Analytics } from "@/routes/_app.analytics.types";
 
 export const Route = createFileRoute("/_app/analytics")({
-  validateSearch: (search: Record<string, unknown>) => ({ view: getAnalyticsView(search.view) }),
+  validateSearch: (search: Record<string, unknown>) => ({
+    view: getAnalyticsView(search.view),
+    agentKey: typeof search.agentKey === "string" ? search.agentKey : undefined,
+    provider: typeof search.provider === "string" ? search.provider : undefined,
+    findingId: typeof search.findingId === "string" ? search.findingId : undefined,
+    changeId: typeof search.changeId === "string" ? search.changeId : undefined,
+  }),
   head: () => pageHead({ path: "/analytics", title: "Analytics — Aegis AI", description: "Operational analytics, findings, trends and evidence across the Aegis workspace." }),
   component: AnalyticsPage,
 });
@@ -61,6 +69,9 @@ function AnalyticsPage() {
   const [retention, setRetention] = useState(90);
   const [busy, setBusy] = useState<string | null>(null);
   const [format, setFormat] = useState<ReportFormat>("pdf");
+  const [railCollapsed, setRailCollapsed] = useState(false);
+  const [rangeOpen, setRangeOpen] = useState(false);
+  const [rangeTab, setRangeTab] = useState<"relative" | "custom">("relative");
 
   const refresh = async () => {
     setLoading(true);
@@ -80,8 +91,13 @@ function AnalyticsPage() {
       toast.error("Analytics could not be loaded", { description: error instanceof Error ? error.message : "Try again." });
     } finally { setLoading(false); }
   };
+  useEffect(() => {
+    try { setRailCollapsed(window.localStorage.getItem("cenops.analytics.railCollapsed") === "true"); } catch { /* browser storage may be unavailable */ }
+  }, []);
+  useEffect(() => {
+    try { window.localStorage.setItem("cenops.analytics.railCollapsed", String(railCollapsed)); } catch { /* browser storage may be unavailable */ }
+  }, [railCollapsed]);
   useEffect(() => { if (!custom) void refresh(); }, [tenantId, days, custom]);
-
   const findings = useMemo<Finding[]>(() => {
     if (!data) return [];
     const rows: Finding[] = [];
@@ -93,6 +109,11 @@ function AnalyticsPage() {
     return rows;
   }, [data]);
 
+  useEffect(() => {
+    const focused = search.findingId ? findings.find((item) => item.id === search.findingId) : null;
+    if (focused) setSelected(focused);
+  }, [search.findingId, findings]);
+
   const filteredFindings = useMemo(() => findings.filter((f) =>
     (!searchQuery || `${f.name} ${f.category} ${f.impact} ${f.detail}`.toLowerCase().includes(searchQuery.toLowerCase())) &&
     (status === "all" || f.status.toLowerCase() === status) && (severity === "all" || f.severity.toLowerCase() === severity) && (category === "all" || f.category === category)
@@ -100,6 +121,7 @@ function AnalyticsPage() {
   const max = Math.max(1, ...(data?.trends ?? []).map((x) => x.events + x.changes + x.aiRequests));
   const activeView = ANALYTICS_VIEWS.find((item) => item.id === view) ?? ANALYTICS_VIEWS[0];
 
+  const rangeLabel = custom ? `${data?.period.from.slice(0, 10)} → ${data?.period.to.slice(0, 10)}` : `Last ${days} days`;
   const applyCustom = async () => {
     if (!from || !to) return toast.error("Choose both dates.");
     const start = new Date(`${from}T00:00:00`).getTime(); const end = new Date(`${to}T23:59:59.999`).getTime();
@@ -125,6 +147,9 @@ function AnalyticsPage() {
     catch (error) { toast.error(`${provider} sync failed`, { description: error instanceof Error ? error.message : "Try again." }); }
     finally { setBusy(null); }
   };
+  const goToAnalyticsView = (target: AnalyticsDrillDown) => {
+    void navigate({ search: () => ({ view: target.view, agentKey: target.agentKey, provider: target.provider, findingId: target.findingId, changeId: target.changeId }) });
+  };
   const reportRows = workspace?.providers.connectedProviders ?? [];
 
   if (loading && !data) return <div className="py-16 text-center text-sm text-muted-foreground">Loading evidence-backed analytics…</div>;
@@ -132,31 +157,57 @@ function AnalyticsPage() {
 
   return <div className="w-full space-y-5">
     <PageHeader title="Analytics Workspace" description="Explore operational evidence by domain without inventing metrics." actions={<div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" onClick={() => void refresh()}><RefreshCw className="mr-1.5 h-4 w-4" />Refresh</Button><Button variant="outline" size="sm" onClick={() => setReportOpen(true)}><FileBarChart className="mr-1.5 h-4 w-4" />Reports</Button><Button variant="outline" size="sm" onClick={() => setSettingsOpen(true)}><Settings2 className="mr-1.5 h-4 w-4" />Settings</Button></div>} />
-    <div className="flex flex-wrap items-center gap-2 border-b pb-4">
-      <div className="flex gap-1 rounded-lg border bg-muted/20 p-1">{PRESETS.map((value) => <Button key={value} size="sm" variant={!custom && days === value ? "default" : "ghost"} onClick={() => { setCustom(false); setDays(value); }}>{value}d</Button>)}<Button size="sm" variant={custom ? "default" : "ghost"} onClick={() => setCustom(true)}>Custom</Button></div>
-      {custom && <><Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-36" /><Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-36" /><Button size="sm" onClick={() => void applyCustom()}>Apply</Button></>}
-      <span className="ml-auto text-xs font-medium text-muted-foreground">{data.period.from.slice(0, 10)} → {data.period.to.slice(0, 10)}</span>
-    </div>
-    <div className="grid min-h-[680px] gap-6 lg:grid-cols-[200px_minmax(0,1fr)]">
-      <aside className="h-fit border-b bg-muted/10 p-2 lg:border-b-0 lg:bg-transparent lg:p-0">
-        <div className="mb-3 px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Analytics views</div>
-        <nav className="space-y-4">{ANALYTICS_VIEW_GROUPS.map((group) => <div key={group}><div className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80">{group}</div><div className="space-y-0.5">{ANALYTICS_VIEWS.filter((item) => item.group === group).map((item) => { const Icon = item.icon; const selectedView = item.id === view; return <button key={item.id} type="button" onClick={() => void navigate({ search: { view: item.id } })} aria-current={selectedView ? "page" : undefined} className={`flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm transition-colors ${selectedView ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}><Icon className="h-4 w-4 shrink-0" /><span className="truncate">{item.label}</span></button>; })}</div></div>)}</nav>
-      </aside>
+    <div className={railCollapsed ? "grid min-h-[480px] gap-5 lg:grid-cols-[56px_minmax(0,1fr)]" : "grid min-h-[480px] gap-5 lg:grid-cols-[190px_minmax(0,1fr)]"}>
+      <TooltipProvider delayDuration={250}>
+        <aside className="h-fit min-w-0">
+          <div className={`mb-2 flex items-center ${railCollapsed ? "justify-center" : "justify-between"} gap-2 px-1`}>
+            {!railCollapsed ? <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Analytics views</span> : <Tooltip><TooltipTrigger asChild><span className="flex h-7 w-7 items-center justify-center text-muted-foreground"><PanelLeft className="h-4 w-4" /></span></TooltipTrigger><TooltipContent side="right">Analytics views</TooltipContent></Tooltip>}
+            <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" aria-expanded={!railCollapsed} aria-controls="analytics-view-rail" aria-label={railCollapsed ? "Expand analytics views" : "Collapse analytics views"} onClick={() => setRailCollapsed((value) => !value)}>
+              {railCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            </Button>
+          </div>
+          <nav id="analytics-view-rail" className="space-y-3">
+            {ANALYTICS_VIEW_GROUPS.map((group) => <div key={group}>
+              {!railCollapsed ? <div className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80">{group}</div> : null}
+              <div className="space-y-0.5">
+                {ANALYTICS_VIEWS.filter((item) => item.group === group).map((item) => {
+                  const Icon = item.icon; const selectedView = item.id === view;
+                  const button = <button key={item.id} type="button" onClick={() => void navigate({ search: (prev) => ({ ...prev, view: item.id }) })} aria-current={selectedView ? "page" : undefined} className={`flex w-full items-center ${railCollapsed ? "justify-center" : "gap-2"} rounded-md px-2.5 py-2 text-left text-sm transition-colors ${selectedView ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}><Icon className="h-4 w-4 shrink-0" />{!railCollapsed ? <span className="truncate">{item.label}</span> : null}</button>;
+                  return railCollapsed ? <Tooltip key={item.id}><TooltipTrigger asChild>{button}</TooltipTrigger><TooltipContent side="right">{item.label}</TooltipContent></Tooltip> : button;
+                })}
+              </div>
+            </div>)}
+          </nav>
+        </aside>
+      </TooltipProvider>
       <main className="min-w-0">
-        <div className="mb-5 flex flex-wrap items-start justify-between gap-3 border-b pb-4"><div className="min-w-0"><h2 className="text-xl font-semibold tracking-tight">{activeView.label}</h2><p className="mt-1 max-w-3xl text-sm text-muted-foreground">{activeView.description}</p></div>{view === "findings" ? <Input className="w-52" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search findings" /> : <Badge variant="outline">Evidence range: {data.period.days} days</Badge>}</div>
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b pb-3">
+          <div className="min-w-0"><h2 className="text-xl font-semibold tracking-tight">{activeView.label}</h2><p className="mt-1 max-w-3xl text-sm text-muted-foreground">{activeView.description}</p></div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {view === "findings" ? <Input className="w-52" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search findings" /> : null}
+            <Popover open={rangeOpen} onOpenChange={setRangeOpen}>
+              <PopoverTrigger asChild><Button variant="outline" size="sm" className="gap-2"><Clock3 className="h-3.5 w-3.5" />{rangeLabel}</Button></PopoverTrigger>
+              <PopoverContent align="end" className="w-[340px] p-0">
+                <div className="border-b p-1"><div className="grid grid-cols-2 gap-1"><Button size="sm" variant={rangeTab === "relative" ? "secondary" : "ghost"} onClick={() => setRangeTab("relative")}>Relative</Button><Button size="sm" variant={rangeTab === "custom" ? "secondary" : "ghost"} onClick={() => { setRangeTab("custom"); setCustom(true); }}>Custom</Button></div></div>
+                {rangeTab === "relative" ? <div className="space-y-1 p-2">{PRESETS.map((value) => <button key={value} type="button" className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-sm hover:bg-muted ${!custom && days === value ? "bg-muted font-medium" : ""}`} onClick={() => { setCustom(false); setDays(value); setRangeOpen(false); }}>{`Last ${value} days`}{!custom && days === value ? <span className="text-xs text-muted-foreground">Active</span> : null}</button>)}</div> : <div className="space-y-3 p-4"><div className="text-xs text-muted-foreground">Custom range · maximum 90 days</div><div className="grid grid-cols-2 gap-2"><label className="space-y-1 text-xs"><span>From</span><Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label><label className="space-y-1 text-xs"><span>To</span><Input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label></div><div className="flex justify-end gap-2"><Button size="sm" variant="ghost" onClick={() => setRangeOpen(false)}>Cancel</Button><Button size="sm" onClick={() => void applyCustom()}>Apply</Button></div></div>}
+              </PopoverContent>
+            </Popover>
+            <Badge variant="outline" className="hidden sm:inline-flex">Evidence: {data.period.days}d</Badge>
+          </div>
+        </div>
         <div className="min-w-0">
-          {view === "overview" && <OverviewView data={data} max={max} />}
+          {view === "overview" && <OverviewView data={data} max={max} onNavigate={goToAnalyticsView} />}
           {view === "ai-usage" && <AiUsageView data={data} />}
-          {view === "agents" && <AgentsView data={data} />}
+          {view === "agents" && <AgentsView data={data} agent={search.agentKey} onNavigate={goToAnalyticsView} />}
           {view === "governance" && <GovernanceView data={data} />}
           {view === "admin-activity" && <AdminActivityView data={data} />}
-          {view === "integrations-evidence" && <IntegrationsEvidenceView workspace={{ ...workspace, providers: { ...workspace.providers, reportRows } }} busy={busy} onSync={syncProvider} />}
-          {view === "findings" && <FindingsView findings={filteredFindings} status={status} severity={severity} category={category} setStatus={setStatus} setSeverity={setSeverity} setCategory={setCategory} onSelect={setSelected} />}
+          {view === "integrations-evidence" && <IntegrationsEvidenceView workspace={{ ...workspace, providers: { ...workspace.providers, reportRows } }} provider={search.provider} busy={busy} onSync={syncProvider} onNavigate={goToAnalyticsView} />}
+          {view === "findings" && <FindingsView findings={filteredFindings} status={status} severity={severity} category={category} setStatus={setStatus} setSeverity={setSeverity} setCategory={setCategory} onSelect={(finding) => { setSelected(finding); void navigate({ search: (prev) => ({ ...prev, view: "findings", findingId: finding.id }) }); }} />}
           {view === "reports" && <ReportsView workspace={workspace} history={history} format={format} setFormat={setFormat} retention={retention} onGenerate={generate} busy={busy} onRefreshLink={async (id) => { const report = history.find((item) => item.id === id); if (!report || !tenantId) return; try { const url = await refreshReportLink(tenantId, report, role); window.open(url, "_blank", "noopener,noreferrer"); } catch (error) { toast.error("Could not open report", { description: error instanceof Error ? error.message : "Try again." }); } }} />}
         </div>
       </main>
     </div>
-    {selected ? <Dialog open={Boolean(selected)} onOpenChange={(open) => !open && setSelected(null)}><DialogContent><DialogHeader><DialogTitle>{selected.name}</DialogTitle><DialogDescription>{selected.detail}</DialogDescription></DialogHeader><div className="space-y-2 text-sm"><div className="flex justify-between"><span>Status</span><Badge variant="outline">{selected.status}</Badge></div><div className="flex justify-between"><span>Severity</span><Badge variant="outline">{selected.severity}</Badge></div><div className="flex justify-between"><span>Affected</span><span>{selected.affected}</span></div></div><DialogFooter><Button onClick={() => setSelected(null)}>Close</Button></DialogFooter></DialogContent></Dialog> : null}
+    {selected ? <Dialog open={Boolean(selected)} onOpenChange={(open) => { if (!open) { setSelected(null); void navigate({ search: (prev) => ({ ...prev, findingId: undefined }) }); } }}><DialogContent><DialogHeader><DialogTitle>{selected.name}</DialogTitle><DialogDescription>{selected.detail}</DialogDescription></DialogHeader><div className="space-y-2 text-sm"><div className="flex justify-between"><span>Status</span><Badge variant="outline">{selected.status}</Badge></div><div className="flex justify-between"><span>Severity</span><Badge variant="outline">{selected.severity}</Badge></div><div className="flex justify-between"><span>Affected</span><span>{selected.affected}</span></div></div><DialogFooter><Button onClick={() => setSelected(null)}>Close</Button></DialogFooter></DialogContent></Dialog> : null}
     <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}><DialogContent><DialogHeader><DialogTitle>Analytics settings</DialogTitle><DialogDescription>Retention is stored at the tenant level.</DialogDescription></DialogHeader><Label>Report retention (days)<Input type="number" min={7} max={3650} value={retention} onChange={(e) => setRetention(Number(e.target.value))} /></Label><DialogFooter><Button variant="outline" onClick={() => setSettingsOpen(false)}>Cancel</Button><Button disabled={busy === "settings"} onClick={() => void save()}>{busy === "settings" ? "Saving…" : "Save"}</Button></DialogFooter></DialogContent></Dialog>
     <Dialog open={reportOpen} onOpenChange={setReportOpen}><DialogContent className="max-w-3xl"><DialogHeader><DialogTitle>Report templates</DialogTitle><DialogDescription>Generate only from real workspace evidence.</DialogDescription></DialogHeader><div className="grid gap-3 xl:grid-cols-2">{ANALYTICS_REPORT_TEMPLATES.map((template) => { const available = hasAnalyticsReportData(template, workspace); return <div key={template.id} className="flex min-h-24 items-center justify-between gap-4 rounded-lg border bg-muted/10 p-4"><div><div className="font-medium">{template.title}</div><div className="mt-1 text-xs text-muted-foreground">{template.description}</div></div><Button size="sm" disabled={!available || busy === template.id} onClick={() => void generate(template)}>{available ? "Generate" : "No evidence"}</Button></div>; })}</div></DialogContent></Dialog>
   </div>;
