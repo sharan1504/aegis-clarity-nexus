@@ -123,4 +123,4 @@ describe("loadCommandCenterData live aggregation", () => {
   });
 });
 
-const DEMO_EXPECTED_LICENSED_USERS = 0;
+const DEMO_EXPECTED_LICENSED_USERS = 142;
