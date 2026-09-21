@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Activity, BarChart3, Bot, History, Plug, SearchCheck, Settings, ShieldAlert, ShieldCheck, Sparkles, Users, Workflow } from "lucide-react";
+import { Activity, BarChart3, Bot, History, Plug, SearchCheck, Settings, ShieldAlert, ShieldCheck, Sparkles, Users, Workflow, Wrench } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar";
@@ -18,6 +18,7 @@ const nav = [
     { title: "AI Agents", url: "/agents", icon: Bot },
     { title: "Agentic Studio", url: "/agentic-studio", icon: Workflow },
     { title: "Agent Governance", url: "/agentic-studio/governance", icon: ShieldCheck },
+    { title: "MCP Servers", url: "/integrations/mcp", icon: Wrench },
     { title: "Approval Center", url: "/approvals", icon: ShieldCheck },
   ] },
   { section: "Data & Systems", items: [

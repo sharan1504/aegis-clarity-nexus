@@ -127,9 +127,15 @@ function AgenticStudioPage() {
           </div>
         </CardHeader>
         {railCollapsed && <div className="flex flex-col items-center gap-2 px-2 pb-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md border" title={selectedAgent ? `Agent: ${selectedAgent.display_name}` : "Agent catalog"} aria-label={selectedAgent ? `Agent: ${selectedAgent.display_name}` : "Agent catalog"}><Workflow className="h-4 w-4" /></div>
-          <div className="flex h-8 w-8 items-center justify-center rounded-md border" title={`MCP tools: ${availableTools.length} available · ${blockedTools.length} blocked`} aria-label={`MCP tools: ${availableTools.length} available · ${blockedTools.length} blocked`}><Wrench className="h-4 w-4" /></div>
-          <div className="flex h-8 w-8 items-center justify-center rounded-md border" title="Governance and approval controls" aria-label="Governance and approval controls"><ShieldCheck className="h-4 w-4" /></div>
+          <Button asChild variant="ghost" size="icon" className="h-8 w-8 rounded-md border" title={selectedAgent ? `Agent settings: ${selectedAgent.display_name}` : "Agent settings"} aria-label={selectedAgent ? `Agent settings: ${selectedAgent.display_name}` : "Agent settings"}>
+            {selectedAgent ? <Link to="/agent/$agentKey" params={{ agentKey }}><Workflow className="h-4 w-4" /></Link> : <Link to="/agents"><Workflow className="h-4 w-4" /></Link>}
+          </Button>
+          <Button asChild variant="ghost" size="icon" className="h-8 w-8 rounded-md border" title={`MCP server settings · ${availableTools.length} available · ${blockedTools.length} blocked`} aria-label={`MCP server settings · ${availableTools.length} available · ${blockedTools.length} blocked`}>
+            <Link to="/integrations/mcp"><Wrench className="h-4 w-4" /></Link>
+          </Button>
+          <Button asChild variant="ghost" size="icon" className="h-8 w-8 rounded-md border" title="Agent governance settings" aria-label="Agent governance settings">
+            <Link to="/agentic-studio/governance"><ShieldCheck className="h-4 w-4" /></Link>
+          </Button>
         </div>}
         {!railCollapsed && <CardContent className="space-y-4">
           {agentsLoading ? <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">Loading agent catalog…</div> : agents.length ? <>
