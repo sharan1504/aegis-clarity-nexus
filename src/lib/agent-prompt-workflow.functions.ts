@@ -127,6 +127,8 @@ export const generateAgentWorkflowFromPrompt = createServerFn({ method: "POST" }
       "list_integrations (read)",
       "list_incidents_and_alerts (read)",
       "list_reports_and_recommendations (read)",
+      "list_license_signals (read)",
+      "get_agent_run_status (read)",
       "list_change_records (read)",
       "get_change_record (read)",
       "propose_change_record (write: creates a governed Proposed change; never executes it)",
