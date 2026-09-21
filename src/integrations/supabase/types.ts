@@ -560,6 +560,59 @@ export type Database = {
           },
         ]
       }
+      ai_usage_events: {
+        Row: {
+          agent_key: string
+          cost_estimate: number
+          created_at: string
+          id: string
+          input_tokens: number
+          latency_ms: number | null
+          model: string
+          output_tokens: number
+          provider: string
+          tenant_id: string
+          total_tokens: number
+          user_id: string | null
+        }
+        Insert: {
+          agent_key: string
+          cost_estimate?: number
+          created_at?: string
+          id?: string
+          input_tokens?: number
+          latency_ms?: number | null
+          model: string
+          output_tokens?: number
+          provider: string
+          tenant_id: string
+          total_tokens?: number
+          user_id?: string | null
+        }
+        Update: {
+          agent_key?: string
+          cost_estimate?: number
+          created_at?: string
+          id?: string
+          input_tokens?: number
+          latency_ms?: number | null
+          model?: string
+          output_tokens?: number
+          provider?: string
+          tenant_id?: string
+          total_tokens?: number
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_events: {
         Row: {
           action: string
@@ -1835,11 +1888,13 @@ export type Database = {
       integration_oauth_states: {
         Row: {
           code_verifier: string | null
+          connection_id: string | null
           consumed_at: string | null
           created_at: string
           created_by: string | null
           expires_at: string
           integration_id: string | null
+          metadata: Json
           provider: string
           redirect_uri: string
           region: string | null
@@ -1848,11 +1903,13 @@ export type Database = {
         }
         Insert: {
           code_verifier?: string | null
+          connection_id?: string | null
           consumed_at?: string | null
           created_at?: string
           created_by?: string | null
           expires_at: string
           integration_id?: string | null
+          metadata?: Json
           provider: string
           redirect_uri: string
           region?: string | null
@@ -1861,11 +1918,13 @@ export type Database = {
         }
         Update: {
           code_verifier?: string | null
+          connection_id?: string | null
           consumed_at?: string | null
           created_at?: string
           created_by?: string | null
           expires_at?: string
           integration_id?: string | null
+          metadata?: Json
           provider?: string
           redirect_uri?: string
           region?: string | null
@@ -1873,6 +1932,13 @@ export type Database = {
           tenant_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "integration_oauth_states_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "provider_connections"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "integration_oauth_states_integration_id_fkey"
             columns: ["integration_id"]
@@ -2314,6 +2380,7 @@ export type Database = {
           environment: string
           external_id: string | null
           id: string
+          integration_id: string | null
           last_error: string | null
           last_sync_at: string | null
           provider: string
@@ -2330,6 +2397,7 @@ export type Database = {
           environment?: string
           external_id?: string | null
           id?: string
+          integration_id?: string | null
           last_error?: string | null
           last_sync_at?: string | null
           provider: string
@@ -2346,6 +2414,7 @@ export type Database = {
           environment?: string
           external_id?: string | null
           id?: string
+          integration_id?: string | null
           last_error?: string | null
           last_sync_at?: string | null
           provider?: string
@@ -2354,6 +2423,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "provider_connections_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "provider_connections_tenant_id_fkey"
             columns: ["tenant_id"]
