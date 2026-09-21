@@ -24,7 +24,11 @@ type Recommendation = { title?: string; rationale?: string; impact?: string; ris
 type Result = { demo?: boolean; answer?: string; analysis?: string; recommendations?: Recommendation[]; sources?: string[]; confidence?: number; actionRequired?: boolean; investigationId?: string; response?: CenOpsResponse };
 type Message = EnterpriseChatMessage & { result?: Result; id?: string; createdAt?: string };
 const suggestions = [
-  { label: "Investigate an incident", prompt: "Investigate the most important operational incident affecting this workspace right now.", Icon: ShieldAlert },\n  { label: "Review approvals", prompt: "Review the pending approvals and highlight anything that needs attention.", Icon: ClipboardCheck },\n  { label: "Explain a capability", prompt: "Explain how CenOps guardrails work and when they require human approval.", Icon: BookOpen },\n  { label: "Generate a report", prompt: "Generate an executive report on the current operational health of this workspace.", Icon: FileText },\n  { label: "Find optimization opportunities", prompt: "Find the most important license and operational optimization opportunities right now.", Icon: Sparkles },
+  { label: "Investigate an incident", prompt: "Investigate the most important operational incident affecting this workspace right now.", Icon: ShieldAlert },
+  { label: "Review approvals", prompt: "Review the pending approvals and highlight anything that needs attention.", Icon: ClipboardCheck },
+  { label: "Explain a capability", prompt: "Explain how CenOps guardrails work and when they require human approval.", Icon: BookOpen },
+  { label: "Generate a report", prompt: "Generate an executive report on the current operational health of this workspace.", Icon: FileText },
+  { label: "Find optimization opportunities", prompt: "Find the most important license and operational optimization opportunities right now.", Icon: Sparkles },
 ];
 const cleanAssistantText = (value: string) => value.replace(/<svg[\s\S]*?<\/svg>/gi, "").replace(/<[^>]+>/g, "").replace(/(^|\n)\s*svg\s*(?=\n|$)/gi, "").replace(/\n{3,}/g, "\n\n").trim();
 function ChatPage() {
@@ -41,7 +45,12 @@ function ChatPage() {
   const submitRecommendation = async (recommendation: Recommendation) => { try { const result = await createChange({ data: recommendation }); if (!result.ok) toast.error(result.error); else toast.success("Sent to Approval Center", { description: result.id }); } catch (error) { toast.error(error instanceof Error ? error.message : "Could not create change."); } };
   const departmentName = useMemo(() => departments.find((d) => d.department_key === departmentKey)?.display_name ?? "Workspace-wide", [departments, departmentKey]);
   const rotatingPlaceholders = useMemo(() => [
-    "Investigate the Genesys license spike from this week",\n    "What changed in Approval Center today?",\n    "Explain how guardrails work",\n    "Show me the most important operational risks right now",\n    `Ask CenOps Copilot about ${departmentName.toLowerCase()}…`,\n  ], [departmentName]);
+    "Investigate the Genesys license spike from this week",
+    "What changed in Approval Center today?",
+    "Explain how guardrails work",
+    "Show me the most important operational risks right now",
+    `Ask CenOps Copilot about ${departmentName.toLowerCase()}…`,
+  ], [departmentName]);
   useEffect(() => {
     if (input || inputFocused || hasTyped || rotatingPlaceholders.length < 2) return;
     const timer = window.setInterval(() => setPlaceholderIndex((current) => (current + 1) % rotatingPlaceholders.length), 3200);
