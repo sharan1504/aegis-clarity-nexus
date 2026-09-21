@@ -19,6 +19,7 @@ function isClearlyOutOfScope(text: string): boolean {
   return false;
 }
 function isGenericFollowUp(text: string): boolean {
+  if (/^what is this platform(?: about)?$/.test(text) || /^what this platform is about$/.test(text)) return false;
   const words = text.split(/\s+/).filter(Boolean);
   if (hasAny(text, [
     "tell me more", "more detail", "go deeper", "continue", "what about", "and that", "and this",
