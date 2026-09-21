@@ -87,3 +87,7 @@ export async function getAgentMcpToolAvailability(supabase: UserClient, tenantId
     return { ...tool, available: authorized || !tool.capability, reasons };
   });
 }
+
+export function availableAgentMcpTools(tools: AgentToolAvailability[]): AgentToolAvailability[] {
+  return tools.filter((tool) => tool.available);
+}
