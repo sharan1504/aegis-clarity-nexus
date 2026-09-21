@@ -98,11 +98,6 @@ function AnalyticsPage() {
     try { window.localStorage.setItem("cenops.analytics.railCollapsed", String(railCollapsed)); } catch { /* browser storage may be unavailable */ }
   }, [railCollapsed]);
   useEffect(() => { if (!custom) void refresh(); }, [tenantId, days, custom]);
-  useEffect(() => {
-    const focused = search.findingId ? findings.find((item) => item.id === search.findingId) : null;
-    if (focused) setSelected(focused);
-  }, [search.findingId, findings]);
-
   const findings = useMemo<Finding[]>(() => {
     if (!data) return [];
     const rows: Finding[] = [];
@@ -113,6 +108,11 @@ function AnalyticsPage() {
     if (!rows.length) add("healthy", "No active analytics findings", "Closed", "Availability", "Workspace", "Low", 0, "No evidence-backed finding requires attention in this period.");
     return rows;
   }, [data]);
+
+  useEffect(() => {
+    const focused = search.findingId ? findings.find((item) => item.id === search.findingId) : null;
+    if (focused) setSelected(focused);
+  }, [search.findingId, findings]);
 
   const filteredFindings = useMemo(() => findings.filter((f) =>
     (!searchQuery || `${f.name} ${f.category} ${f.impact} ${f.detail}`.toLowerCase().includes(searchQuery.toLowerCase())) &&
