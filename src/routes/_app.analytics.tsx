@@ -26,7 +26,7 @@ import { AdminActivityView, AiUsageView, AgentsView, EmptyPanel, GovernanceView,
 import type { Analytics } from "@/routes/_app.analytics.types";
 
 export const Route = createFileRoute("/_app/analytics")({
-  validateSearch: (search: Record<string, unknown>) => ({\n    view: getAnalyticsView(search.view),\n    agent: typeof search.agent === "string" ? search.agent : undefined,\n    provider: typeof search.provider === "string" ? search.provider : undefined,\n    findingId: typeof search.findingId === "string" ? search.findingId : undefined,\n    changeId: typeof search.changeId === "string" ? search.changeId : undefined,\n  }),
+  validateSearch: (search: Record<string, unknown>) => ({\n    view: getAnalyticsView(search.view),\n    agentKey: typeof search.agentKey === "string" ? search.agentKey : undefined,\n    provider: typeof search.provider === "string" ? search.provider : undefined,\n    findingId: typeof search.findingId === "string" ? search.findingId : undefined,\n    changeId: typeof search.changeId === "string" ? search.changeId : undefined,\n  }),
   head: () => pageHead({ path: "/analytics", title: "Analytics — Aegis AI", description: "Operational analytics, findings, trends and evidence across the Aegis workspace." }),
   component: AnalyticsPage,
 });
@@ -178,7 +178,7 @@ function AnalyticsPage() {
         <div className="min-w-0">
           {view === "overview" && <OverviewView data={data} max={max} />}
           {view === "ai-usage" && <AiUsageView data={data} />}
-          {view === "agents" && <AgentsView data={data} agent={search.agent} />}
+          {view === "agents" && <AgentsView data={data} agent={search.agentKey} />}
           {view === "governance" && <GovernanceView data={data} />}
           {view === "admin-activity" && <AdminActivityView data={data} />}
           {view === "integrations-evidence" && <IntegrationsEvidenceView workspace={{ ...workspace, providers: { ...workspace.providers, reportRows } }} provider={search.provider} busy={busy} onSync={syncProvider} />}
