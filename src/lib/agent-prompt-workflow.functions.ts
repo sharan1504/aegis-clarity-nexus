@@ -130,6 +130,7 @@ export const generateAgentWorkflowFromPrompt = createServerFn({ method: "POST" }
     }
     const tenant = await resolveTenantContext(context.supabase, context.userId);
     const mcpAvailability = await getAgentMcpToolAvailability(context.supabase, tenant.tenantId, data.agentKey);
+    const availableMcpTools = mcpAvailability.filter((tool) => tool.available);
     const mcpTools = mcpAvailability.map((tool) =>
       tool.name + " (" + (tool.available ? (tool.readOnly ? "read" : "approval-gated") : "blocked") + ")" +
       (tool.available ? "" : ": " + (tool.reasons[0] ?? "not authorized"))
@@ -144,10 +145,14 @@ export const generateAgentWorkflowFromPrompt = createServerFn({ method: "POST" }
     });
     const generated = await generateWithLovable([{ role: "system", content: system }, { role: "user", content: user }]);
     const workflow = normalizeWorkflow(generated.content);
-    const allowed = new Set(capabilities.map((item) => `${item.provider}:${item.capability}`));
+    const allowedCapabilityRefs = new Set(capabilities.map((item) => `${item.provider}:${item.capability}`));
+    const allowedMcpToolNames = new Set(availableMcpTools.map((tool) => tool.name));
     const unsafe = workflow.steps.filter((step) => {
       if (!step.provider || !step.capability) return false;
-      return !allowed.has(`${canonicalProvider(step.provider)}:${step.capability}`);
+      const provider = canonicalProvider(step.provider);
+      const capabilityRef = `${provider}:${step.capability}`;
+      const isAegisMcpTool = provider === "aegis_mcp" && allowedMcpToolNames.has(step.capability);
+      return !allowedCapabilityRefs.has(capabilityRef) && !isAegisMcpTool;
     });
     if (unsafe.length) throw new Error(`The generated workflow referenced capability bindings that are not enabled for this agent: ${unsafe.map((step) => `${step.provider}/${step.capability}`).join(", ")}.`);
     return { ok: true as const, model: generated.model, ...workflow };
