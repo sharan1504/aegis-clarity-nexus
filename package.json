@@ -14,7 +14,7 @@
     "worker": "node scripts/aegis-job-worker.mjs"
   },
   "dependencies": {
-    "@aws-sdk/client-sts": "3.1131.0",
+    "@aws-sdk/client-sts": "3.1135.0",
     "@hookform/resolvers": "^5.9.1",
     "@lovable.dev/cloud-auth-js": "^1.2.1",
     "@lovable.dev/mcp-js": "^0.26.3",
