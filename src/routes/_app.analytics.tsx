@@ -26,7 +26,13 @@ import { AdminActivityView, AiUsageView, AgentsView, EmptyPanel, GovernanceView,
 import type { Analytics } from "@/routes/_app.analytics.types";
 
 export const Route = createFileRoute("/_app/analytics")({
-  validateSearch: (search: Record<string, unknown>) => ({\n    view: getAnalyticsView(search.view),\n    agentKey: typeof search.agentKey === "string" ? search.agentKey : undefined,\n    provider: typeof search.provider === "string" ? search.provider : undefined,\n    findingId: typeof search.findingId === "string" ? search.findingId : undefined,\n    changeId: typeof search.changeId === "string" ? search.changeId : undefined,\n  }),
+  validateSearch: (search: Record<string, unknown>) => ({
+    view: getAnalyticsView(search.view),
+    agentKey: typeof search.agentKey === "string" ? search.agentKey : undefined,
+    provider: typeof search.provider === "string" ? search.provider : undefined,
+    findingId: typeof search.findingId === "string" ? search.findingId : undefined,
+    changeId: typeof search.changeId === "string" ? search.changeId : undefined,
+  }),
   head: () => pageHead({ path: "/analytics", title: "Analytics — Aegis AI", description: "Operational analytics, findings, trends and evidence across the Aegis workspace." }),
   component: AnalyticsPage,
 });
@@ -62,7 +68,10 @@ function AnalyticsPage() {
   const [reportOpen, setReportOpen] = useState(false);
   const [retention, setRetention] = useState(90);
   const [busy, setBusy] = useState<string | null>(null);
-  const [format, setFormat] = useState<ReportFormat>("pdf");\n  const [railCollapsed, setRailCollapsed] = useState(false);\n  const [rangeOpen, setRangeOpen] = useState(false);\n  const [rangeTab, setRangeTab] = useState<"relative" | "custom">("relative");
+  const [format, setFormat] = useState<ReportFormat>("pdf");
+  const [railCollapsed, setRailCollapsed] = useState(false);
+  const [rangeOpen, setRangeOpen] = useState(false);
+  const [rangeTab, setRangeTab] = useState<"relative" | "custom">("relative");
 
   const refresh = async () => {
     setLoading(true);
@@ -82,7 +91,17 @@ function AnalyticsPage() {
       toast.error("Analytics could not be loaded", { description: error instanceof Error ? error.message : "Try again." });
     } finally { setLoading(false); }
   };
-  useEffect(() => {\n    try { setRailCollapsed(window.localStorage.getItem("cenops.analytics.railCollapsed") === "true"); } catch { /* browser storage may be unavailable */ }\n  }, []);\n  useEffect(() => {\n    try { window.localStorage.setItem("cenops.analytics.railCollapsed", String(railCollapsed)); } catch { /* browser storage may be unavailable */ }\n  }, [railCollapsed]);\n  useEffect(() => { if (!custom) void refresh(); }, [tenantId, days, custom]);\n  useEffect(() => {\n    const focused = search.findingId ? findings.find((item) => item.id === search.findingId) : null;\n    if (focused) setSelected(focused);\n  }, [search.findingId, findings]);
+  useEffect(() => {
+    try { setRailCollapsed(window.localStorage.getItem("cenops.analytics.railCollapsed") === "true"); } catch { /* browser storage may be unavailable */ }
+  }, []);
+  useEffect(() => {
+    try { window.localStorage.setItem("cenops.analytics.railCollapsed", String(railCollapsed)); } catch { /* browser storage may be unavailable */ }
+  }, [railCollapsed]);
+  useEffect(() => { if (!custom) void refresh(); }, [tenantId, days, custom]);
+  useEffect(() => {
+    const focused = search.findingId ? findings.find((item) => item.id === search.findingId) : null;
+    if (focused) setSelected(focused);
+  }, [search.findingId, findings]);
 
   const findings = useMemo<Finding[]>(() => {
     if (!data) return [];
@@ -102,7 +121,8 @@ function AnalyticsPage() {
   const max = Math.max(1, ...(data?.trends ?? []).map((x) => x.events + x.changes + x.aiRequests));
   const activeView = ANALYTICS_VIEWS.find((item) => item.id === view) ?? ANALYTICS_VIEWS[0];
 
-  const rangeLabel = custom ? `${data?.period.from.slice(0, 10)} → ${data?.period.to.slice(0, 10)}` : `Last ${days} days`;\n  const applyCustom = async () => {
+  const rangeLabel = custom ? `${data?.period.from.slice(0, 10)} → ${data?.period.to.slice(0, 10)}` : `Last ${days} days`;
+  const applyCustom = async () => {
     if (!from || !to) return toast.error("Choose both dates.");
     const start = new Date(`${from}T00:00:00`).getTime(); const end = new Date(`${to}T23:59:59.999`).getTime();
     if (end < start || end - start > 90 * 86_400_000) return toast.error("Custom range must be valid and no more than 90 days.");
@@ -159,10 +179,6 @@ function AnalyticsPage() {
             </div>)}
           </nav>
         </aside>
-      <aside className="h-fit border-b bg-muted/10 p-2 lg:border-b-0 lg:bg-transparent lg:p-0">
-        <div className="mb-3 px-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Analytics views</div>
-        <nav className="space-y-4">{ANALYTICS_VIEW_GROUPS.map((group) => <div key={group}><div className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80">{group}</div><div className="space-y-0.5">{ANALYTICS_VIEWS.filter((item) => item.group === group).map((item) => { const Icon = item.icon; const selectedView = item.id === view; return <button key={item.id} type="button" onClick={() => void navigate({ search: { view: item.id } })} aria-current={selectedView ? "page" : undefined} className={`flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm transition-colors ${selectedView ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}><Icon className="h-4 w-4 shrink-0" /><span className="truncate">{item.label}</span></button>; })}</div></div>)}</nav>
-      </aside>
       <main className="min-w-0">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b pb-3">
           <div className="min-w-0"><h2 className="text-xl font-semibold tracking-tight">{activeView.label}</h2><p className="mt-1 max-w-3xl text-sm text-muted-foreground">{activeView.description}</p></div>
