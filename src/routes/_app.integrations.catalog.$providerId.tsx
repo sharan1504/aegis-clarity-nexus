@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { getProviderCatalog, connectProvider, prepareAwsConnection } from "@/lib/integrations/provider-functions";
+import type { ProviderId } from "@/lib/integrations/production-connectors.server";
 import { startGenesysOAuth } from "@/lib/integrations-genesys.functions";
 import { startGitHubAppInstall } from "@/lib/integrations/github-app.functions";
 import { startJiraOAuth, startSalesforceOAuth, startServiceNowOAuth, startSlackOAuth, startHubSpotOAuth, startZendeskOAuth, startGitLabOAuth, startFreshworksOAuth, startZohoOAuth, startConfluenceOAuth, startSnowflakeOAuth, startCrowdStrikeOAuth, startGoogleCloudConnection, startGoogleWorkspaceConnection } from "@/lib/integrations/oauth-provider.functions";
@@ -28,8 +29,7 @@ const OAUTH_CALLBACK_PATHS: Record<string, string> = {
   confluence: "/integrations/confluence/callback", snowflake: "/integrations/snowflake/callback", sap: "/integrations/sap/callback",
   workday: "/integrations/workday/callback",
 };
-function callbackUri(providerId: string) { const path = OAUTH_CALLBACK_PATHS[providerId]; return path ? `${window.location.origin}${path}` : undefined; }
-function authorizationUrlFrom(result: any): string | undefined { return result?.authorizationUrl ?? result?.authorizeUrl; }
+function callbackUri(providerId: keyof typeof OAUTH_CALLBACK_PATHS): string { return window.location.origin + OAUTH_CALLBACK_PATHS[providerId]; }
 const EMPTY: FormState = { provider: "", displayName: "", environment: "Production", clientId: "", clientSecret: "", baseUrl: "", apiKey: "", appKey: "", apiToken: "", region: DEFAULT_GENESYS_REGION, roleArn: "", externalId: "", trustPolicy: "", tenantAlias: "", customerTenantId: "", projectId: "", clientEmail: "", privateKey: "", delegatedAdminEmail: "", accountsUrl: "https://accounts.zoho.com", orgUrl: "", subdomain: "", accessTokenUri: "", scope: "", accountUrl: "", username: "", password: "", token: "", site: "datadoghq.com", authorizationUrl: "", tokenUrl: "" };
 function Field({ label, value, onChange, type = "text", placeholder }: { label: string; value?: string; onChange: (value: string) => void; type?: string; placeholder?: string }) { return <div><label className="mb-1 block text-xs font-medium text-muted-foreground">{label}</label><Input type={type} value={value ?? ""} placeholder={placeholder ?? label} onChange={(e) => onChange(e.target.value)} autoComplete={type === "password" ? "new-password" : "off"} /></div>; }
 function ProviderForm({ target, form, set }: { target: Provider; form: FormState; set: (key: string, value: string) => void }) {
@@ -464,7 +464,7 @@ function ProviderConnectPanel({ target, connectionId }: { target: Provider; conn
         case "m365":
           return finish(await saveProvider({
             data: {
-              provider: target.id,
+              provider: target.id as ProviderId,
               connectionId: form.integrationId,
               tenant: form.tenant || "",
               clientId: form.clientId || "",
