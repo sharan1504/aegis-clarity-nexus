@@ -15,7 +15,6 @@ export function MetricSmall({ label, value }: { label: string; value: string | n
 export function EmptyPanel({ title, detail, action }: { title: string; detail: string; action?: ReactNode }) { return <div className="rounded-lg border border-dashed p-8 text-center"><div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-full bg-muted"><CheckCircle2 className="h-4 w-4 text-muted-foreground" /></div><div className="font-medium">{title}</div><div className="mx-auto mt-1 max-w-xl text-sm text-muted-foreground">{detail}</div>{action ? <div className="mt-4">{action}</div> : null}</div>; }
 
 export function OverviewView({ data, max }: { data: Analytics; max: number }) {
-  const total = data.platform.totalEvents + data.platform.changeRecords + data.ai.requests;
   const activeAgents = data.agents.filter((agent) => agent.actions > 0 || agent.changes > 0).slice(0, 4);
   const hasTrendEvidence = data.trends.some((item) => item.events > 0 || item.changes > 0 || item.aiRequests > 0);
   return <div className="space-y-6">
