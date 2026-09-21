@@ -46,7 +46,8 @@ export const connectMcpServer = createServerFn({ method: "POST" }).middleware([r
 export const discoverMcpServerTools = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { serverId: string }) => ({ serverId: String(input?.serverId ?? "").trim() })).handler(async ({ data, context }) => {
   const tenant = await requireManager(context);
   if (!data.serverId) throw new Error("An MCP server is required.");
-  const server = await (context.supabase as any).from("mcp_server_connections").select("id,base_url,auth_type,encrypted_auth,status").eq("id",data.serverId).eq("tenant_id",tenant.tenantId).maybeSingle();
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const server = await (supabaseAdmin as any).from("mcp_server_connections").select("id,base_url,auth_type,encrypted_auth,status").eq("id",data.serverId).eq("tenant_id",tenant.tenantId).maybeSingle();
   if (server.error) throw new Error(server.error.message);
   if (!server.data) throw new Error("MCP server was not found.");
   const credentials = server.data.encrypted_auth ? decryptCredentials<{ token?: string }>(server.data.encrypted_auth) : {};
