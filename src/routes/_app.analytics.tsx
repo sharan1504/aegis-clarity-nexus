@@ -157,7 +157,7 @@ function AnalyticsPage() {
 
   return <div className="w-full space-y-5">
     <PageHeader title="Analytics Workspace" description="Explore operational evidence by domain without inventing metrics." actions={<div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" onClick={() => void refresh()}><RefreshCw className="mr-1.5 h-4 w-4" />Refresh</Button><Button variant="outline" size="sm" onClick={() => setReportOpen(true)}><FileBarChart className="mr-1.5 h-4 w-4" />Reports</Button><Button variant="outline" size="sm" onClick={() => setSettingsOpen(true)}><Settings2 className="mr-1.5 h-4 w-4" />Settings</Button></div>} />
-    <div className={`grid min-h-[480px] gap-5 lg:grid-cols-[${railCollapsed ? "56px" : "190px"}_minmax(0,1fr)]`}>
+    <div className={railCollapsed ? "grid min-h-[480px] gap-5 lg:grid-cols-[56px_minmax(0,1fr)]" : "grid min-h-[480px] gap-5 lg:grid-cols-[190px_minmax(0,1fr)]"}>
       <TooltipProvider delayDuration={250}>
         <aside className="h-fit min-w-0">
           <div className={`mb-2 flex items-center ${railCollapsed ? "justify-center" : "justify-between"} gap-2 px-1`}>
@@ -179,6 +179,7 @@ function AnalyticsPage() {
             </div>)}
           </nav>
         </aside>
+      </TooltipProvider>
       <main className="min-w-0">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b pb-3">
           <div className="min-w-0"><h2 className="text-xl font-semibold tracking-tight">{activeView.label}</h2><p className="mt-1 max-w-3xl text-sm text-muted-foreground">{activeView.description}</p></div>
