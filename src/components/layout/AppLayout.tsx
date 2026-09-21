@@ -80,7 +80,7 @@ function AppShell() {
               </div>
             </div>
           </header>}
-          <main className={isChat ? "min-h-[calc(100vh-1.75rem)] flex-1 p-0" : "min-h-[calc(100vh-4rem)] flex-1 p-4 sm:p-5 lg:p-6"}>{loading ? <div className="space-y-4 p-6"><Skeleton className="h-9 w-64" /><Skeleton className="h-4 w-96" /><div className="grid gap-3 md:grid-cols-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24" />)}</div><Skeleton className="h-72" /></div> : <Outlet />}</main>
+          <main className={isChat ? "min-h-[calc(100vh-1.75rem)] flex-1 p-0" : "min-h-[calc(100vh-4rem)] flex-1 p-4 sm:p-5 lg:p-6"}>{loading ? <div className="space-y-4"><Skeleton className="h-9 w-64" /><Skeleton className="h-4 w-96" /><div className="grid gap-3 md:grid-cols-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24" />)}</div><Skeleton className="h-72" /></div> : <Outlet />}</main>
         </SidebarInset>
       </div>
     </div>
@@ -88,7 +88,7 @@ function AppShell() {
   </SidebarProvider>;
 }
 
-export function PageHeader({ title, description, actions }: { title: string; description?: string; actions?: React.ReactNode }) { return <div className="mb-5 flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-semibold tracking-[-0.025em] text-foreground">{title}</h1>{description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}</div>{actions && <div className="flex items-center gap-2">{actions}</div></div>; }
+export function PageHeader({ title, description, actions }: { title: string; description?: string; actions?: React.ReactNode }) { return <div className="mb-5 flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-semibold tracking-[-0.025em] text-foreground">{title}</h1>{description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}</div>{actions && <div className="flex items-center gap-2">{actions}</div>}</div>; }
 
 import { AlertOctagon, AlertTriangle as SeverityAlertTriangle, Info, Minus, ShieldAlert } from "lucide-react";
 export function SeverityBadge({ severity }: { severity: string }) { const map: Record<string, { cls: string; Icon: React.ComponentType<{ className?: string }> }> = { critical: { cls: "bg-destructive/15 text-destructive border-destructive/30", Icon: ShieldAlert }, high: { cls: "bg-warning/15 text-warning-foreground border-warning/40", Icon: AlertOctagon }, medium: { cls: "bg-info/15 text-info border-info/30", Icon: SeverityAlertTriangle }, low: { cls: "bg-muted text-muted-foreground border-border", Icon: Minus }, info: { cls: "bg-muted text-muted-foreground border-border", Icon: Info } }; const entry = map[severity.toLowerCase()] ?? map.info; const { Icon } = entry; return <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium capitalize ${entry.cls}`}><Icon className="h-3 w-3" />{severity}</span>; }
