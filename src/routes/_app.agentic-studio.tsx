@@ -72,7 +72,7 @@ function AgenticStudioPage() {
     } finally { setAgentsLoading(false); }
   };
   useEffect(() => { void loadAgents(); }, [tenantId]);
-  useEffect(() => { try { setRailCollapsed(window.localStorage.getItem("cenops.agenticStudio.railCollapsed") === "true"); } catch {} }, []);
+  useEffect(() => { try { setRailCollapsed(window.localStorage.getItem("cenops.agenticStudio.railCollapsed") === "true"); } catch (error) { void error; } }, []);
   const toggleRail = () => {
     setRailCollapsed((collapsed) => {
       const next = !collapsed;
