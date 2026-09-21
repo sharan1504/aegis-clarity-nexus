@@ -20,11 +20,8 @@ function isClearlyOutOfScope(text: string): boolean {
 }
 function isGenericFollowUp(text: string): boolean {
   if (/^what is this platform(?: about)?$/.test(text) || /^what this platform is about$/.test(text)) return false;
+  if (["tell me more", "more detail", "go deeper", "continue", "what about", "and that", "and this", "explain this", "explain that", "why", "what is this", "go on"].includes(text)) return true;
   const words = text.split(/\s+/).filter(Boolean);
-  if (hasAny(text, [
-    "tell me more", "more detail", "go deeper", "continue", "what about", "and that", "and this",
-    "explain this", "explain that", "why", "what is this", "go on",
-  ])) return true;
   return words.length <= 7 && /\b(this|that|it|those|these)\b/.test(text);
 }
 function classifyRawCenOpsIntent(text: string): CenOpsAiIntentResult {
