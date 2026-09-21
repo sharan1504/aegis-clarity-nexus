@@ -121,6 +121,11 @@ function AgenticStudioPage() {
             <Button variant="ghost" size="icon" className="shrink-0" onClick={toggleRail} aria-expanded={!railCollapsed} aria-label={railCollapsed ? "Expand planning context" : "Collapse planning context"} title={railCollapsed ? "Expand planning context" : "Collapse planning context"}>{railCollapsed ? <ArrowRight className="h-4 w-4" /> : <ArrowLeft className="h-4 w-4" />}</Button>
           </div>
         </CardHeader>
+        {railCollapsed && <div className="flex flex-col items-center gap-2 px-2 pb-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md border" title={selectedAgent ? `Agent: ${selectedAgent.display_name}` : "Agent catalog"} aria-label={selectedAgent ? `Agent: ${selectedAgent.display_name}` : "Agent catalog"}><Workflow className="h-4 w-4" /></div>
+          <div className="flex h-8 w-8 items-center justify-center rounded-md border" title={`MCP tools: ${availableTools.length} available · ${blockedTools.length} blocked`} aria-label={`MCP tools: ${availableTools.length} available · ${blockedTools.length} blocked`}><Wrench className="h-4 w-4" /></div>
+          <div className="flex h-8 w-8 items-center justify-center rounded-md border" title="Governance and approval controls" aria-label="Governance and approval controls"><ShieldCheck className="h-4 w-4" /></div>
+        </div>}
         {!railCollapsed && <CardContent className="space-y-4">
           {agentsLoading ? <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">Loading agent catalog…</div> : agents.length ? <>
             <div className="space-y-1">
