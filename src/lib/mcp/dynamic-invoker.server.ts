@@ -49,7 +49,8 @@ export async function invokeDynamicMcpTool(
   const remoteToolName = descriptor.externalToolName;
   if (!serverId || !remoteToolName) throw new Error("External MCP tool metadata is incomplete.");
 
-  const server = await db(supabase).from("mcp_server_connections")
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const server = await (supabaseAdmin as any).from("mcp_server_connections")
     .select("id,tenant_id,base_url,auth_type,encrypted_auth,status")
     .eq("id", serverId).eq("tenant_id", tenantId).maybeSingle();
   if (server.error) throw new Error(server.error.message);
