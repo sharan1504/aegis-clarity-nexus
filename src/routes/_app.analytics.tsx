@@ -22,7 +22,7 @@ import { ANALYTICS_REPORT_TEMPLATES, hasAnalyticsReportData, rowsForAnalyticsRep
 import { getReportRetentionDays, setReportRetentionDays } from "@/lib/reports-retention.functions";
 import { pageHead } from "@/lib/seo";
 import { ANALYTICS_VIEW_GROUPS, ANALYTICS_VIEWS, getAnalyticsView, type AnalyticsViewId } from "@/lib/analytics-workspace";
-import { AdminActivityView, AiUsageView, AgentsView, EmptyPanel, GovernanceView, IntegrationsEvidenceView, Metric, OverviewView, PRESETS } from "@/routes/_app.analytics.workspace";
+import { AdminActivityView, AiUsageView, AgentsView, EmptyPanel, GovernanceView, IntegrationsEvidenceView, Metric, OverviewView, PRESETS, type AnalyticsDrillDown } from "@/routes/_app.analytics.workspace";
 import type { Analytics } from "@/routes/_app.analytics.types";
 
 export const Route = createFileRoute("/_app/analytics")({
@@ -127,6 +127,9 @@ function AnalyticsPage() {
     catch (error) { toast.error(`${provider} sync failed`, { description: error instanceof Error ? error.message : "Try again." }); }
     finally { setBusy(null); }
   };
+  const goToAnalyticsView = (target: AnalyticsDrillDown) => {
+    void navigate({ search: () => ({ view: target.view, agentKey: target.agentKey, provider: target.provider, findingId: target.findingId, changeId: target.changeId }) });
+  };
   const reportRows = workspace?.providers.connectedProviders ?? [];
 
   if (loading && !data) return <div className="py-16 text-center text-sm text-muted-foreground">Loading evidence-backed analytics…</div>;
@@ -176,12 +179,12 @@ function AnalyticsPage() {
           </div>
         </div>
         <div className="min-w-0">
-          {view === "overview" && <OverviewView data={data} max={max} />}
+          {view === "overview" && <OverviewView data={data} max={max} onNavigate={goToAnalyticsView} />}
           {view === "ai-usage" && <AiUsageView data={data} />}
-          {view === "agents" && <AgentsView data={data} agent={search.agentKey} />}
+          {view === "agents" && <AgentsView data={data} agent={search.agentKey} onNavigate={goToAnalyticsView} />}
           {view === "governance" && <GovernanceView data={data} />}
           {view === "admin-activity" && <AdminActivityView data={data} />}
-          {view === "integrations-evidence" && <IntegrationsEvidenceView workspace={{ ...workspace, providers: { ...workspace.providers, reportRows } }} provider={search.provider} busy={busy} onSync={syncProvider} />}
+          {view === "integrations-evidence" && <IntegrationsEvidenceView workspace={{ ...workspace, providers: { ...workspace.providers, reportRows } }} provider={search.provider} busy={busy} onSync={syncProvider} onNavigate={goToAnalyticsView} />}
           {view === "findings" && <FindingsView findings={filteredFindings} status={status} severity={severity} category={category} setStatus={setStatus} setSeverity={setSeverity} setCategory={setCategory} onSelect={(finding) => { setSelected(finding); void navigate({ search: (prev) => ({ ...prev, view: "findings", findingId: finding.id }) }); }} />}
           {view === "reports" && <ReportsView workspace={workspace} history={history} format={format} setFormat={setFormat} retention={retention} onGenerate={generate} busy={busy} onRefreshLink={async (id) => { const report = history.find((item) => item.id === id); if (!report || !tenantId) return; try { const url = await refreshReportLink(tenantId, report, role); window.open(url, "_blank", "noopener,noreferrer"); } catch (error) { toast.error("Could not open report", { description: error instanceof Error ? error.message : "Try again." }); } }} />}
         </div>
