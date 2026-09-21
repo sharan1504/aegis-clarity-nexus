@@ -29,6 +29,11 @@ function text(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value.trim() : fallback;
 }
 
+function canonicalProvider(provider: string): string {
+  const normalized = provider.trim().toLowerCase();
+  return normalized === "m365" ? "microsoft365" : normalized;
+}
+
 const generatedWorkflowSchema = z.object({
   summary: z.string().trim().min(1).max(1000),
   trigger: z.string().trim().min(1).max(500),
@@ -112,7 +117,7 @@ export const generateAgentWorkflowFromPrompt = createServerFn({ method: "POST" }
     const detail = await loadAgentDetail(context.supabase, context.userId, data.agentKey);
     if (!detail) throw new Error("Agent not found.");
     const capabilities = detail.bindings.filter((binding) => binding.enabled).map((binding) => ({
-      provider: binding.provider ?? "unknown",
+      provider: canonicalProvider(binding.provider ?? "unknown"),
       capability: binding.capabilityKey ?? "unknown",
       name: binding.capabilityName ?? "Unnamed capability",
       mock: binding.isMock,
@@ -140,7 +145,10 @@ export const generateAgentWorkflowFromPrompt = createServerFn({ method: "POST" }
     const generated = await generateWithLovable([{ role: "system", content: system }, { role: "user", content: user }]);
     const workflow = normalizeWorkflow(generated.content);
     const allowed = new Set(capabilities.map((item) => `${item.provider}:${item.capability}`));
-    const unsafe = workflow.steps.filter((step) => step.provider && step.capability && !allowed.has(`${step.provider}:${step.capability}`));
+    const unsafe = workflow.steps.filter((step) => {
+      if (!step.provider || !step.capability) return false;
+      return !allowed.has(`${canonicalProvider(step.provider)}:${step.capability}`);
+    });
     if (unsafe.length) throw new Error(`The generated workflow referenced capability bindings that are not enabled for this agent: ${unsafe.map((step) => `${step.provider}/${step.capability}`).join(", ")}.`);
     return { ok: true as const, model: generated.model, ...workflow };
   });

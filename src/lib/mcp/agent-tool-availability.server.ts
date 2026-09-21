@@ -1,7 +1,7 @@
 import type { UserClient } from "@/lib/execution/gateway.server";
 import { resolveMcpToolCatalog, type RegisteredMcpTool } from "./catalog.server";
 
-const PLATFORM_GLOBAL_READ_CAPABILITIES = new Set([
+const PLATFORM_GLOBAL_CAPABILITIES = new Set([
   "tool_catalog",
   "operations_overview",
   "change_records",
@@ -72,7 +72,7 @@ export async function getAgentMcpToolAvailability(supabase: UserClient, tenantId
 
   return catalog.map((tool) => {
     const reasons: string[] = [];
-    const platformGlobal = Boolean(tool.capability && PLATFORM_GLOBAL_READ_CAPABILITIES.has(tool.capability) && tool.readOnly);
+    const platformGlobal = Boolean(tool.capability && PLATFORM_GLOBAL_CAPABILITIES.has(tool.capability));
     const definitionEnabled = Boolean(tool.capability && enabledDefinitionCapabilities.has(tool.capability));
     const bindingEnabled = Boolean(tool.capability && enabledCapabilities.has(tool.capability));
     const explicitExternal = tool.origin === "external" && Boolean(idByName.get(tool.name) && explicitToolBindings.has(idByName.get(tool.name)!));
