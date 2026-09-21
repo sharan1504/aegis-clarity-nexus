@@ -4,9 +4,11 @@ import { Link } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Analytics } from "@/routes/_app.analytics.types";\nimport type { AnalyticsViewId } from "@/lib/analytics-workspace";
+import type { Analytics } from "@/routes/_app.analytics.types";
+import type { AnalyticsViewId } from "@/lib/analytics-workspace";
 
-export const PRESETS = [7, 30, 60, 90] as const;\nexport type AnalyticsDrillDown = { view: AnalyticsViewId; agentKey?: string; provider?: string; findingId?: string; changeId?: string };
+export const PRESETS = [7, 30, 60, 90] as const;
+export type AnalyticsDrillDown = { view: AnalyticsViewId; agentKey?: string; provider?: string; findingId?: string; changeId?: string };
 
 export function Metric({ icon: Icon, label, value }: { icon: typeof Activity; label: string; value: string | number }) {
   return <Card className="border-border/70 bg-card/70 shadow-none"><CardContent className="p-4 lg:p-5"><div className="flex items-center justify-between gap-2"><span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{label}</span><Icon className="h-4 w-4 text-muted-foreground" /></div><div className="mt-2 text-2xl font-semibold tracking-tight lg:text-3xl">{value}</div></CardContent></Card>;
@@ -78,7 +80,7 @@ export function OverviewView({ data, max, onNavigate }: { data: Analytics; max: 
                     <button key={agent.name} type="button" onClick={() => onNavigate({ view: "agents", agentKey: agentKeyFor(data, agent) })} className="flex w-full items-center justify-between gap-3 rounded-md border border-border/60 bg-muted/[0.08] px-3 py-2 text-left transition-colors hover:border-primary/30 hover:bg-muted/30">
                       <div className="min-w-0"><div className="truncate text-sm font-medium text-primary">{agent.name}</div><div className="text-[11px] text-muted-foreground">{agent.category}</div></div>
                       <div className="text-right text-xs text-muted-foreground"><div className="font-medium text-foreground">{agent.actions + agent.changes}</div><div>actions + changes</div></div>
-                    </Link>
+                    </button>
                   ))}
                 </div>
               ) : (
