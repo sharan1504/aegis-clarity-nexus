@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { MCP_TOOL_CATALOG, type McpToolDescriptor } from "./gateway-catalog";
+import { MCP_TOOL_CATALOG } from "./gateway-catalog";
+import type { McpToolDescriptor } from "./gateway.server";
 
 const db = (supabase: SupabaseClient<Database>) => supabase as unknown as SupabaseClient;
 
