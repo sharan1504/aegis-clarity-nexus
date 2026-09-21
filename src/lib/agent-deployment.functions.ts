@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { DEMO_AGENT_WORKFLOWS } from "@/lib/demo-data";
 import { resolveTenantContext } from "@/lib/tenant-context.server";
+import { ensureAgentMcpTools } from "@/lib/mcp/auto-tool-planner.server";
 
 export const deployAgent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -64,5 +65,6 @@ export const deployAgent = createServerFn({ method: "POST" })
     const { error: insertError } = await context.supabase.from("agent_integration_bindings")
       .upsert(rows, { onConflict: "tenant_id,agent_key,integration_id,capability_id", ignoreDuplicates: true });
     if (insertError) throw insertError;
-    return { ok: true as const, agentKey: data.agentKey, displayName: definition.display_name, bindingCount: rows.length };
+    const materialization = await ensureAgentMcpTools(context.supabase, tenantId, data.agentKey, context.userId);
+    return { ok: true as const, agentKey: data.agentKey, displayName: definition.display_name, bindingCount: rows.length, mcp: materialization };
   });
