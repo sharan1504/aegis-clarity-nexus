@@ -18,7 +18,9 @@ function sharedFindings(data: CommandCenterData): SharedFinding[] {
   add({ id: "pending-changes", title: "Changes awaiting review", severity: "high", category: "Change risk", impact: "Governed action", confidence: 0.98, href: "/approvals", freshness: data.generatedAt }, changeRefs((change) => ["Team Approvals", "Risk Review"].includes(change.stage)));
   add({ id: "proposed-changes", title: "Proposed optimization changes", severity: "medium", category: "Optimization", impact: "AI operations", confidence: 0.95, href: "/approvals", freshness: data.generatedAt }, changeRefs((change) => change.stage === "Proposed"));
   add({ id: "guardrail-blocks", title: "Guardrail evaluations requiring attention", severity: "critical", category: "Governance", impact: "AI agents", confidence: 0.98, href: "/governance", freshness: data.generatedAt }, signalRefs((signal) => signal.action.startsWith("guardrail.")));
-  add({ id: "integration-health", title: "Integration health needs attention", severity: "high", category: "Availability", impact: "Integrations", confidence: 0.99, href: "/integrations", freshness: data.generatedAt }, data.posture.integrations.filter((integration) => integration.status !== "connected" || integration.healthStatus === "unhealthy").map((integration) => `integration:${integration.id}`));
+  add({ id: "integration-health", title: "Integration health needs attention", severity: "high", category: "Availability", impact: "Integrations", confidence: 0.99, href: "/integrations", freshness: data.generatedAt }, data.posture.integrations.filter((integration) => integration.status !== "connected" || ["unhealthy", "failed", "degraded"].includes(integration.healthStatus.toLowerCase())).map((integration) => `integration:${integration.id}`));
+  if (data.kpis.syncFailures24h > 0) add({ id: "sync-failures", title: "Integration sync failures", severity: "high", category: "Availability", impact: "Integrations", confidence: 0.99, href: "/integrations", freshness: data.generatedAt }, data.signals.filter((signal) => signal.action.includes("sync")).slice(0, data.kpis.syncFailures24h).map((signal) => `audit:${signal.id}`));
+  if (data.genesys?.emptyQueues) add({ id: "genesys-empty-queues", title: "Genesys queues with no members", severity: "medium", category: "Operations", impact: "Genesys", confidence: 0.99, href: "/integrations", freshness: data.generatedAt }, data.signals.filter((signal) => signal.entityType.toLowerCase().includes("queue")).slice(0, data.genesys.emptyQueues).map((signal) => `audit:${signal.id}`));
   return findings;
 }
 
@@ -26,6 +28,9 @@ const emptyCommandCenterData = (): CommandCenterDataWithFindings => {
   const generatedAt = new Date().toISOString();
   return {
     live: { connected: false, provider: null, orgName: null, region: null, lastSyncAt: null, healthStatus: null, users: 0, activeUsers: 0, licensedUsers: 0, licenseAssignments: 0, licenseTypes: 0, queues: 0, emptyQueues: 0, multipleLicenseUsers: 0, inactiveLicensedUsers: 0, recommendations: [], fetchedAt: generatedAt, readOnly: true },
+    kpis: { integrationsTotal: 0, integrationsConnected: 0, integrationsDegraded: 0, pendingApprovals: 0, proposedChanges: 0, openHighChanges: 0, guardrailBlocks24h: 0, syncFailures24h: 0, unreadNotifications: 0, agentsConfigured: 0, agentsWithRealBindings: 0 },
+    trends: { days: [], syncSuccess: [], syncFailed: [], guardrailBlocks: [], auditEvents: [] },
+    genesys: null,
     attention: { pendingChanges: 0, proposedChanges: 0, blockingGuardrailEvaluations: 0, integrationsNeedingAttention: 0, unreadNotifications: 0 },
     changed: [], risk: { bySeverity: {}, criticalOrHighOpen: 0, guardrailsEnabled: 0, guardrailsMonitoringOnly: 0 },
     posture: { integrations: [], agentsWithRealBindings: 0, agentsConfigured: 0, lastSyncRunAt: null, lastSyncRunStatus: null }, signals: [], generatedAt, findings: [],
