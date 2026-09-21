@@ -3,6 +3,8 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { loadAgentDetail } from "@/lib/agent-detail.server";
 import { defaultModelGateway } from "@/lib/model-gateway";
 import { z } from "zod";
+import { resolveTenantContext } from "@/lib/tenant-context.server";
+import { getAgentMcpToolAvailability } from "@/lib/mcp/agent-tool-availability.server";
 
 export type GeneratedAgentWorkflowStep = {
   id: string;
@@ -121,18 +123,12 @@ export const generateAgentWorkflowFromPrompt = createServerFn({ method: "POST" }
       const available = capabilities.length ? capabilities.map((item) => `${item.provider} / ${item.capability}`).join(", ") : "none";
       throw new Error(`This request requires capabilities that are not enabled for ${detail.displayName}: ${unavailableCapabilities.join("; ")}. Available integration capabilities: ${available}. Connect the required integration/capability or revise the request; Aegis will not fabricate unsupported workflow steps.`);
     }
-    const mcpTools = [
-      "get_operations_overview (read)",
-      "list_agents (read)",
-      "list_integrations (read)",
-      "list_incidents_and_alerts (read)",
-      "list_reports_and_recommendations (read)",
-      "list_license_signals (read)",
-      "get_agent_run_status (read)",
-      "list_change_records (read)",
-      "get_change_record (read)",
-      "propose_change_record (write: creates a governed Proposed change; never executes it)",
-    ];
+    const tenant = await resolveTenantContext(context.supabase, context.userId);
+    const mcpAvailability = await getAgentMcpToolAvailability(context.supabase, tenant.tenantId, data.agentKey);
+    const mcpTools = mcpAvailability.map((tool) =>
+      tool.name + " (" + (tool.available ? (tool.readOnly ? "read" : "approval-gated") : "blocked") + ")" +
+      (tool.available ? "" : ": " + (tool.reasons[0] ?? "not authorized"))
+    );
     const system = `You are the Aegis Workflow Architect. Convert a customer's natural-language request into a concrete, tenant-safe workflow for one Aegis AI agent. Use ONLY the agent's enabled integrations/capabilities and the available MCP tools supplied below. Never invent a provider capability. If the request needs an unavailable capability, represent it as an explicit assumption or explain the limitation in the summary rather than fabricating it. Build an inspectable workflow with trigger -> evidence -> conditions/decision -> action or recommendation -> verification. The workflow is a DRAFT: never claim that an external action has already happened. Keep write/mutation/remediation actions approval-gated. Notifications such as email/alert can be ungated when they are only informational and an actual notification capability is available. Return JSON only with exactly these fields: summary (string), trigger (string), config (object), steps (array), assumptions (string array). Each step must have id, name, type, provider, capability, action, requiresApproval, and optional verification. Keep the workflow practical and executable by Aegis's existing capability/MCP layer. Do not output code.`;
     const user = JSON.stringify({
       agent: { key: detail.agentKey, name: detail.displayName, category: detail.category, description: detail.description },
