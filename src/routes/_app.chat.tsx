@@ -120,7 +120,7 @@ function ChatPage() {
   mutation.mutate(next);
 };
   const handleInputKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); send(input); } };
-  const openSession = async (id: string) => { try { const result = await loadSession({ data: { sessionId: id } }); setSessionId(result.session.id); setDepartmentKey(result.session.departmentKey); setMessages(result.messages.map((m: StoredChatMessage) => ({ role: m.role, content: cleanAssistantText(m.content), result: m.result as Result | undefined, id: m.id, createdAt: m.createdAt }))); setHistoryOpen(false); setHistoryQuery(""); } catch (error) { toast.error(error instanceof Error ? error.message : "Could not open chat."); } };
+  const openSession = async (id: string) => { try { const result = await loadSession({ data: { sessionId: id } }); setSessionId(result.session.id); setDepartmentKey(result.session.departmentKey); setMessages(result.messages.map((m: StoredChatMessage) => ({ role: m.role, content: cleanAssistantText(m.content), result: m.result as Result | undefined, id: m.id, createdAt: m.createdAt }))); setHistoryQuery(""); } catch (error) { toast.error(error instanceof Error ? error.message : "Could not open chat."); } };
   const remove = async (id: string) => { try { await removeSession({ data: { sessionId: id } }); const remaining = await refreshHistory(); if (id === sessionId) { if (remaining[0]) await openSession(remaining[0].id); else await startNewChat(); } toast.success("Chat history deleted"); } catch (error) { toast.error(error instanceof Error ? error.message : "Could not delete chat."); } };
   const submitRecommendation = async (recommendation: Recommendation) => { try { const result = await createChange({ data: recommendation }); if (!result.ok) toast.error(result.error); else toast.success("Sent to Approval Center", { description: result.id }); } catch (error) { toast.error(error instanceof Error ? error.message : "Could not create change."); } };
   const departmentName = useMemo(() => departments.find((d) => d.department_key === departmentKey)?.display_name ?? "Workspace-wide", [departments, departmentKey]);
@@ -152,7 +152,7 @@ function ChatPage() {
 
   return (
     <div className="flex h-[calc(100vh-1.75rem)] min-h-0 w-full overflow-hidden bg-white text-foreground dark:bg-background">
-      {hasConversation && (
+      {historyOpen && (
         <aside className="hidden w-[300px] shrink-0 border-r bg-background lg:flex lg:flex-col">
           <div className="border-b p-4">
             <div className="relative">
@@ -191,7 +191,6 @@ function ChatPage() {
           </div>
           <div className="flex items-center gap-1">
             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => void startNewChat()} title="New chat"><Plus className="h-4 w-4" /></Button>
-            {!historyOpen && <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setHistoryOpen(true)} title="Open chat history" aria-label="Open chat history"><PanelLeftOpen className="h-4 w-4" /></Button>}
             <Button variant="ghost" size="icon" className="hidden h-8 w-8 rounded-full sm:inline-flex" onClick={() => void navigator.clipboard?.writeText(window.location.href)} title="Copy chat link"><Link2 className="h-4 w-4" /></Button>
             <Button variant="ghost" size="icon" className="hidden h-8 w-8 rounded-full md:inline-flex" onClick={() => void document.documentElement.requestFullscreen?.()} title="Full screen"><Maximize2 className="h-4 w-4" /></Button>
           </div>
