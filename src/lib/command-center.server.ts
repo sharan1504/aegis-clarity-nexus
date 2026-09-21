@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { DEMO_AUDIT_EVENTS, DEMO_CHANGES, DEMO_GENESYS, DEMO_INTEGRATIONS } from "@/lib/demo-data";
+import { DEMO_AUDIT_EVENTS, DEMO_CHANGES, DEMO_COMMAND_CENTER, DEMO_GENESYS, DEMO_INTEGRATIONS, DEMO_NOW } from "@/lib/demo-data";
 import { resolveTenantContext } from "@/lib/tenant-context.server";
 
 export type UserClientLike = SupabaseClient<Database>;
@@ -73,10 +73,10 @@ function buildDemoCommandCenterData(): CommandCenterData {
     pendingApprovals: changeRows.filter((row) => ["Team Approvals", "Risk Review"].includes(String(row.stage))).length,
     proposedChanges: changeRows.filter((row) => String(row.stage) === "Proposed").length,
     openHighChanges: openRows.filter((row) => ["critical", "high"].includes(String(row.severity ?? "").toLowerCase())).length,
-    guardrailBlocks24h: 1,
+    guardrailBlocks24h: guardrailRows.filter((row) => BLOCKING_DECISIONS.has(String(row.decision).toLowerCase()) && new Date(row.created_at).getTime() >= new Date(DEMO_NOW).getTime() - 86_400_000).length,
     syncFailures24h: 0,
-    unreadNotifications: 3,
-    agentsConfigured: 5,
+    unreadNotifications: 0,
+    agentsConfigured: DEMO_COMMAND_CENTER.metrics.activeAgents,
     agentsWithRealBindings: 0,
   };
   const trends = buildTrends(days, syncRows, guardrailRows, signalRows);
@@ -87,7 +87,7 @@ function buildDemoCommandCenterData(): CommandCenterData {
     attention: { pendingChanges: kpis.pendingApprovals, proposedChanges: kpis.proposedChanges, blockingGuardrailEvaluations: kpis.guardrailBlocks24h, integrationsNeedingAttention: kpis.integrationsDegraded, unreadNotifications: kpis.unreadNotifications },
     changed: changeRows.slice(0, 8).map((row) => ({ id: String(row.id), changeId: String(row.change_id), title: String(row.title), stage: String(row.stage), severity: String(row.severity ?? "unspecified"), ownerTeam: String(row.owner_team ?? "Unassigned"), createdAt: String(row.created_at), updatedAt: String(row.updated_at ?? row.created_at) })),
     risk: { bySeverity, criticalOrHighOpen: kpis.openHighChanges, guardrailsEnabled: 8, guardrailsMonitoringOnly: 3 },
-    posture: { integrations: integrationRows.map((row) => ({ id: String(row.id), provider: String(row.provider), status: String(row.status), healthStatus: String(row.health_status ?? "healthy"), lastSyncAt: row.last_sync_at ? String(row.last_sync_at) : null, lastSyncStatus: row.last_sync_status ? String(row.last_sync_status) : null, isMock: Boolean(row.is_mock) })), agentsWithRealBindings: 0, agentsConfigured: 5, lastSyncRunAt: DEMO_GENESYS.lastSyncAt, lastSyncRunStatus: "success" },
+    posture: { integrations: integrationRows.map((row) => ({ id: String(row.id), provider: String(row.provider), status: String(row.status), healthStatus: String(row.health_status ?? "healthy"), lastSyncAt: row.last_sync_at ? String(row.last_sync_at) : null, lastSyncStatus: row.last_sync_status ? String(row.last_sync_status) : null, isMock: Boolean(row.is_mock) })), agentsWithRealBindings: 0, agentsConfigured: DEMO_COMMAND_CENTER.metrics.activeAgents, lastSyncRunAt: DEMO_GENESYS.lastSyncAt, lastSyncRunStatus: "success" },
     signals: signalRows.map((row) => ({ id: String(row.id), action: String(row.action), entityType: String(row.entity_type), entityId: row.entity_id ? String(row.entity_id) : null, detail: row.detail ? String(row.detail) : null, actor: row.actor_email ? String(row.actor_email) : null, createdAt: String(row.created_at) })), generatedAt,
   };
 }
