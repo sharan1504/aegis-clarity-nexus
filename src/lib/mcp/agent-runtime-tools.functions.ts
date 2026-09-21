@@ -5,6 +5,8 @@ import { resolveTenantContext } from "@/lib/tenant-context.server";
 import { getAgentMcpToolAvailability } from "./agent-tool-availability.server";
 import { requireAgentBudget, sanitizeTracePayload, withAgentRetry } from "@/lib/agent-execution-controller.server";
 import { MCP_TOOL_REGISTRY } from "./gateway-catalog";
+import { invokeDynamicMcpTool } from "./dynamic-invoker.server";
+import { runGovernedWithToken } from "@/lib/execution/gateway.server";
 
 function runtimeToolError(error: unknown) {
   return { ok: false as const, error: error instanceof Error ? error.message : "Agent tool invocation failed." };
@@ -61,11 +63,26 @@ export const invokeAgentRuntimeTool = createServerFn({ method: "POST" })
       if (!selected.available) throw new Error(selected.reasons.join(" "));
 
       await requireAgentBudget(context.supabase, tenant.tenantId, data.runId, "tool");
-      const result = await withAgentRetry(context.supabase, tenant.tenantId, data.runId, () => MCP_TOOL_REGISTRY.invoke(data.toolName, data.input, {
-        isAuthenticated: () => true,
-        token: requestToken(),
-        userId: context.userId,
-      }) as Promise<any>);
+      const invoke = async () => {
+        const ctx = {
+          isAuthenticated: () => true,
+          token: requestToken(),
+          userId: context.userId,
+        };
+        if (selected.origin !== "builtin") {
+          const governed = await runGovernedWithToken(ctx.token, ctx.userId, {
+            origin: "mcp",
+            actionKey: selected.actionKey,
+            executionClass: selected.executionClass,
+            capability: selected.capability,
+            provider: selected.provider,
+          }, () => invokeDynamicMcpTool(context.supabase, tenant.tenantId, selected, data.input));
+          if (!governed.ok) throw new Error(governed.reasons.join(" "));
+          return governed.result;
+        }
+        return MCP_TOOL_REGISTRY.invoke(data.toolName, data.input, ctx);
+      };
+      const result = await withAgentRetry(context.supabase, tenant.tenantId, data.runId, invoke);
 
       const { error: eventError } = await (context.supabase as any).rpc("append_agent_run_event", {
         p_run_id: data.runId,
