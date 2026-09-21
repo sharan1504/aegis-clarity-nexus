@@ -5,6 +5,8 @@ import listAvailableTools from "./tools/list-available-tools";
 import listChangeRecords from "./tools/list-change-records";
 import listIncidentsAndAlerts from "./tools/list-incidents-and-alerts";
 import listIntegrations from "./tools/list-integrations";
+import listLicenseSignals from "./tools/list-license-signals";
+import getAgentRunStatus from "./tools/get-agent-run-status";
 import listReportsAndRecommendations from "./tools/list-reports-and-recommendations";
 import proposeChangeRecord from "./tools/propose-change-record";
 import { createMcpToolRegistry } from "./gateway.server";
@@ -54,6 +56,14 @@ export const MCP_TOOL_REGISTRY = createMcpToolRegistry([
       executionClass: "read_only",
       dataClassification: "internal",
     },
+  },
+  {
+    tool: listLicenseSignals,
+    governance: { capability: "license_inventory", actionKey: "licenses.signals.list", executionClass: "read_only" },
+  },
+  {
+    tool: getAgentRunStatus,
+    governance: { capability: "agent_runtime", actionKey: "agent_runs.status", executionClass: "read_only" },
   },
   {
     tool: listReportsAndRecommendations,

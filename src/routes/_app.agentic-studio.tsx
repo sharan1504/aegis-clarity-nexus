@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState, type ComponentType } from "react";
-import { ArrowRight, CheckCircle2, CircleAlert, Eye, FlaskConical, History, Loader2, Play, RotateCcw, ShieldCheck, Sparkles, Workflow, Wrench } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, CircleAlert, Eye, FlaskConical, History, Loader2, Play, RotateCcw, ShieldCheck, Sparkles, Workflow, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { Badge } from "@/components/ui/badge";
@@ -9,20 +9,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { generateAgentWorkflowFromPrompt, type GeneratedAgentWorkflow } from "@/lib/agent-prompt-workflow.functions";
-import { createAgentRun } from "@/lib/agent-runtime.functions";
+import { createAgentRun, getAgentRun } from "@/lib/agent-runtime.functions";
 import { listAgentRuntimeTools } from "@/lib/mcp/agent-runtime-tools.functions";
 import type { AgentToolAvailability } from "@/lib/mcp/agent-tool-availability.server";
 import { PageHeader } from "@/components/layout/AppLayout";
+import { supabase } from "@/integrations/supabase/client";
+import { useTenantContext } from "@/lib/tenant";
 
 export const Route = createFileRoute("/_app/agentic-studio")({ component: AgenticStudioPage });
 type StudioMode = "architect" | "investigate" | "simulate" | "execute";
-const agents = [
-  { key: "agent-license", name: "License Agent", description: "Optimize unused licenses and reclaimable capacity." },
-  { key: "agent-security", name: "Security Agent", description: "Investigate security findings and remediation opportunities." },
-  { key: "agent-cost", name: "Cost Agent", description: "Analyze cloud and platform spend for optimization." },
-  { key: "agent-incident", name: "Incident Agent", description: "Investigate operational incidents and coordinate response." },
-  { key: "agent-workflow", name: "Workflow Agent", description: "Turn operational objectives into governed workflows." },
-];
+type AgentDefinition = { agent_key: string; display_name: string; description: string | null; category: string | null };
+type AgentBinding = { agent_key: string; enabled: boolean; is_mock: boolean };
+
 const examples = [
   "Find licenses unused for 90 days, recommend reclaiming eligible licenses, require approval, and verify the result.",
   "Investigate high and critical security findings from connected GitHub repositories, evaluate them against the configured security policy, recommend remediation for eligible findings, require approval before any change, and verify the result.",
@@ -33,7 +31,11 @@ function AgenticStudioPage() {
   const generate = useServerFn(generateAgentWorkflowFromPrompt);
   const persistRun = useServerFn(createAgentRun);
   const discoverTools = useServerFn(listAgentRuntimeTools);
-  const [agentKey, setAgentKey] = useState("agent-license");
+  const { tenantId } = useTenantContext();
+  const [agents, setAgents] = useState<AgentDefinition[]>([]);
+  const [agentBindings, setAgentBindings] = useState<AgentBinding[]>([]);
+  const [agentsLoading, setAgentsLoading] = useState(true);
+  const [agentKey, setAgentKey] = useState("");
   const [mode, setMode] = useState<StudioMode>("architect");
   const [prompt, setPrompt] = useState(examples[0]);
   const [generating, setGenerating] = useState(false);
@@ -42,7 +44,42 @@ function AgenticStudioPage() {
   const [runId, setRunId] = useState<string | null>(null);
   const [tools, setTools] = useState<AgentToolAvailability[]>([]);
   const [loadingTools, setLoadingTools] = useState(false);
-  const selectedAgent = agents.find((agent) => agent.key === agentKey) ?? agents[0];
+  const [railCollapsed, setRailCollapsed] = useState(false);
+  const selectedAgent = agents.find((agent) => agent.agent_key === agentKey) ?? null;
+  const operationalKeys = new Set(agentBindings.filter((binding) => binding.enabled && !binding.is_mock).map((binding) => binding.agent_key));
+  const loadAgents = async () => {
+    if (!tenantId) return;
+    setAgentsLoading(true);
+    try {
+      const [definitions, bindings] = await Promise.all([
+        supabase.from("agent_definitions").select("agent_key,display_name,description,category").order("display_name"),
+        supabase.from("agent_integration_bindings").select("agent_key,enabled,is_mock").eq("tenant_id", tenantId),
+      ]);
+      if (definitions.error) throw definitions.error;
+      if (bindings.error) throw bindings.error;
+      const rows = (definitions.data ?? []) as AgentDefinition[];
+      setAgents(rows);
+      setAgentBindings((bindings.data ?? []) as AgentBinding[]);
+      setAgentKey((current) => {
+        if (current && rows.some((agent) => agent.agent_key === current)) return current;
+        const operational = rows.find((agent) => (bindings.data ?? []).some((binding) => binding.agent_key === agent.agent_key && binding.enabled && !binding.is_mock));
+        return operational?.agent_key ?? rows.find((agent) => agent.agent_key === "agent-license")?.agent_key ?? rows[0]?.agent_key ?? "";
+      });
+    } catch (error) {
+      setAgents([]);
+      setAgentBindings([]);
+      toast.error("Could not load agent definitions", { description: error instanceof Error ? error.message : "Agent catalog could not be resolved." });
+    } finally { setAgentsLoading(false); }
+  };
+  useEffect(() => { void loadAgents(); }, [tenantId]);
+  useEffect(() => { try { setRailCollapsed(window.localStorage.getItem("cenops.agenticStudio.railCollapsed") === "true"); } catch (error) { void error; } }, []);
+  const toggleRail = () => {
+    setRailCollapsed((collapsed) => {
+      const next = !collapsed;
+      try { window.localStorage.setItem("cenops.agenticStudio.railCollapsed", String(next)); } catch (error) { void error; }
+      return next;
+    });
+  };
 
   const refreshTools = async (nextAgentKey: string) => {
     setLoadingTools(true);
@@ -55,10 +92,10 @@ function AgenticStudioPage() {
       toast.error("Could not load governed MCP tools", { description: error instanceof Error ? error.message : "Tool availability could not be resolved." });
     } finally { setLoadingTools(false); }
   };
-  useEffect(() => { void refreshTools(agentKey); }, [agentKey]);
+  useEffect(() => { if (agentKey) void refreshTools(agentKey); else setTools([]); }, [agentKey]);
 
   const buildPlan = async () => {
-    if (!prompt.trim()) return; setGenerating(true); setRunId(null);
+    if (!prompt.trim() || !agentKey) return; setGenerating(true); setRunId(null);
     try { const result = await generate({ data: { agentKey, prompt: prompt.trim() } }); if (!result.ok) throw new Error("Workflow generation failed."); setGenerated(result); toast.success("Aegis built an agentic plan", { description: "Review the plan, then create a durable governed run." }); }
     catch (error) { toast.error("Could not build the plan", { description: error instanceof Error ? error.message : "Try a different request." }); }
     finally { setGenerating(false); }
@@ -76,19 +113,106 @@ function AgenticStudioPage() {
 
   return pathname === "/agentic-studio" ? <div className="space-y-6">
     <PageHeader title="Agentic Studio" description="Describe an operational outcome once. Aegis plans it using the selected agent's capabilities and policies, then persists a governed run for investigation and approval." actions={<Badge variant="outline" className="gap-1.5"><Sparkles className="h-3.5 w-3.5" />Governed planning</Badge>} />
-    <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
-      <Card className="h-fit"><CardHeader><CardTitle className="text-sm">Planning context</CardTitle><CardDescription>The agent defines responsibility. Capabilities, MCP tools and policies define what the plan may use.</CardDescription></CardHeader><CardContent className="space-y-4"><Select value={agentKey} onValueChange={(value) => { setAgentKey(value); setGenerated(null); setRunId(null); }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{agents.map((agent) => <SelectItem key={agent.key} value={agent.key}>{agent.name}</SelectItem>)}</SelectContent></Select><div className="rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground">{selectedAgent.description}</div><div className="space-y-2 border-t pt-3 text-xs"><div className="flex items-center gap-2"><ShieldCheck className="h-3.5 w-3.5 text-primary" />Capability constrained</div><div className="flex items-center gap-2"><ShieldCheck className="h-3.5 w-3.5 text-primary" />Policy enforced outside AI</div><div className="flex items-center gap-2"><History className="h-3.5 w-3.5 text-primary" />Durable evidence and provenance</div></div><div className="border-t pt-3"><div className="flex items-center justify-between gap-2"><div className="flex items-center gap-2 text-xs font-semibold"><Wrench className="h-3.5 w-3.5" />Available MCP tools</div>{loadingTools ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" /> : <Badge variant="secondary" className="text-[10px]">{availableTools.length} available</Badge>}</div><div className="mt-3 space-y-2">{availableTools.slice(0, 8).map((tool) => <div key={tool.name} className="rounded-md border p-2"><div className="text-[11px] font-medium">{tool.title}</div><div className="mt-0.5 text-[10px] text-muted-foreground">{tool.capability ?? "Aegis"} · {tool.readOnly ? "read-only" : "approval-gated"}</div></div>)}{blockedTools.slice(0, 3).map((tool) => <div key={tool.name} className="rounded-md border border-dashed p-2 opacity-75"><div className="flex items-center gap-1 text-[11px] font-medium"><CircleAlert className="h-3 w-3" />{tool.title}</div><div className="mt-0.5 text-[10px] text-muted-foreground">Blocked: {tool.reasons[0]}</div></div>)}{!loadingTools && tools.length === 0 && <div className="rounded-md border border-dashed p-3 text-[10px] text-muted-foreground">No governed MCP tool metadata is currently available for this agent.</div>}</div></div></CardContent></Card>
+    <div className={`grid gap-4 ${railCollapsed ? "lg:grid-cols-[60px_minmax(0,1fr)]" : "lg:grid-cols-[280px_minmax(0,1fr)]"}`}>
+      <Card className="h-fit min-w-0">
+        <CardHeader className={railCollapsed ? "p-3" : undefined}>
+          <div className="flex items-center justify-between gap-2">
+            {!railCollapsed && <div><CardTitle className="text-sm">Planning context</CardTitle><CardDescription>The agent defines responsibility. Capabilities, MCP tools and policies define what the plan may use.</CardDescription></div>}
+            <Button variant="ghost" size="icon" className="shrink-0" onClick={toggleRail} aria-expanded={!railCollapsed} aria-label={railCollapsed ? "Expand planning context" : "Collapse planning context"} title={railCollapsed ? "Expand planning context" : "Collapse planning context"}>{railCollapsed ? <ArrowRight className="h-4 w-4" /> : <ArrowLeft className="h-4 w-4" />}</Button>
+          </div>
+        </CardHeader>
+        {railCollapsed && <div className="flex flex-col items-center gap-2 px-2 pb-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md border" title={selectedAgent ? `Agent: ${selectedAgent.display_name}` : "Agent catalog"} aria-label={selectedAgent ? `Agent: ${selectedAgent.display_name}` : "Agent catalog"}><Workflow className="h-4 w-4" /></div>
+          <div className="flex h-8 w-8 items-center justify-center rounded-md border" title={`MCP tools: ${availableTools.length} available · ${blockedTools.length} blocked`} aria-label={`MCP tools: ${availableTools.length} available · ${blockedTools.length} blocked`}><Wrench className="h-4 w-4" /></div>
+          <div className="flex h-8 w-8 items-center justify-center rounded-md border" title="Governance and approval controls" aria-label="Governance and approval controls"><ShieldCheck className="h-4 w-4" /></div>
+        </div>}
+        {!railCollapsed && <CardContent className="space-y-4">
+          {agentsLoading ? <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">Loading agent catalog…</div> : agents.length ? <>
+            <div className="space-y-1">
+              <Select value={agentKey} onValueChange={(value) => { setAgentKey(value); setGenerated(null); setRunId(null); }}>
+                <SelectTrigger><SelectValue placeholder="Select an agent" /></SelectTrigger>
+                <SelectContent>{agents.map((agent) => <SelectItem key={agent.agent_key} value={agent.agent_key}>{agent.display_name}</SelectItem>)}</SelectContent>
+              </Select>
+              {selectedAgent && <div className="flex items-center gap-2 text-[10px] text-muted-foreground"><span>{selectedAgent.category ?? "Uncategorized"}</span><span>·</span><span>{operationalKeys.has(selectedAgent.agent_key) ? "Operational" : "Definition only"}</span></div>}
+            </div>
+            {selectedAgent && <div className="rounded-lg border bg-muted/20 p-3 text-xs">{selectedAgent.description ?? "No description configured."}</div>}
+            <div className="space-y-2 border-t pt-3 text-xs"><div className="flex items-center gap-2"><ShieldCheck className="h-3.5 w-3.5 text-primary" />Capability constrained</div><div className="flex items-center gap-2"><ShieldCheck className="h-3.5 w-3.5 text-primary" />Policy enforced outside AI</div><div className="flex items-center gap-2"><History className="h-3.5 w-3.5 text-primary" />Durable evidence and provenance</div></div>
+            <div className="border-t pt-3">
+              <div className="flex items-center justify-between gap-2"><div className="flex items-center gap-2 text-xs font-semibold"><Wrench className="h-3.5 w-3.5" />MCP tools</div><Badge variant="secondary" className="text-[10px]">{availableTools.length} available · {blockedTools.length} blocked</Badge></div>
+              <div className="mt-3 space-y-2">
+                {loadingTools ? <div className="text-[10px] text-muted-foreground">Resolving governed tool access…</div> : <>
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Available</div>
+                  {availableTools.map((tool) => <div key={tool.name} className="rounded-md border border-success/30 bg-success/5 p-2"><div className="text-[11px] font-medium">{tool.title}</div><div className="mt-0.5 text-[10px] text-muted-foreground">{tool.capability ?? "Aegis"} · {tool.readOnly ? "read-only" : "approval-gated"}</div></div>)}
+                  {!availableTools.length && <div className="rounded-md border border-dashed p-2 text-[10px] text-muted-foreground">No tools are currently authorized.</div>}
+                  <div className="pt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Blocked</div>
+                  {blockedTools.map((tool) => <div key={tool.name} className="rounded-md border border-dashed p-2 opacity-80"><div className="flex items-center gap-1 text-[11px] font-medium"><CircleAlert className="h-3 w-3" />{tool.title}</div><div className="mt-0.5 text-[10px] text-muted-foreground">{tool.reasons[0] ?? "Capability is not enabled for this agent."}</div></div>)}
+                </>}
+                {!loadingTools && !tools.length && <div className="rounded-md border border-dashed p-3 text-[10px] text-muted-foreground">No governed MCP metadata is available for this agent.</div>}
+              </div>
+            </div>
+          </> : <div className="rounded-md border border-dashed p-4 text-xs text-muted-foreground">No agent definitions are configured. Deploy a verified agent from <Link className="font-medium text-primary underline" to="/agents">AI Agents</Link>.</div>}
+        </CardContent>}
+      </Card>
       <Card className="overflow-hidden border-primary/20"><CardHeader className="border-b bg-primary/[0.03] pb-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><CardTitle className="flex items-center gap-2 text-base"><Workflow className="h-5 w-5 text-primary" />Agentic planning workspace</CardTitle><CardDescription className="mt-1">The prompt expresses intent. MCP availability, policy authorization and runtime state remain deterministic.</CardDescription></div>{generated && <Button size="sm" variant="ghost" onClick={reset}><RotateCcw className="mr-1.5 h-3.5 w-3.5" />New plan</Button>}</div><div className="mt-4 grid grid-cols-2 gap-1 rounded-lg bg-muted p-1 sm:grid-cols-4">{([["architect", "Architect", Sparkles], ["investigate", "Investigate", History], ["simulate", "Simulate", FlaskConical], ["execute", "Execute", Play]] as const).map(([key, label, Icon]) => <button key={key} type="button" onClick={() => setMode(key)} className={`flex items-center justify-center gap-1.5 rounded-md px-2 py-2 text-xs font-medium transition ${mode === key ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}><Icon className="h-3.5 w-3.5" />{label}</button>)}</div></CardHeader><CardContent className="p-5">{mode === "architect" && <ArchitectView prompt={prompt} setPrompt={setPrompt} generating={generating} buildPlan={buildPlan} generated={generated} creatingRun={creatingRun} createRun={createRun} runId={runId} agentKey={agentKey} tools={tools} />}{mode === "investigate" && <InvestigationView generated={generated} runId={runId} tools={tools} />}{mode === "simulate" && <SimulationView generated={generated} tools={tools} />}{mode === "execute" && <ExecutionView generated={generated} runId={runId} tools={tools} />}</CardContent></Card>
     </div>
   </div> : <Outlet />;
 }
 
-function ArchitectView({ prompt, setPrompt, generating, buildPlan, generated, creatingRun, createRun, runId, agentKey, tools }: { prompt: string; setPrompt: (v: string) => void; generating: boolean; buildPlan: () => Promise<void>; generated: GeneratedAgentWorkflow | null; creatingRun: boolean; createRun: () => Promise<void>; runId: string | null; agentKey: string; tools: AgentToolAvailability[] }) { const availableNames = new Set(tools.filter((tool) => tool.available).map((tool) => tool.name)); const mappedTools = generated?.steps.map((step) => tools.find((tool) => tool.capability === step.capability && tool.provider === step.provider)).filter((tool): tool is AgentToolAvailability => Boolean(tool)) ?? []; return <div className="space-y-5"><div className="rounded-xl border bg-background p-4 shadow-sm"><div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Describe the outcome</div><Textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Example: Reduce unused licenses without impacting active users." className="min-h-28 resize-none border-0 p-0 text-base shadow-none focus-visible:ring-0" maxLength={6000} /><div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3"><span className="text-xs text-muted-foreground">Intent → capabilities → tools → policy → workflow → run</span><Button onClick={() => void buildPlan()} disabled={generating || !prompt.trim()}>{generating ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" />Building plan…</> : <><Sparkles className="mr-1.5 h-4 w-4" />Build agentic plan</>}</Button></div></div>{generated ? <div className="space-y-3"><div className="rounded-xl border bg-muted/20 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div><div className="text-sm font-semibold">{generated.summary}</div><div className="mt-1 text-xs text-muted-foreground">Trigger: {generated.trigger}</div></div><Badge variant="outline">{generated.steps.length} steps</Badge></div></div>{generated.steps.map((step, index) => <div key={step.id} className="flex gap-3 rounded-xl border bg-background p-4"><div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-semibold">{index + 1}</div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><div className="text-sm font-semibold">{step.name}</div>{step.requiresApproval && <Badge variant="secondary" className="text-[10px]">Approval required</Badge>}</div><div className="mt-1 text-[11px] text-muted-foreground">{step.provider ?? "Aegis"} · {step.capability ?? step.type}</div><div className="mt-2 text-sm">{step.action}</div>{step.verification && <div className="mt-2 rounded-md bg-muted p-2 text-xs text-muted-foreground">Verification: {step.verification}</div>}<div className="mt-2 flex flex-wrap gap-1.5">{mappedTools[index] ? <Badge variant="outline" className="gap-1 text-[10px]"><Wrench className="h-3 w-3" />{mappedTools[index].title}</Badge> : <Badge variant="outline" className="gap-1 text-[10px]"><CircleAlert className="h-3 w-3" />No exact MCP mapping</Badge>}{step.capability && availableNames.has(step.capability) && <Badge variant="outline" className="gap-1 text-[10px]"><ShieldCheck className="h-3 w-3" />Capability available</Badge>}</div></div></div>)}<div className="grid gap-3 md:grid-cols-2"><ToolPlanSummary tools={tools} /><PolicySummary /></div><div className="flex flex-wrap gap-2"><Button onClick={() => void createRun()} disabled={creatingRun}>{creatingRun && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}Create governed run <ArrowRight className="ml-1.5 h-4 w-4" /></Button><Button variant="outline" asChild><Link to="/agent/$agentKey" params={{ agentKey }}>Review agent configuration</Link></Button></div>{runId && <div className="rounded-lg border border-success/30 bg-success/5 p-3 text-xs"><div className="flex items-center gap-2 font-medium"><CheckCircle2 className="h-4 w-4 text-success" />Durable run created: <span className="font-mono">{runId}</span></div><div className="mt-1 text-muted-foreground">No provider mutation occurs when a run is created.</div></div>}</div> : <div className="grid gap-3 md:grid-cols-3"><Feature title="Investigate" text="Provider-backed evidence is collected through authorized capabilities." icon={History} /><Feature title="Decide" text="Deterministic policies evaluate facts outside the model." icon={ShieldCheck} /><Feature title="Prove" text="Approval, execution and verification become durable runtime stages." icon={CheckCircle2} /></div>}</div>; }
+function ArchitectView({ prompt, setPrompt, generating, buildPlan, generated, creatingRun, createRun, runId, agentKey, tools }: { prompt: string; setPrompt: (v: string) => void; generating: boolean; buildPlan: () => Promise<void>; generated: GeneratedAgentWorkflow | null; creatingRun: boolean; createRun: () => Promise<void>; runId: string | null; agentKey: string; tools: AgentToolAvailability[] }) { const availableNames = new Set(tools.filter((tool) => tool.available).map((tool) => tool.name)); const mappedTools = generated?.steps.map((step) => tools.find((tool) => tool.capability === step.capability && tool.provider === step.provider)).filter((tool): tool is AgentToolAvailability => Boolean(tool)) ?? []; return <div className="space-y-5"><div className="rounded-xl border bg-background p-4 shadow-sm"><div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Describe the outcome</div><Textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Example: Reduce unused licenses without impacting active users." className="min-h-28 resize-none border-0 p-0 text-base shadow-none focus-visible:ring-0" maxLength={6000} /><div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3"><span className="text-xs text-muted-foreground">Intent → capabilities → tools → policy → workflow → run</span><Button onClick={() => void buildPlan()} disabled={generating || !prompt.trim() || !agentKey}>{generating ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" />Building plan…</> : <><Sparkles className="mr-1.5 h-4 w-4" />Build agentic plan</>}</Button></div></div>{generated ? <div className="space-y-3"><div className="rounded-xl border bg-muted/20 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div><div className="text-sm font-semibold">{generated.summary}</div><div className="mt-1 text-xs text-muted-foreground">Trigger: {generated.trigger}</div></div><Badge variant="outline">{generated.steps.length} steps</Badge></div></div>{generated.steps.map((step, index) => <div key={step.id} className="flex gap-3 rounded-xl border bg-background p-4"><div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-semibold">{index + 1}</div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><div className="text-sm font-semibold">{step.name}</div>{step.requiresApproval && <Badge variant="secondary" className="text-[10px]">Approval required</Badge>}</div><div className="mt-1 text-[11px] text-muted-foreground">{step.provider ?? "Aegis"} · {step.capability ?? step.type}</div><div className="mt-2 text-sm">{step.action}</div>{step.verification && <div className="mt-2 rounded-md bg-muted p-2 text-xs text-muted-foreground">Verification: {step.verification}</div>}<div className="mt-2 flex flex-wrap gap-1.5">{mappedTools[index] ? <Badge variant="outline" className="gap-1 text-[10px]"><Wrench className="h-3 w-3" />{mappedTools[index].title}</Badge> : <Badge variant="outline" className="gap-1 text-[10px]"><CircleAlert className="h-3 w-3" />No exact MCP mapping</Badge>}{step.capability && availableNames.has(step.capability) && <Badge variant="outline" className="gap-1 text-[10px]"><ShieldCheck className="h-3 w-3" />Capability available</Badge>}</div></div></div>)}<div className="grid gap-3 md:grid-cols-2"><ToolPlanSummary tools={tools} /><PolicySummary /></div><div className="flex flex-wrap gap-2"><Button onClick={() => void createRun()} disabled={creatingRun}>{creatingRun && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}Create governed run <ArrowRight className="ml-1.5 h-4 w-4" /></Button><Button variant="outline" asChild><Link to="/agent/$agentKey" params={{ agentKey }}>Review agent configuration</Link></Button></div>{runId && <div className="rounded-lg border border-success/30 bg-success/5 p-3 text-xs"><div className="flex items-center gap-2 font-medium"><CheckCircle2 className="h-4 w-4 text-success" />Durable run created: <span className="font-mono">{runId}</span></div><div className="mt-1 text-muted-foreground">No provider mutation occurs when a run is created.</div></div>}</div> : <div className="grid gap-3 md:grid-cols-3"><Feature title="Investigate" text="Provider-backed evidence is collected through authorized capabilities." icon={History} /><Feature title="Decide" text="Deterministic policies evaluate facts outside the model." icon={ShieldCheck} /><Feature title="Prove" text="Approval, execution and verification become durable runtime stages." icon={CheckCircle2} /></div>}</div>; }
 function ToolPlanSummary({ tools }: { tools: AgentToolAvailability[] }) { const available = tools.filter((tool) => tool.available); return <div className="rounded-xl border p-4"><div className="flex items-center gap-2 text-sm font-semibold"><Wrench className="h-4 w-4" />MCP plan surface</div><div className="mt-1 text-xs text-muted-foreground">Only tools already exposed through Aegis governance can be used by the runtime.</div><div className="mt-3 space-y-2">{available.slice(0, 5).map((tool) => <div key={tool.name} className="flex items-center justify-between gap-2 text-xs"><span>{tool.title}</span><Badge variant="outline" className="text-[9px]">{tool.readOnly ? "read" : "approval"}</Badge></div>)}{!available.length && <div className="text-xs text-muted-foreground">No tool is currently available for this agent.</div>}</div></div>; }
 function PolicySummary() { return <div className="rounded-xl border p-4"><div className="flex items-center gap-2 text-sm font-semibold"><ShieldCheck className="h-4 w-4" />Governance stack</div><div className="mt-1 text-xs text-muted-foreground">Tool visibility never becomes permission by itself.</div><div className="mt-3 grid grid-cols-2 gap-2 text-[11px]"><Badge variant="outline">Capability binding</Badge><Badge variant="outline">Policy engine</Badge><Badge variant="outline">Guardrails</Badge><Badge variant="outline">Approval gate</Badge></div></div>; }
-function InvestigationView({ generated, runId, tools }: { generated: GeneratedAgentWorkflow | null; runId: string | null; tools: AgentToolAvailability[] }) { if (!generated) return <EmptyMode icon={History} title="Investigation starts from a plan" text="Build an agentic plan first." />; return <div className="space-y-4"><SectionIntro icon={History} title="Durable investigation" text={runId ? "This plan is persisted as a runtime run. The monitor executes only the tools authorized for the selected agent." : "Create a governed run from the Architect view before collecting evidence."} /><div className="grid gap-3 md:grid-cols-2">{["Agent purpose and enabled capabilities", "Tenant policy and governance constraints", "Provider evidence required by each workflow step", "Verification criteria defined by the plan"].map((item, index) => <div key={item} className="rounded-lg border p-4"><div className="text-xs font-semibold text-muted-foreground">EVIDENCE {index + 1}</div><div className="mt-1 text-sm">{item}</div><Badge className="mt-3" variant="outline">Runtime stage</Badge></div>)}</div><div className="rounded-lg border bg-muted/20 p-3 text-xs"><div className="flex items-center gap-2 font-medium"><Eye className="h-4 w-4" />Tool authorization snapshot</div><div className="mt-1 text-muted-foreground">{tools.filter((tool) => tool.available).length} MCP tools are currently available to this agent; unavailable tools are blocked rather than synthesized.</div></div>{runId && <Button asChild><Link to="/agent-run/$runId" params={{ runId }}>Open runtime monitor <ArrowRight className="ml-1.5 h-4 w-4" /></Link></Button>}</div>; }
-function SimulationView({ generated, tools }: { generated: GeneratedAgentWorkflow | null; tools: AgentToolAvailability[] }) { if (!generated) return <EmptyMode icon={FlaskConical} title="Simulation is ready after planning" text="Generate a workflow to see the production-safe simulation view." />; const gates = generated.steps.filter((step) => step.requiresApproval).length; return <div className="space-y-4"><SectionIntro icon={FlaskConical} title="Production-safe simulation" text="Review workflow impact and tool coverage without executing external mutations." /><div className="grid gap-3 sm:grid-cols-4"><Stat label="Workflow steps" value={String(generated.steps.length)} /><Stat label="Approval gates" value={String(gates)} /><Stat label="Available MCP tools" value={String(tools.filter((tool) => tool.available).length)} /><Stat label="Production mutations" value="0" /></div></div>; }
-function ExecutionView({ generated, runId, tools }: { generated: GeneratedAgentWorkflow | null; runId: string | null; tools: AgentToolAvailability[] }) { if (!generated) return <EmptyMode icon={Play} title="Execution is governed" text="Generate and review a plan before requesting execution." />; const writeTools = tools.filter((tool) => !tool.readOnly && tool.available); return <div className="space-y-4"><SectionIntro icon={Play} title="Governed execution" text="AI planning stops before execution. Mutations require policy, approval, a trusted capability and verification." /><div className="rounded-lg border bg-muted/20 p-4"><div className="text-sm font-semibold">Execution boundary</div><div className="mt-1 text-xs text-muted-foreground">{writeTools.length ? `${writeTools.length} approval-gated write/proposal tool(s) are exposed to the selected agent.` : "No write/proposal MCP tool is currently available to this agent."} A plan alone never authorizes production execution.</div></div>{runId ? <Button asChild><Link to="/agent-run/$runId" params={{ runId }}>Review governed run <ArrowRight className="ml-1.5 h-4 w-4" /></Link></Button> : <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-muted-foreground">Create a governed run first. A plan alone never authorizes production execution.</div>}</div>; }
+function InvestigationView({ generated, runId, tools }: { generated: GeneratedAgentWorkflow | null; runId: string | null; tools: AgentToolAvailability[] }) {
+  const loadRun = useServerFn(getAgentRun);
+  const [runtime, setRuntime] = useState<{ status: string; currentStep: string; evidenceCount: number; eventCount: number } | null>(null);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (!runId) { setRuntime(null); return; }
+    let active = true;
+    setLoading(true);
+    void loadRun({ data: { runId } }).then((result) => {
+      if (!active) return;
+      if (result.ok) setRuntime({ status: result.run.status, currentStep: result.run.currentStep, evidenceCount: result.run.evidence.length, eventCount: result.events.length });
+      else toast.error("Could not load runtime state", { description: result.error });
+    }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [runId]);
+  if (!generated) return <EmptyMode icon={History} title="Investigation starts from a plan" text="Build an agentic plan first." />;
+  const available = tools.filter((tool) => tool.available);
+  const blocked = tools.filter((tool) => !tool.available);
+  return <div className="space-y-4">
+    <SectionIntro icon={History} title="Live investigation control" text={runId ? "Runtime state below is read from the persisted governed run. Tool authorization is resolved from the same tenant-scoped policy surface." : "Create a governed run in Architect before collecting runtime evidence."} />
+    <div className="grid gap-3 md:grid-cols-4">
+      <Stat label="Runtime status" value={loading ? "Loading…" : runtime?.status ?? "Not created"} />
+      <Stat label="Current stage" value={runtime?.currentStep ?? "plan"} />
+      <Stat label="Evidence records" value={runtime ? String(runtime.evidenceCount) : "0"} />
+      <Stat label="Runtime events" value={runtime ? String(runtime.eventCount) : "0"} />
+    </div>
+    <div className="grid gap-4 lg:grid-cols-2">
+      <div className="rounded-xl border p-4">
+        <div className="text-sm font-semibold">Tool authorization</div>
+        <div className="mt-1 text-xs text-muted-foreground">{available.length} available · {blocked.length} blocked</div>
+        <div className="mt-3 space-y-2">
+          {available.map((tool) => <div key={tool.name} className="flex items-center justify-between gap-2 rounded-md border border-success/30 bg-success/5 p-2 text-xs"><span>{tool.title}</span><Badge variant="outline">{tool.readOnly ? "read-only" : "approval-gated"}</Badge></div>)}
+          {blocked.map((tool) => <div key={tool.name} className="rounded-md border border-dashed p-2 text-xs"><div className="font-medium">{tool.title}</div><div className="mt-0.5 text-muted-foreground">{tool.reasons[0] ?? "Capability is not enabled."}</div></div>)}
+          {!tools.length && <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">No MCP metadata is available.</div>}
+        </div>
+      </div>
+      <div className="rounded-xl border p-4">
+        <div className="flex items-center gap-2 text-sm font-semibold"><Eye className="h-4 w-4" />Plan/runtime coverage</div>
+        <div className="mt-3 space-y-2 text-xs">
+          <div className="flex items-center justify-between"><span>Selected agent</span><span className="font-medium">{generated.summary ? "Configured" : "Unknown"}</span></div>
+          <div className="flex items-center justify-between"><span>Workflow steps</span><span className="font-medium">{generated.steps.length}</span></div>
+          <div className="flex items-center justify-between"><span>Approval gates</span><span className="font-medium">{generated.steps.filter((step) => step.requiresApproval).length}</span></div>
+          <div className="flex items-center justify-between"><span>Provider mutations claimed</span><span className="font-medium">0</span></div>
+        </div>
+        <div className="mt-4 rounded-md bg-muted/40 p-3 text-[11px] text-muted-foreground">Investigate does not invent evidence. It reports only persisted runtime state and currently authorized tool metadata.</div>
+      </div>
+    </div>
+    {runId && <Button asChild><Link to="/agent-run/$runId" params={{ runId }}>Open runtime monitor <ArrowRight className="ml-1.5 h-4 w-4" /></Link></Button>}
+  </div>;
+}
+function SimulationView({ generated, tools }: { generated: GeneratedAgentWorkflow | null; tools: AgentToolAvailability[] }) { if (!generated) return <EmptyMode icon={FlaskConical} title="Simulation is ready after planning" text="Generate a workflow to see the production-safe simulation view." />; const gates = generated.steps.filter((step) => step.requiresApproval).length; const available = tools.filter((tool) => tool.available); const blocked = tools.filter((tool) => !tool.available); return <div className="space-y-4"><SectionIntro icon={FlaskConical} title="Production-safe simulation" text="Review workflow impact and tool coverage without executing external mutations." /><div className="grid gap-3 sm:grid-cols-5"><Stat label="Workflow steps" value={String(generated.steps.length)} /><Stat label="Approval gates" value={String(gates)} /><Stat label="Available MCP tools" value={String(available.length)} /><Stat label="Blocked MCP tools" value={String(blocked.length)} /><Stat label="Production mutations" value="0" /></div><div className="grid gap-4 md:grid-cols-2"><div className="rounded-xl border p-4"><div className="text-sm font-semibold">Approval-gated steps</div><div className="mt-2 space-y-2">{generated.steps.filter((step) => step.requiresApproval).map((step) => <div key={step.id} className="rounded-md border bg-muted/20 p-2 text-xs">{step.name}<div className="mt-0.5 text-muted-foreground">{step.action}</div></div>)}{!gates && <div className="text-xs text-muted-foreground">No approval-gated workflow step was generated.</div>}</div></div><div className="rounded-xl border p-4"><div className="text-sm font-semibold">Read-only coverage</div><div className="mt-2 space-y-2">{generated.steps.filter((step) => !step.requiresApproval).map((step) => <div key={step.id} className="rounded-md border p-2 text-xs">{step.name}<div className="mt-0.5 text-muted-foreground">{step.capability ?? step.type}</div></div>)}{!generated.steps.some((step) => !step.requiresApproval) && <div className="text-xs text-muted-foreground">All generated steps require approval.</div>}</div></div></div></div>; }
+function ExecutionView({ generated, runId, tools }: { generated: GeneratedAgentWorkflow | null; runId: string | null; tools: AgentToolAvailability[] }) { if (!generated) return <EmptyMode icon={Play} title="Execution is governed" text="Generate and review a plan before requesting execution." />; const writeTools = tools.filter((tool) => !tool.readOnly && tool.available); return <div className="space-y-4"><SectionIntro icon={Play} title="Governed execution" text="AI planning stops before execution. Mutations require policy, approval, a trusted capability and verification." /><div className="rounded-lg border bg-muted/20 p-4"><div className="text-sm font-semibold">Execution boundary</div><div className="mt-1 text-xs text-muted-foreground">{writeTools.length ? `${writeTools.length} approval-gated write/proposal tool(s) are exposed to the selected agent.` : "No write/proposal MCP tool is currently available to this agent."} A plan alone never authorizes production execution.</div></div><div className="flex flex-wrap gap-2"><Button variant="outline" asChild><Link to="/approvals">Open Approval Center</Link></Button>{runId ? <Button asChild><Link to="/agent-run/$runId" params={{ runId }}>Open runtime monitor <ArrowRight className="ml-1.5 h-4 w-4" /></Link></Button> : <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-muted-foreground">Create a governed run first. A plan alone never authorizes production execution.</div>}</div><div className="text-[11px] text-muted-foreground">Execution occurs only after the control plane records human approval. This Studio view never calls provider write APIs.</div></div>; }
 function Feature({ title, text, icon: Icon }: { title: string; text: string; icon: ComponentType<{ className?: string }> }) { return <div className="rounded-xl border p-4"><Icon className="h-4 w-4 text-primary" /><div className="mt-2 text-sm font-semibold">{title}</div><div className="mt-1 text-xs leading-5 text-muted-foreground">{text}</div></div>; }
 function SectionIntro({ icon: Icon, title, text }: { icon: ComponentType<{ className?: string }>; title: string; text: string }) { return <div className="flex gap-3 rounded-xl border bg-primary/[0.03] p-4"><Icon className="mt-0.5 h-5 w-5 shrink-0 text-primary" /><div><div className="text-sm font-semibold">{title}</div><div className="mt-1 text-xs leading-5 text-muted-foreground">{text}</div></div></div>; }
 function EmptyMode({ icon: Icon, title, text }: { icon: ComponentType<{ className?: string }>; title: string; text: string }) { return <div className="rounded-xl border border-dashed p-10 text-center"><Icon className="mx-auto h-6 w-6 text-muted-foreground" /><div className="mt-3 text-sm font-semibold">{title}</div><div className="mt-1 text-xs text-muted-foreground">{text}</div></div>; }
