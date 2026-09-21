@@ -20,18 +20,83 @@ const agentKeyFor = (data: Analytics, agent: Analytics["agents"][number]) =>
 export function OverviewView({ data, max }: { data: Analytics; max: number }) {
   const activeAgents = data.agents.filter((agent) => agent.actions > 0 || agent.changes > 0).slice(0, 4);
   const hasTrendEvidence = data.trends.some((item) => item.events > 0 || item.changes > 0 || item.aiRequests > 0);
-  return <div className="space-y-4">
-    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5"><Link to="/analytics" search={{ view: "admin-activity" }} className="rounded-lg transition-colors hover:ring-1 hover:ring-primary/30"><Metric icon={Activity} label="Audit events" value={data.platform.totalEvents.toLocaleString()} /></Link><Link to="/analytics" search={{ view: "admin-activity" }} className="rounded-lg transition-colors hover:ring-1 hover:ring-primary/30"><Metric icon={Users} label="Active actors" value={data.platform.activeUsers.toLocaleString()} /></Link><Link to="/analytics" search={{ view: "governance" }} className="rounded-lg transition-colors hover:ring-1 hover:ring-primary/30"><Metric icon={GitBranch} label="Change records" value={data.platform.changeRecords.toLocaleString()} /></Link><Link to="/analytics" search={{ view: "ai-usage" }} className="rounded-lg transition-colors hover:ring-1 hover:ring-primary/30"><Metric icon={Bot} label="AI requests" value={data.ai.requests.toLocaleString()} /></Link><Link to="/analytics" search={{ view: "ai-usage" }} className="rounded-lg transition-colors hover:ring-1 hover:ring-primary/30"><Metric icon={Clock3} label="Avg AI latency" value={`${data.ai.averageLatencyMs} ms`} /></Link></div>
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(300px,0.8fr)]">
-      <Card className="border-border/70 shadow-none"><CardHeader className="pb-3"><CardTitle className="text-sm">Operational trend</CardTitle><div className="text-xs text-muted-foreground">Daily evidence volume across audit events, change records and AI usage.</div></CardHeader><CardContent>{hasTrendEvidence ? <><div className="flex h-52 items-end gap-1 rounded-lg bg-muted/[0.08] px-2 py-3">{data.trends.map((item) => { const value = item.events + item.changes + item.aiRequests; return <div key={item.date} className="flex h-full flex-1 items-end" title={`${item.date}: ${value} records`}><div className="w-full rounded-t bg-primary/70 transition-opacity hover:opacity-80" style={{ height: `${Math.max(2, (value / max) * 100)}%` }} /></div>; })}</div><div className="mt-2 flex justify-between text-[10px] text-muted-foreground"><span>{data.period.from.slice(0, 10)}</span><span>{data.period.to.slice(0, 10)}</span></div></> : <EmptyPanel title="No operational evidence in this range" detail="Audit events, change records and AI usage depend on tenant-scoped rows being recorded in the selected period." action={<><Link to="/integrations"><Button size="sm" variant="outline">Connect providers</Button></Link><Link to="/"><Button size="sm" variant="outline">Open Command Center</Button></Link></>} />}</CardContent></Card>
-      <div className="space-y-6">
-        <Card className="border-border/70 shadow-none"><CardHeader className="pb-2"><CardTitle className="text-sm">Governance posture</CardTitle></CardHeader><CardContent className="grid grid-cols-2 gap-3"><MetricSmall label="Pending changes" value={data.platform.pendingChanges} /><MetricSmall label="Critical changes" value={data.severityCounts.critical ?? 0} /><MetricSmall label="Roles represented" value={data.platform.connectedRoles} /><MetricSmall label="Users in tenant" value={data.platform.totalUsers} /></CardContent></Card>
-        <Card className="border-border/70 shadow-none"><CardHeader className="pb-2"><CardTitle className="text-sm">Top active agents</CardTitle></CardHeader><CardContent>{activeAgents.length ? <div className="space-y-1.5">{activeAgents.map((agent) => <Link key={agent.name} to="/analytics" search={{ view: "agents", agentKey: agentKeyFor(data, agent) }} className="flex items-center justify-between gap-3 rounded-md border border-border/60 bg-muted/[0.08] px-3 py-2 transition-colors hover:border-primary/30 hover:bg-muted/30"><div className="min-w-0"><div className="truncate text-sm font-medium text-primary">{agent.name}</div><div className="text-[11px] text-muted-foreground">{agent.category}</div></div><div className="text-right text-xs text-muted-foreground"><div className="font-medium text-foreground">{agent.actions + agent.changes}</div><div>actions + changes</div></div></Link>)}</div> : <EmptyPanel title="No agent activity in this range" detail="Agents appear here only when real change or AI usage evidence is recorded." />}</CardContent></Card>
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+        <Link to="/analytics" search={{ view: "admin-activity" }} className="rounded-lg transition-colors hover:ring-1 hover:ring-primary/30"><Metric icon={Activity} label="Audit events" value={data.platform.totalEvents.toLocaleString()} /></Link>
+        <Link to="/analytics" search={{ view: "admin-activity" }} className="rounded-lg transition-colors hover:ring-1 hover:ring-primary/30"><Metric icon={Users} label="Active actors" value={data.platform.activeUsers.toLocaleString()} /></Link>
+        <Link to="/analytics" search={{ view: "governance" }} className="rounded-lg transition-colors hover:ring-1 hover:ring-primary/30"><Metric icon={GitBranch} label="Change records" value={data.platform.changeRecords.toLocaleString()} /></Link>
+        <Link to="/analytics" search={{ view: "ai-usage" }} className="rounded-lg transition-colors hover:ring-1 hover:ring-primary/30"><Metric icon={Bot} label="AI requests" value={data.ai.requests.toLocaleString()} /></Link>
+        <Link to="/analytics" search={{ view: "ai-usage" }} className="rounded-lg transition-colors hover:ring-1 hover:ring-primary/30"><Metric icon={Clock3} label="Avg AI latency" value={`${data.ai.averageLatencyMs} ms`} /></Link>
       </div>
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(300px,0.8fr)]">
+        <Card className="border-border/70 shadow-none">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">Operational trend</CardTitle>
+            <div className="text-xs text-muted-foreground">Daily evidence volume across audit events, change records and AI usage.</div>
+          </CardHeader>
+          <CardContent>
+            {hasTrendEvidence ? (
+              <>
+                <div className="flex h-52 items-end gap-1 rounded-lg bg-muted/[0.08] px-2 py-3">
+                  {data.trends.map((item) => {
+                    const value = item.events + item.changes + item.aiRequests;
+                    return <div key={item.date} className="flex h-full flex-1 items-end" title={`${item.date}: ${value} records`}><div className="w-full rounded-t bg-primary/70 transition-opacity hover:opacity-80" style={{ height: `${Math.max(2, (value / max) * 100)}%` }} /></div>;
+                  })}
+                </div>
+                <div className="mt-2 flex justify-between text-[10px] text-muted-foreground"><span>{data.period.from.slice(0, 10)}</span><span>{data.period.to.slice(0, 10)}</span></div>
+              </>
+            ) : (
+              <EmptyPanel
+                title="No operational evidence in this range"
+                detail="Audit events, change records and AI usage depend on tenant-scoped rows being recorded in the selected period."
+                action={<><Link to="/integrations"><Button size="sm" variant="outline">Connect providers</Button></Link><Link to="/"><Button size="sm" variant="outline">Open Command Center</Button></Link></>}
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        <div className="space-y-4">
+          <Card className="border-border/70 shadow-none">
+            <CardHeader className="pb-2"><CardTitle className="text-sm">Governance posture</CardTitle></CardHeader>
+            <CardContent className="grid grid-cols-2 gap-2">
+              <MetricSmall label="Pending changes" value={data.platform.pendingChanges} />
+              <MetricSmall label="Critical changes" value={data.severityCounts.critical ?? 0} />
+              <MetricSmall label="Roles represented" value={data.platform.connectedRoles} />
+              <MetricSmall label="Users in tenant" value={data.platform.totalUsers} />
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/70 shadow-none">
+            <CardHeader className="pb-2"><CardTitle className="text-sm">Top active agents</CardTitle></CardHeader>
+            <CardContent>
+              {activeAgents.length ? (
+                <div className="space-y-1.5">
+                  {activeAgents.map((agent) => (
+                    <Link key={agent.name} to="/analytics" search={{ view: "agents", agentKey: agentKeyFor(data, agent) }} className="flex items-center justify-between gap-3 rounded-md border border-border/60 bg-muted/[0.08] px-3 py-2 transition-colors hover:border-primary/30 hover:bg-muted/30">
+                      <div className="min-w-0"><div className="truncate text-sm font-medium text-primary">{agent.name}</div><div className="text-[11px] text-muted-foreground">{agent.category}</div></div>
+                      <div className="text-right text-xs text-muted-foreground"><div className="font-medium text-foreground">{agent.actions + agent.changes}</div><div>actions + changes</div></div>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <EmptyPanel title="No agent activity in this range" detail="Agents appear here only when real change or AI usage evidence is recorded." />
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      <Card className="border-border/70 bg-muted/[0.04] shadow-none">
+        <CardHeader className="pb-1"><CardTitle className="text-sm">Evidence notes</CardTitle></CardHeader>
+        <CardContent className="space-y-1 text-sm text-muted-foreground"><p>Values are derived from tenant-scoped analytics evidence or the report workspace service.</p><p>Empty windows remain zero rather than being replaced by synthetic activity.</p></CardContent>
+      </Card>
     </div>
-    <Card className="border-border/70 bg-muted/[0.04] shadow-none"><CardHeader className="pb-1"><CardTitle className="text-sm">Evidence notes</CardTitle></CardHeader><CardContent className="space-y-1 text-sm text-muted-foreground"><p>Values are derived from tenant-scoped analytics evidence or the report workspace service.</p><p>Empty windows remain zero rather than being replaced by synthetic activity.</p></CardContent></Card>
-  </div>;
+  );
 }
+
 export function AiUsageView({ data }: { data: Analytics }) {
   if (!data.ai.requests) return <EmptyPanel title="No AI usage events in this range" detail="AI metrics appear when ai_usage_events contains tenant-scoped records inside the selected range." />;
   const byFeature = new Map<string, { requests: number; tokens: number; cost: number; latency: number }>();
