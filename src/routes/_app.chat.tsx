@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUp, BookOpen, Building2, ClipboardCheck, FileText, History, MessageSquare, Plus, Search, ShieldAlert, Sparkles, Trash2 } from "lucide-react";
+import { ArrowUp, BookOpen, ClipboardCheck, FileText, Link2, Maximize2, Plus, Search, ShieldAlert, Sparkles, Square, Trash2 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,7 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/chat")({ head: () => pageHead({ path: "/chat", title: "CenOps Copilot", description: "Evidence-grounded operational analysis for enterprise operations." }), component: ChatPage });
 type Recommendation = { title?: string; rationale?: string; impact?: string; risk?: string; nextStep?: string; actionType?: string; requiresApproval?: boolean };
-type Result = { demo?: boolean; answer?: string; analysis?: string; recommendations?: Recommendation[]; sources?: string[]; confidence?: number; actionRequired?: boolean; investigationId?: string; response?: CenOpsResponse };
+type Result = { demo?: boolean; answer?: string; analysis?: string; recommendations?: Recommendation[]; sources?: string[]; confidence?: number; actionRequired?: boolean; investigationId?: string; response?: CenOpsResponse; intent?: string };
 type Message = EnterpriseChatMessage & { result?: Result; id?: string; createdAt?: string };
 const suggestions = [
   { label: "Investigate an incident", prompt: "Investigate the most important operational incident affecting this workspace right now.", Icon: ShieldAlert },
