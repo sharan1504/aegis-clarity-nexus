@@ -18,6 +18,23 @@ export const createChatSession = createServerFn({ method: "POST" }).middleware([
   const { tenantId } = await resolveTenant(context.supabase, context.userId); const department = await resolveDepartmentContext(context.supabase, context.userId, data.departmentKey); const db = context.supabase as any; const { data: row, error } = await db.from("chat_sessions").insert({ tenant_id: tenantId, user_id: context.userId, title: "New chat", department_key: department.departmentKey }).select("id,title,created_at,updated_at,department_key").single(); if (error || !row) throw new Error(error?.message ?? "Unable to create chat session."); return { session: { id: row.id, title: row.title, createdAt: row.created_at, updatedAt: row.updated_at, departmentKey: row.department_key ?? null, departmentName: department.departmentName } satisfies ChatSession };
 });
 
+export const updateChatSessionTitle = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { sessionId: string; title: string }) => ({ sessionId: String(input.sessionId ?? "").trim(), title: String(input.title ?? "").trim().slice(0, 80) })).handler(async ({ data, context }) => {
+  if (!data.sessionId || !data.title) throw new Error("A chat session title is required.");
+  if (await isDemoTenant(context)) {
+    const row = demoSessions(context.userId).get(data.sessionId);
+    if (!row) throw new Error("Chat session not found.");
+    row.session.title = data.title;
+    row.session.updatedAt = new Date().toISOString();
+    return { ok: true as const, session: row.session };
+  }
+  const { tenantId } = await resolveTenant(context.supabase, context.userId);
+  const db = context.supabase as any;
+  const { data: row, error } = await db.from("chat_sessions").update({ title: data.title }).eq("id", data.sessionId).eq("tenant_id", tenantId).eq("user_id", context.userId).select("id,title,created_at,updated_at,department_key").maybeSingle();
+  if (error || !row) throw new Error(error?.message ?? "Chat session not found.");
+  const department = await resolveDepartmentContext(context.supabase, context.userId, row.department_key);
+  return { ok: true as const, session: { id: row.id, title: row.title, createdAt: row.created_at, updatedAt: row.updated_at, departmentKey: row.department_key ?? null, departmentName: department.departmentName } satisfies ChatSession };
+});
+
 export const getMyDepartments = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => { if (await isDemoTenant(context)) return { departments: [{ department_key: "contact-center", display_name: "Contact Center" }, { department_key: "cloud-platform", display_name: "Cloud Platform" }, { department_key: "security", display_name: "Security" }], selected: "contact-center", unrestricted: true }; const department = await resolveDepartmentContext(context.supabase, context.userId); return { departments: department.departments, selected: department.departmentKey, unrestricted: department.unrestricted }; });
 
 export const listChatSessions = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => { if (await isDemoTenant(context)) return { sessions: [...demoSessions(context.userId).values()].map(({ session }) => session) }; const { tenantId } = await resolveTenant(context.supabase, context.userId); const db = context.supabase as any; const { data, error } = await db.from("chat_sessions").select("id,title,created_at,updated_at,department_key").eq("tenant_id", tenantId).eq("user_id", context.userId).order("updated_at", { ascending: false }); if (error) throw new Error(error.message); const departmentKeys = [...new Set((data ?? []).map((row: any) => row.department_key).filter(Boolean))]; const { data: departments } = departmentKeys.length ? await db.from("departments").select("department_key,display_name").in("department_key", departmentKeys) : { data: [] }; const names = new Map((departments ?? []).map((row: any) => [row.department_key, row.display_name])); return { sessions: (data ?? []).map((row: any) => ({ id: row.id, title: row.title, createdAt: row.created_at, updatedAt: row.updated_at, departmentKey: row.department_key ?? null, departmentName: row.department_key ? names.get(row.department_key) ?? row.department_key : null } satisfies ChatSession)) };
