@@ -32,6 +32,12 @@ const suggestions = [
 ];
 const cleanAssistantText = (value: string) => value.replace(/<svg[\s\S]*?<\/svg>/gi, "").replace(/<[^>]+>/g, "").replace(/(^|\n)\s*svg\s*(?=\n|$)/gi, "").replace(/\n{3,}/g, "\n\n").trim();
 function ChatPage() {
+  const { user } = Route.useRouteContext();
+  const firstName = useMemo(() => {
+    const metadata = user?.user_metadata as Record<string, unknown> | undefined;
+    const name = typeof metadata?.full_name === "string" ? metadata.full_name : typeof metadata?.name === "string" ? metadata.name : "";
+    return name.trim().split(/\s+/)[0] ?? "";
+  }, [user]);
   const chat = useServerFn(executeEnterpriseChat); const createSession = useServerFn(createChatSession); const loadSessions = useServerFn(listChatSessions); const loadSession = useServerFn(getChatSession); const loadDepartments = useServerFn(getMyDepartments); const removeSession = useServerFn(deleteChatSession); const createChange = useServerFn(createChangeFromRecommendation);
   const [sessions, setSessions] = useState<ChatSession[]>([]); const [sessionId, setSessionId] = useState<string | null>(null); const [messages, setMessages] = useState<Message[]>([]); const [input, setInput] = useState(""); const [depth, setDepth] = useState<"quick" | "thorough">("thorough"); const [inputFocused, setInputFocused] = useState(false); const [hasTyped, setHasTyped] = useState(false); const [placeholderIndex, setPlaceholderIndex] = useState(0); const [departments, setDepartments] = useState<Array<{ department_key: string; display_name: string }>>([]); const [departmentKey, setDepartmentKey] = useState<string | null>(null); const [loading, setLoading] = useState(true); const [historyOpen, setHistoryOpen] = useState(false); const [historyQuery, setHistoryQuery] = useState("");
   const refreshHistory = async () => { const result = await loadSessions(); setSessions(result.sessions); return result.sessions; };
