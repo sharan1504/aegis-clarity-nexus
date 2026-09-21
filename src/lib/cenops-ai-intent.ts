@@ -4,7 +4,12 @@ export type CenOpsAiIntent =
   | "operational_analysis" | "investigation" | "governance" | "out_of_scope" | "unknown";
 
 export interface CenOpsAiIntentResult { intent: CenOpsAiIntent; confidence: number; productQuestion: boolean; requiresLiveEvidence: boolean; }
+export interface CenOpsConversationTurn { role: "user" | "assistant"; content: string; }
+
 const hasAny = (text: string, terms: string[]) => terms.some((term) => text.includes(term));
+function normalizeIntentText(message: string) {
+  return message.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
 function isClearlyOutOfScope(text: string): boolean {
   if (/^what is the capital of\b/.test(text)) return true;
   if (/^write (me )?(a )?(poem|song|story)\b/.test(text)) return true;
@@ -13,8 +18,13 @@ function isClearlyOutOfScope(text: string): boolean {
   if (/^tell me what is \d+\s+\d+$/.test(text)) return true;
   return false;
 }
-export function classifyCenOpsIntent(message: string): CenOpsAiIntentResult {
-  const text = message.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+function isGenericFollowUp(text: string): boolean {
+  if (/^what is this platform(?: about)?$/.test(text) || /^what this platform is about$/.test(text)) return false;
+  if (["tell me more", "more detail", "go deeper", "continue", "what about", "and that", "and this", "explain this", "explain that", "why", "what is this", "go on"].includes(text)) return true;
+  const words = text.split(/\s+/).filter(Boolean);
+  return words.length <= 7 && /\b(this|that|it|those|these)\b/.test(text);
+}
+function classifyRawCenOpsIntent(text: string): CenOpsAiIntentResult {
   if (hasAny(text, ["productivity agent", "what does the productivity agent", "what is the productivity agent", "explain the productivity agent", "productivity agent do"])) return { intent: "agent_explanation", confidence: 0.95, productQuestion: true, requiresLiveEvidence: false };
   if (hasAny(text, ["productivity report", "generate report", "detailed report", "performance report", "productivity summary"])) return { intent: "productivity_report", confidence: 0.95, productQuestion: false, requiresLiveEvidence: true };
   if (hasAny(text, ["productivity", "tickets handled", "cases handled", "work items handled", "throughput", "cycle time", "how many tickets", "how many cases", "performance this week", "performance this month", "last 3 months", "last 6 months", "last 12 months", "past 3 months", "past 6 months", "past year"])) return { intent: "productivity_analysis", confidence: 0.94, productQuestion: false, requiresLiveEvidence: true };
@@ -28,6 +38,25 @@ export function classifyCenOpsIntent(message: string): CenOpsAiIntentResult {
   if (hasAny(text, ["integrations", "providers", "available integrations", "what can i connect", "supported providers", "integration catalog"])) return { intent: "integration_discovery", confidence: 0.96, productQuestion: true, requiresLiveEvidence: false };
   if (hasAny(text, ["feature", "features", "capability", "capabilities", "what can it do", "what does cenops do", "how does cenops work"])) return { intent: "product_feature", confidence: 0.9, productQuestion: true, requiresLiveEvidence: false };
   if (hasAny(text, ["tell me more", "what is this platform", "what is this platform about", "what this platform is about", "what does this platform do", "what does the platform do", "what is cenops", "what is cenops about", "what does cenops do", "what is cenops used for", "what problem does cenops solve", "why does cenops exist", "why would i use cenops", "how does cenops help", "overview", "about this platform", "explain cenops", "explain the platform", "describe cenops", "describe the platform", "what is this"])) return { intent: "platform_overview", confidence: 0.98, productQuestion: true, requiresLiveEvidence: false };
-  if (isClearlyOutOfScope(text)) return { intent: "out_of_scope", confidence: 0.99, productQuestion: true, requiresLiveEvidence: false };
   return { intent: "unknown", confidence: 0.35, productQuestion: true, requiresLiveEvidence: false };
+}
+export function classifyCenOpsIntent(message: string, conversation: CenOpsConversationTurn[] = []): CenOpsAiIntentResult {
+  const text = normalizeIntentText(message);
+  if (isClearlyOutOfScope(text)) return { intent: "out_of_scope", confidence: 0.99, productQuestion: true, requiresLiveEvidence: false };
+
+  const raw = classifyRawCenOpsIntent(text);
+  if (!isGenericFollowUp(text) && raw.intent !== "unknown" && raw.confidence >= 0.86) return raw;
+
+  for (let index = conversation.length - 1; index >= 0; index -= 1) {
+    const turn = conversation[index];
+    if (turn.role !== "user") continue;
+    const priorText = normalizeIntentText(turn.content);
+    if (!priorText || isClearlyOutOfScope(priorText)) continue;
+    const prior = classifyRawCenOpsIntent(priorText);
+    if (prior.intent !== "out_of_scope" && prior.intent !== "unknown") {
+      return { ...prior, confidence: Math.max(prior.confidence, 0.86) };
+    }
+  }
+
+  return raw;
 }

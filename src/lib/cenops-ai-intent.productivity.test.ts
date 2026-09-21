@@ -47,6 +47,48 @@ describe("CenOps productivity intent routing", () => {
     expect(result.requiresLiveEvidence).toBe(false);
   });
 
+  it("inherits platform intent for generic follow-ups", () => {
+    const result = classifyCenOpsIntent("what this platform is about?", [
+      { role: "user", content: "tell me more about this platform" },
+      { role: "assistant", content: "CenOps is an enterprise operations platform." },
+    ]);
+    expect(result.intent).toBe("platform_overview");
+  });
+
+  it("inherits the latest in-scope user intent for why follow-ups", () => {
+    const result = classifyCenOpsIntent("why?", [
+      { role: "user", content: "What is CenOps?" },
+      { role: "assistant", content: "CenOps provides governed operational intelligence." },
+    ]);
+    expect(result.intent).toBe("platform_overview");
+  });
+
+  it("prefers a clearly named new topic over inherited context", () => {
+    const result = classifyCenOpsIntent("what about integrations?", [
+      { role: "user", content: "What is CenOps?" },
+      { role: "assistant", content: "CenOps provides governed operational intelligence." },
+    ]);
+    expect(result.intent).toBe("integration_discovery");
+  });
+
+  it("inherits integration discovery for tell-me-more follow-ups", () => {
+    const result = classifyCenOpsIntent("tell me more", [
+      { role: "user", content: "What integrations are supported?" },
+    ]);
+    expect(result.intent).toBe("integration_discovery");
+  });
+
+  it("keeps clearly unrelated follow-ups out of scope", () => {
+    const result = classifyCenOpsIntent("write me a poem", [
+      { role: "user", content: "What is CenOps?" },
+    ]);
+    expect(result.intent).toBe("out_of_scope");
+  });
+
+  it("classifies platform overview without prior context", () => {
+    expect(classifyCenOpsIntent("what is cenops").intent).toBe("platform_overview");
+  });
+
   it("preserves representative platform operational and product routing", () => {
     expect(classifyCenOpsIntent("What is CenOps?").intent).toBe("platform_overview");
     expect(classifyCenOpsIntent("What integrations are supported?").intent).toBe("integration_discovery");
