@@ -4,7 +4,7 @@ import { availableAgentMcpTools, getAgentMcpToolAvailability } from "./agent-too
 import type { AgentToolAvailability } from "./agent-tool-availability.server";
 
 describe("agent MCP tool availability", () => {
-  it("hides tools whose governed capability is not bound to the agent", async () => {
+  it("allows platform reads for a defined agent and blocks domain reads without a binding", async () => {
     const chain = (result: unknown) => ({ eq: () => ({ eq: () => ({ eq: async () => result }) }) });
     const supabase = {
       from: (table: string) => {
@@ -16,6 +16,7 @@ describe("agent MCP tool availability", () => {
             eq: async () => ({ data: [
               { id: "tool-change", tool_name: "list_change_records", title: "List changes", description: "Read changes", capability_key: "change_records", provider: null, execution_class: "read_only", read_only: true, origin: "builtin", handler_kind: "change_records", handler_config: {}, enabled: true },
               { id: "tool-agents", tool_name: "list_agents", title: "List agents", description: "Read agents", capability_key: "agent_inventory", provider: null, execution_class: "read_only", read_only: true, origin: "builtin", handler_kind: "list_meta", handler_config: {}, enabled: true },
+              { id: "tool-license", tool_name: "list_license_signals", title: "List license signals", description: "Read license signals", capability_key: "license_inventory", provider: null, execution_class: "read_only", read_only: true, origin: "builtin", handler_kind: "capability_router", handler_config: {}, enabled: true },
             ], error: null })
           }) };
         }
@@ -26,7 +27,9 @@ describe("agent MCP tool availability", () => {
 
     const tools = await getAgentMcpToolAvailability(supabase as never, "tenant-1", "agent-security");
     expect(tools.find((tool) => tool.name === "list_change_records")?.available).toBe(true);
-    expect(tools.find((tool) => tool.name === "list_agents")?.available).toBe(false);
+    expect(tools.find((tool) => tool.name === "list_agents")?.available).toBe(true);
+    expect(tools.find((tool) => tool.name === "list_license_signals")?.available).toBe(false);
+    expect(tools.find((tool) => tool.name === "list_license_signals")?.reasons[0]).toContain("no enabled integration binding");
   });
 
   it("returns only available tools", () => {
