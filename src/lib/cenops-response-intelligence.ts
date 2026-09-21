@@ -94,6 +94,14 @@ export function normalizeCenOpsResponse(raw: unknown, intent: string): CenOpsRes
 }
 export function formatCenOpsResponse(response: CenOpsResponse): string {
   const lines = [response.executiveSummary];
+
+  // Product and how-to answers should read like a focused agent response.
+  // Their primary answer already lives in executiveSummary; do not append
+  // operational dashboard scaffolding or tenant evidence unless it is relevant.
+  if (response.responseType === "product" || response.responseType === "how_to") {
+    return lines.join("\n");
+  }
+
   if (response.keyFindings.length) lines.push("", "### Key findings", ...response.keyFindings.map((x) => `- **${x.title}**${x.severity ? ` (${x.severity})` : ""}: ${x.detail}${x.status ? ` — ${x.status}` : ""}`));
   if (response.metrics.length) lines.push("", "### At a glance", ...response.metrics.map((x) => `- **${x.label}:** ${x.value}${x.change ? ` — ${x.change}` : ""}`));
   if (response.risks.length) lines.push("", "### Top risks", ...response.risks.slice(0, 5).map((x) => `- **${x.title}**${x.severity ? ` (${x.severity})` : ""} — ${x.whyItMatters} **Impact:** ${x.impact}`));
