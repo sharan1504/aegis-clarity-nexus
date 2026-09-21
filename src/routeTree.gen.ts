@@ -43,6 +43,7 @@ import { Route as AppApprovalsIndexRouteImport } from './routes/_app.approvals.i
 import { Route as AppApprovalsIdRouteImport } from './routes/_app.approvals.$id'
 import { Route as AppIntegrationsIndexRouteImport } from './routes/_app.integrations.index'
 import { Route as AppIntegrationsCatalogRouteImport } from './routes/_app.integrations.catalog'
+import { Route as AppIntegrationsCatalogIndexRouteImport } from './routes/_app.integrations.catalog.index'
 import { Route as AppSettingsItsmRoutingRouteImport } from './routes/_app.settings.itsm-routing'
 import { Route as ApiInternalProviderSyncRouteImport } from './routes/api.internal.provider-sync'
 import { Route as IntegrationsConfluenceCallbackRouteImport } from './routes/integrations.confluence.callback'
@@ -234,6 +235,11 @@ const AppIntegrationsCatalogRoute = AppIntegrationsCatalogRouteImport.update({
   id: '/catalog',
   path: '/catalog',
   getParentRoute: () => AppIntegrationsRoute,
+} as any)
+const AppIntegrationsCatalogIndexRoute = AppIntegrationsCatalogIndexRouteImport.update({
+  id: '/_app/integrations/catalog/',
+  path: '/',
+  getParentRoute: () => AppIntegrationsCatalogRoute,
 } as any)
 const AppSettingsItsmRoutingRoute = AppSettingsItsmRoutingRouteImport.update({
   id: '/itsm-routing',
@@ -930,6 +936,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIntegrationsCatalogRouteImport
       parentRoute: typeof AppIntegrationsRoute
     }
+    '/_app/integrations/catalog/': {
+      id: '/_app/integrations/catalog/'
+      path: '/'
+      fullPath: '/integrations/catalog/'
+      preLoaderRoute: typeof AppIntegrationsCatalogIndexRouteImport
+      parentRoute: typeof AppIntegrationsCatalogRoute
+    }
     '/_app/settings/itsm-routing': {
       id: '/_app/settings/itsm-routing'
       path: '/itsm-routing'
@@ -1071,11 +1084,13 @@ const AppAgenticStudioRouteWithChildren =
   AppAgenticStudioRoute._addFileChildren(AppAgenticStudioRouteChildren)
 
 interface AppIntegrationsCatalogRouteChildren {
+  AppIntegrationsCatalogIndexRoute: typeof AppIntegrationsCatalogIndexRoute
   AppIntegrationsCatalogProviderIdRoute: typeof AppIntegrationsCatalogProviderIdRoute
 }
 
 const AppIntegrationsCatalogRouteChildren: AppIntegrationsCatalogRouteChildren =
   {
+    AppIntegrationsCatalogIndexRoute: AppIntegrationsCatalogIndexRoute,
     AppIntegrationsCatalogProviderIdRoute:
       AppIntegrationsCatalogProviderIdRoute,
   }
