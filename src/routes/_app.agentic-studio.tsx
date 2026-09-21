@@ -76,7 +76,7 @@ function AgenticStudioPage() {
   const toggleRail = () => {
     setRailCollapsed((collapsed) => {
       const next = !collapsed;
-      try { window.localStorage.setItem("cenops.agenticStudio.railCollapsed", String(next)); } catch {}
+      try { window.localStorage.setItem("cenops.agenticStudio.railCollapsed", String(next)); } catch (error) { void error; }
       return next;
     });
   };
