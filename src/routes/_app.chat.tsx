@@ -1,14 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUp, BookOpen, Building2, ClipboardCheck, FileText, History, MessageSquare, Plus, Search, ShieldAlert, Sparkles, Trash2 } from "lucide-react";
+import { ArrowUp, BookOpen, ClipboardCheck, FileText, Link2, Maximize2, Plus, Search, ShieldAlert, Sparkles, Square, Trash2 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CenOpsMarkdownMessage } from "@/components/chat/CenOpsMarkdownMessage";
 import { CenOpsResponseRenderer } from "@/components/chat/CenOpsResponseRenderer";
 import { CenOpsReasoningPanel } from "@/components/chat/CenOpsReasoningPanel";
@@ -21,7 +19,7 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/chat")({ head: () => pageHead({ path: "/chat", title: "CenOps Copilot", description: "Evidence-grounded operational analysis for enterprise operations." }), component: ChatPage });
 type Recommendation = { title?: string; rationale?: string; impact?: string; risk?: string; nextStep?: string; actionType?: string; requiresApproval?: boolean };
-type Result = { demo?: boolean; answer?: string; analysis?: string; recommendations?: Recommendation[]; sources?: string[]; confidence?: number; actionRequired?: boolean; investigationId?: string; response?: CenOpsResponse };
+type Result = { demo?: boolean; answer?: string; analysis?: string; recommendations?: Recommendation[]; sources?: string[]; confidence?: number; actionRequired?: boolean; investigationId?: string; response?: CenOpsResponse; intent?: string };
 type Message = EnterpriseChatMessage & { result?: Result; id?: string; createdAt?: string };
 const suggestions = [
   { label: "Investigate an incident", prompt: "Investigate the most important operational incident affecting this workspace right now.", Icon: ShieldAlert },
@@ -41,7 +39,7 @@ function ChatPage() {
   const chat = useServerFn(executeEnterpriseChat); const createSession = useServerFn(createChatSession); const loadSessions = useServerFn(listChatSessions); const loadSession = useServerFn(getChatSession); const loadDepartments = useServerFn(getMyDepartments); const removeSession = useServerFn(deleteChatSession); const createChange = useServerFn(createChangeFromRecommendation);
   const [sessions, setSessions] = useState<ChatSession[]>([]); const [sessionId, setSessionId] = useState<string | null>(null); const [messages, setMessages] = useState<Message[]>([]); const [input, setInput] = useState(""); const [depth, setDepth] = useState<"quick" | "thorough">("thorough"); const [inputFocused, setInputFocused] = useState(false); const [hasTyped, setHasTyped] = useState(false); const [placeholderIndex, setPlaceholderIndex] = useState(0); const [departments, setDepartments] = useState<Array<{ department_key: string; display_name: string }>>([]); const [departmentKey, setDepartmentKey] = useState<string | null>(null); const [loading, setLoading] = useState(true); const [historyOpen, setHistoryOpen] = useState(false); const [historyQuery, setHistoryQuery] = useState("");
   const refreshHistory = async () => { const result = await loadSessions(); setSessions(result.sessions); return result.sessions; };
-  const startNewChat = async (requestedDepartment = departmentKey) => { try { const result = await createSession({ data: { departmentKey: requestedDepartment } }); setSessionId(result.session.id); setDepartmentKey(result.session.departmentKey); setMessages([]); setInput(""); setHasTyped(false); setInputFocused(false); setPlaceholderIndex(0); setHistoryOpen(false); setHistoryQuery(""); await refreshHistory(); } catch (error) { toast.error(error instanceof Error ? error.message : "Could not start chat."); } };
+  const startNewChat = async (requestedDepartment = departmentKey) => { try { const result = await createSession({ data: { departmentKey: requestedDepartment } }); setSessionId(result.session.id); setDepartmentKey(result.session.departmentKey); setMessages([]); setInput(""); setHasTyped(false); setInputFocused(false); setPlaceholderIndex(0); setHistoryQuery(""); await refreshHistory(); } catch (error) { toast.error(error instanceof Error ? error.message : "Could not start chat."); } };
   useEffect(() => { let active = true; void (async () => { try { const [, dept] = await Promise.all([refreshHistory(), loadDepartments()]); if (!active) return; setDepartments(dept.departments.map((d: any) => ({ department_key: d.department_key, display_name: d.display_name }))); setDepartmentKey(dept.selected); const result = await createSession({ data: { departmentKey: dept.selected } }); if (!active) return; setSessionId(result.session.id); setDepartmentKey(result.session.departmentKey); setMessages([]); await refreshHistory(); } catch (error) { if (active) toast.error(error instanceof Error ? error.message : "Chat history could not be loaded."); } finally { if (active) setLoading(false); } })(); return () => { active = false; }; }, []);
   const mutation = useMutation({ mutationFn: (next: EnterpriseChatMessage[]) => chat({ data: { sessionId: sessionId!, messages: next, depth } }), onSuccess: async (result) => { if (result.ok) { setMessages((current) => [...current, { role: "assistant", content: cleanAssistantText(result.answer ?? "Analysis complete."), result: result as Result }]); await refreshHistory(); } else toast.error(result.error); } });
   const send = (text: string) => { const content = text.trim(); if (!content || mutation.isPending || !sessionId) return; const next = [...messages.map((m) => ({ role: m.role, content: m.content })), { role: "user" as const, content }]; setMessages((current) => [...current, { role: "user", content }]); setInput(""); mutation.mutate(next); };
@@ -63,6 +61,162 @@ function ChatPage() {
     return () => window.clearInterval(timer);
   }, [hasTyped, input, inputFocused, rotatingPlaceholders.length]);
   const filteredSessions = useMemo(() => { const query = historyQuery.trim().toLowerCase(); if (!query) return sessions; return sessions.filter((s) => `${s.title} ${s.departmentName ?? "Workspace-wide"}`.toLowerCase().includes(query)); }, [historyQuery, sessions]);
-  if (loading) return <div className="py-16 text-center text-sm text-muted-foreground">Loading chat…</div>;
-  return <div className="min-h-[calc(100vh-5.75rem)] w-full"><div className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b bg-background/95 px-4 py-3 backdrop-blur sm:px-6"><div className="min-w-0"><h1 className="truncate text-sm font-medium text-muted-foreground">CenOps Copilot</h1></div><div className="flex shrink-0 items-center gap-2">{departments.length > 1 && <select aria-label="Department" value={departmentKey ?? ""} onChange={(e) => void startNewChat(e.target.value)} className="hidden h-9 rounded-md border bg-background px-3 text-sm sm:block">{departments.map((d) => <option key={d.department_key} value={d.department_key}>{d.display_name}</option>)}</select>}<Button size="sm" variant="outline" onClick={() => void startNewChat()}><Plus className="mr-1.5 h-4 w-4" />New chat</Button><Button size="sm" variant="outline" onClick={() => setHistoryOpen(true)}><History className="mr-1.5 h-4 w-4" />History</Button></div></div><main className="w-full"><div className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 sm:py-8">{!messages.length && <div className="mx-auto flex w-full max-w-3xl flex-col items-center px-4 py-14 text-center sm:py-20"><h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">{firstName ? `Hi ${firstName}, how can I help?` : "How can I help?"}</h2><p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">Ask CenOps about operations, integrations, AI agents, risks, or governed actions across your workspace.</p><div className="mt-8 flex flex-wrap justify-center gap-2.5">{suggestions.map(({ label, prompt, Icon }) => <button key={label} type="button" onClick={() => send(prompt)} className="group inline-flex min-h-10 items-center gap-2 rounded-full border bg-background px-3.5 py-2 text-left text-sm font-medium transition hover:border-primary/40 hover:bg-primary/5"><Icon className="h-4 w-4 shrink-0 text-primary" /><span>{label}</span></button>)}</div></div>}{messages.map((m, i) => { const displayContent = cleanAssistantText(m.content); const actionableRecommendations = m.role === "assistant" && m.result?.actionRequired === true ? (m.result.recommendations ?? []).filter((r) => r.requiresApproval === true || ["change", "remediation", "provision", "deprovision", "configuration", "workflow"].some((kind) => String(r.actionType ?? "").toLowerCase().includes(kind))).slice(0, 5) : []; const lower = displayContent.toLowerCase(); const showIntegrationAction = m.role === "assistant" && (lower.includes("integration") || lower.includes("jira") || lower.includes("genesys") || lower.includes("aws")); const showAgentAction = m.role === "assistant" && lower.includes("agent"); return <div key={m.id ?? `${i}-${m.createdAt ?? "message"}`} className="mb-10 flex w-full"><div className={m.role === "user" ? "ml-auto w-full max-w-3xl rounded-xl border bg-background px-4 py-3 shadow-sm" : "w-full max-w-3xl text-[15px] leading-7"}>{m.role === "assistant" ? (m.result?.response ? <><CenOpsReasoningPanel response={m.result.response} intent={m.result.intent} scope={departmentName} /><CenOpsResponseRenderer response={m.result.response} onFollowUp={send} /></> : <CenOpsMarkdownMessage content={displayContent} />) : <div className="whitespace-pre-wrap text-[15px] leading-7">{displayContent}</div>}{m.role === "assistant" && (showIntegrationAction || showAgentAction) && !m.result?.response && <div className="mt-4 flex flex-wrap gap-2 border-t pt-3">{showIntegrationAction && <Link to="/integrations" className="rounded-full border px-3 py-1.5 text-xs font-medium transition hover:border-primary/40 hover:bg-primary/5">Explore integrations</Link>}{showAgentAction && <Link to="/agents" className="rounded-full border px-3 py-1.5 text-xs font-medium transition hover:border-primary/40 hover:bg-primary/5">Explore AI agents</Link>}</div>}{actionableRecommendations.map((r, index) => <div key={`${r.title}-${index}`} className="mt-4 rounded-lg border bg-background p-4"><div className="text-sm font-semibold">{r.title ?? "Recommendation"}</div><div className="mt-1 text-xs leading-5 text-muted-foreground">{r.rationale}</div><Button size="sm" variant="outline" className="mt-3" onClick={() => void submitRecommendation(r)}>Send to Approval Center</Button></div>)}{m.result?.sources?.length ? <div className="mt-4 border-t pt-3 text-[10px] text-muted-foreground">Sources: {m.result.sources.join(" · ")}</div> : null}</div></div>; })}{mutation.isPending && <div className="mx-auto flex w-full max-w-3xl items-center gap-2 py-2 text-sm text-muted-foreground"><span className="h-2 w-2 animate-pulse rounded-full bg-primary" />Thinking</div>}</div></main><div className="sticky bottom-0 z-10 bg-background/90 px-4 pb-4 pt-3 backdrop-blur sm:px-6 sm:pb-6"><form onSubmit={(e) => { e.preventDefault(); send(input); }} className="mx-auto w-full max-w-3xl"><div className="rounded-2xl border bg-background p-3 shadow-lg shadow-black/5"><Textarea value={input} onChange={(e) => { setInput(e.target.value); if (e.target.value) setHasTyped(true); }} onFocus={() => setInputFocused(true)} onBlur={() => setInputFocused(false)} onKeyDown={handleInputKeyDown} placeholder={rotatingPlaceholders[placeholderIndex] ?? rotatingPlaceholders[0]} className="min-h-[96px] resize-none border-0 px-2 py-2 text-sm shadow-none focus-visible:ring-0" disabled={mutation.isPending || !sessionId} /><div className="mt-2 flex items-center justify-between gap-3 px-1"><div className="flex items-center gap-3 text-xs text-muted-foreground"><span className="font-medium">Plan</span><button type="button" role="switch" aria-checked={depth === "thorough"} onClick={() => setDepth((current) => current === "thorough" ? "quick" : "thorough")} className={`relative h-5 w-9 rounded-full border transition ${depth === "thorough" ? "bg-primary" : "bg-muted"}`}><span className={`absolute top-0.5 h-3.5 w-3.5 rounded-full bg-background shadow transition ${depth === "thorough" ? "left-[18px]" : "left-0.5"}`} /></button><select aria-label="Response depth" value={depth} onChange={(e) => setDepth(e.target.value as "quick" | "thorough")} className="h-7 rounded-md border bg-background px-2 text-xs font-medium text-foreground"><option value="quick">Quick</option><option value="thorough">Thorough</option></select></div><Button type="submit" size="icon" className="h-10 w-10 rounded-full" disabled={!input.trim() || mutation.isPending || !sessionId}><ArrowUp className="h-4 w-4" /></Button></div></div><div className="mt-2 flex flex-wrap items-center justify-between gap-2 px-1 text-[11px] text-muted-foreground"><div className="flex min-w-0 items-center gap-2"><Building2 className="h-3.5 w-3.5 shrink-0" /><span>Evidence scope</span>{departments.length > 1 ? <select aria-label="Evidence scope" value={departmentKey ?? ""} onChange={(e) => void startNewChat(e.target.value)} className="h-7 max-w-[220px] rounded-full border bg-background px-2.5 text-xs font-medium text-foreground shadow-sm outline-none transition focus:border-primary/50">{departments.map((d) => <option key={d.department_key} value={d.department_key}>{d.display_name}</option>)}</select> : <span className="rounded-full border bg-muted/40 px-2.5 py-1 font-medium text-foreground">{departmentName}</span>}</div><span>Enter to send · Shift + Enter for a new line</span></div></form></div><Dialog open={historyOpen} onOpenChange={setHistoryOpen}><DialogContent className="h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] max-w-none overflow-hidden p-0 sm:rounded-2xl"><div className="flex h-full min-h-0 flex-col"><DialogHeader className="border-b px-6 py-5 text-left sm:px-8"><div className="flex items-start justify-between gap-4"><div><DialogTitle className="flex items-center gap-2 text-xl"><History className="h-5 w-5 text-primary" />Chat history</DialogTitle><DialogDescription className="mt-1">Open a previous conversation or delete history you no longer need.</DialogDescription></div><Badge variant="outline" className="hidden sm:inline-flex">{sessions.length} {sessions.length === 1 ? "conversation" : "conversations"}</Badge></div><div className="mt-5 flex flex-col gap-3 sm:flex-row"><div className="relative flex-1"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={historyQuery} onChange={(e) => setHistoryQuery(e.target.value)} placeholder="Search conversations…" className="pl-9" /></div><Button onClick={() => void startNewChat()}><Plus className="mr-2 h-4 w-4" />New chat</Button></div></DialogHeader><div className="min-h-0 flex-1 overflow-y-auto bg-muted/10 p-4 sm:p-6">{filteredSessions.length ? <div className="mx-auto grid w-full max-w-5xl gap-3">{filteredSessions.map((s) => <div key={s.id} className={`group flex items-center gap-3 rounded-xl border bg-background p-4 shadow-sm transition hover:border-primary/30 hover:shadow-md ${s.id === sessionId ? "border-primary/40 bg-primary/5" : ""}`}><button className="min-w-0 flex-1 text-left" onClick={() => void openSession(s.id)}><div className="flex items-center gap-2"><MessageSquare className="h-4 w-4 shrink-0 text-primary" /><div className="truncate text-sm font-semibold">{s.title}</div>{s.id === sessionId && <Badge variant="secondary" className="shrink-0 text-[10px]">Current</Badge>}</div><div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 pl-6 text-xs text-muted-foreground"><span>{s.departmentName ?? "Workspace-wide"}</span><span>{new Date(s.updatedAt).toLocaleString()}</span></div></button><Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => void remove(s.id)} aria-label={`Delete ${s.title}`} title="Delete conversation"><Trash2 className="h-4 w-4" /></Button></div>)}</div> : <div className="flex h-full min-h-[280px] items-center justify-center"><div className="text-center"><History className="mx-auto h-10 w-10 text-muted-foreground/50" /><h3 className="mt-3 text-sm font-semibold">{historyQuery ? "No conversations found" : "No chat history yet"}</h3><p className="mt-1 text-xs text-muted-foreground">{historyQuery ? "Try a different search term." : "Start a new chat to begin an operational conversation."}</p></div></div>}</div></div></DialogContent></Dialog>{mutation.isError && <div className="fixed bottom-4 right-4 z-50 w-[min(420px,calc(100vw-2rem))]"><Alert variant="destructive"><AlertTitle>Enterprise AI unavailable</AlertTitle><AlertDescription>{mutation.error instanceof Error ? mutation.error.message : "Try again."}</AlertDescription></Alert></div>}</div>;
+  if (loading) {
+    return <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">Loading chat…</div>;
+  }
+
+  const hasConversation = messages.length > 0;
+  const activeSession = sessions.find((session) => session.id === sessionId);
+  const conversationTitle = activeSession?.title ?? "New conversation";
+
+  return (
+    <div className="flex h-[calc(100vh-1.75rem)] min-h-0 w-full overflow-hidden bg-white text-foreground dark:bg-background">
+      {hasConversation && (
+        <aside className="hidden w-[300px] shrink-0 border-r bg-background lg:flex lg:flex-col">
+          <div className="border-b p-4">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input value={historyQuery} onChange={(event) => setHistoryQuery(event.target.value)} placeholder="Search chats" className="h-9 rounded-lg pl-9 text-sm" />
+            </div>
+            <Button variant="secondary" className="mt-3 h-9 w-full justify-center font-medium" onClick={() => void startNewChat()}>
+              <Plus className="mr-2 h-4 w-4" />New chat
+            </Button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
+            <div className="mb-3 flex items-center justify-between px-2 text-xs font-medium text-muted-foreground"><span>All</span><span>{filteredSessions.length}</span></div>
+            <div className="space-y-1">
+              {filteredSessions.map((session) => (
+                <div key={session.id} className="group flex items-center gap-1 rounded-lg">
+                  <button type="button" onClick={() => void openSession(session.id)}
+                    className={"min-w-0 flex-1 rounded-lg px-3 py-2.5 text-left text-sm transition hover:bg-muted/60 " + (session.id === sessionId ? "bg-primary/10 text-foreground" : "text-muted-foreground")}>
+                    <div className="flex min-w-0 items-center gap-2"><span className="h-2 w-2 shrink-0 rounded-full bg-muted-foreground/30" /><span className="truncate">{session.title || "Untitled chat"}</span></div>
+                    {session.id === sessionId && <div className="mt-1 pl-4 text-[11px] text-muted-foreground">Now</div>}
+                  </button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground opacity-0 transition group-hover:opacity-100" onClick={() => void remove(session.id)} aria-label={"Delete " + (session.title || "chat")}><Trash2 className="h-3.5 w-3.5" /></Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+      )}
+
+      <section className="flex min-w-0 flex-1 flex-col bg-white dark:bg-background">
+        <header className="flex h-14 shrink-0 items-center justify-between border-b px-5 sm:px-8">
+          <div className="min-w-0 truncate text-sm font-medium text-foreground">{hasConversation ? conversationTitle : "CenOps Copilot"}</div>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => void startNewChat()} title="New chat"><Plus className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="icon" className="hidden h-8 w-8 rounded-full sm:inline-flex" onClick={() => void navigator.clipboard?.writeText(window.location.href)} title="Copy chat link"><Link2 className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="icon" className="hidden h-8 w-8 rounded-full md:inline-flex" onClick={() => void document.documentElement.requestFullscreen?.()} title="Full screen"><Maximize2 className="h-4 w-4" /></Button>
+          </div>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className={"mx-auto flex w-full max-w-[1080px] flex-col px-5 sm:px-8 " + (hasConversation ? "pb-48 pt-8" : "min-h-full justify-center pb-10 pt-10")}>
+            {!hasConversation && (
+              <div className="mx-auto w-full max-w-[980px]">
+                <div className="mb-7 text-center">
+                  <h1 className="text-4xl font-semibold tracking-tight sm:text-[44px]">{firstName ? "Hi " + firstName + ", how can I help?" : "How can I help?"}</h1>
+                  <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">Ask CenOps about operations, integrations, AI agents, risks, or governed actions across your workspace.</p>
+                </div>
+              </div>
+            )}
+
+            {messages.map((message, index) => {
+              const displayContent = cleanAssistantText(message.content);
+              const actionableRecommendations = message.role === "assistant" && message.result?.actionRequired === true
+                ? (message.result.recommendations ?? []).filter((recommendation) => recommendation.requiresApproval === true || ["change", "remediation", "provision", "deprovision", "configuration", "workflow"].some((kind) => String(recommendation.actionType ?? "").toLowerCase().includes(kind))).slice(0, 5)
+                : [];
+              const lower = displayContent.toLowerCase();
+              const showIntegrationAction = message.role === "assistant" && (lower.includes("integration") || lower.includes("jira") || lower.includes("genesys") || lower.includes("aws"));
+              const showAgentAction = message.role === "assistant" && lower.includes("agent");
+
+              return (
+                <article key={message.id ?? index + "-" + (message.createdAt ?? "message")} className={message.role === "user" ? "mb-7" : "mb-10"}>
+                  {message.role === "user" ? (
+                    <div className="w-full rounded-2xl border bg-background px-5 py-4 text-[15px] leading-7 shadow-sm">{displayContent}</div>
+                  ) : message.result?.response ? (
+                    <div className="w-full text-[15px] leading-7">
+                      <CenOpsReasoningPanel response={message.result.response} intent={message.result.intent} scope={departmentName} />
+                      <CenOpsResponseRenderer response={message.result.response} onFollowUp={send} />
+                    </div>
+                  ) : <CenOpsMarkdownMessage content={displayContent} className="w-full" />}
+
+                  {message.role === "assistant" && (showIntegrationAction || showAgentAction) && !message.result?.response && (
+                    <div className="mt-4 flex flex-wrap gap-2 border-t pt-3">
+                      {showIntegrationAction && <Link to="/integrations" className="rounded-full border px-3 py-1.5 text-xs font-medium transition hover:border-primary/40 hover:bg-primary/5">Explore integrations</Link>}
+                      {showAgentAction && <Link to="/agents" className="rounded-full border px-3 py-1.5 text-xs font-medium transition hover:border-primary/40 hover:bg-primary/5">Explore AI agents</Link>}
+                    </div>
+                  )}
+
+                  {actionableRecommendations.map((recommendation, recommendationIndex) => (
+                    <div key={String(recommendation.title ?? "recommendation") + "-" + recommendationIndex} className="mt-5 rounded-xl border bg-background p-4">
+                      <div className="text-sm font-semibold">{recommendation.title ?? "Recommendation"}</div>
+                      <div className="mt-1 text-xs leading-5 text-muted-foreground">{recommendation.rationale}</div>
+                      <Button size="sm" variant="outline" className="mt-3" onClick={() => void submitRecommendation(recommendation)}>Send to Approval Center</Button>
+                    </div>
+                  ))}
+
+                  {message.result?.sources?.length ? <div className="mt-4 text-[10px] text-muted-foreground">Sources: {message.result.sources.join(" · ")}</div> : null}
+                </article>
+              );
+            })}
+
+            {mutation.isPending && <div className="mb-8 flex items-center gap-2 text-sm text-muted-foreground"><span className="h-2 w-2 animate-pulse rounded-full bg-primary" />Thinking</div>}
+          </div>
+        </div>
+
+        <div className="shrink-0 bg-white px-5 pb-4 pt-2 dark:bg-background sm:px-8 sm:pb-5">
+          <form onSubmit={(event) => { event.preventDefault(); send(input); }} className="mx-auto w-full max-w-[960px]">
+            <div className="rounded-2xl border bg-background px-4 pb-3 pt-3 shadow-[0_8px_30px_rgba(0,0,0,0.06)] focus-within:border-primary/40">
+              <Textarea value={input} onChange={(event) => { setInput(event.target.value); if (event.target.value) setHasTyped(true); }} onFocus={() => setInputFocused(true)} onBlur={() => setInputFocused(false)} onKeyDown={handleInputKeyDown}
+                placeholder={hasConversation ? "Add a follow up" : rotatingPlaceholders[placeholderIndex] ?? rotatingPlaceholders[0]}
+                className="min-h-[78px] resize-none border-0 px-1 py-1 text-[15px] shadow-none focus-visible:ring-0" disabled={mutation.isPending || !sessionId} />
+              <div className="mt-2 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <button type="button" className="flex h-9 w-9 items-center justify-center rounded-full border bg-background transition hover:bg-muted" title="Add attachment"><Plus className="h-4 w-4" /></button>
+                  <span className="font-medium">Plan</span>
+                  <button type="button" role="switch" aria-checked={depth === "thorough"} onClick={() => setDepth((current) => current === "thorough" ? "quick" : "thorough")} className={"relative h-5 w-9 rounded-full border transition " + (depth === "thorough" ? "bg-primary" : "bg-muted")}>
+                    <span className={"absolute top-0.5 h-3.5 w-3.5 rounded-full bg-background shadow transition " + (depth === "thorough" ? "left-[18px]" : "left-0.5")} />
+                  </button>
+                </div>
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <select aria-label="Response mode" value={depth} onChange={(event) => setDepth(event.target.value as "quick" | "thorough")} className="h-8 appearance-none bg-transparent px-1 text-xs font-medium outline-none">
+                    <option value="thorough">Auto</option><option value="quick">Quick</option>
+                  </select>
+                  <Button type="submit" size="icon" className="h-10 w-10 rounded-full" disabled={!input.trim() || mutation.isPending || !sessionId} title={mutation.isPending ? "Thinking" : "Send"}>
+                    {mutation.isPending ? <Square className="h-4 w-4 fill-current" /> : <ArrowUp className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-2 flex items-center justify-between px-2 text-[11px] text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <span>Default approvals</span>
+                {departments.length > 1 && <>
+                  <span>·</span>
+                  <select aria-label="Evidence scope" value={departmentKey ?? ""} onChange={(event) => void startNewChat(event.target.value)} className="max-w-[190px] truncate bg-transparent font-medium text-foreground/70 outline-none">
+                    {departments.map((department) => <option key={department.department_key} value={department.department_key}>{department.display_name}</option>)}
+                  </select>
+                </>}
+              </div>
+              <span>AI can make mistakes</span>
+            </div>
+
+            {!hasConversation && (
+              <div className="mt-3 flex flex-wrap justify-center gap-2">
+                {suggestions.map(({ label, prompt, Icon }) => (
+                  <button key={label} type="button" onClick={() => send(prompt)} className="inline-flex items-center gap-1.5 rounded-full border bg-background px-3 py-1.5 text-xs text-muted-foreground transition hover:border-primary/40 hover:bg-primary/5 hover:text-foreground">
+                    <Icon className="h-3.5 w-3.5 text-primary" /><span>{label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </form>
+        </div>
+      </section>
+
+      {mutation.isError && <div className="fixed bottom-4 right-4 z-50 w-[min(420px,calc(100vw-2rem))]"><Alert variant="destructive"><AlertTitle>Enterprise AI unavailable</AlertTitle><AlertDescription>{mutation.error instanceof Error ? mutation.error.message : "Try again."}</AlertDescription></Alert></div>}
+    </div>
+  );
 }
