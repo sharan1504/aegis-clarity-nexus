@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { Loader2, ShieldCheck, XCircle } from "lucide-react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { PageHeader } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -64,60 +66,482 @@ function ProviderForm({ target, form, set }: { target: Provider; form: FormState
 function ProviderConnectPanel({ target, connectionId }: { target: Provider; connectionId?: string }) {
   const navigate = useNavigate();
   const existingConnection = connectionId ? target.connections.find((connection) => connection.id === connectionId) : undefined;
-  const [form, setForm] = useState<FormState>({ ...EMPTY, provider: target.id, integrationId: existingConnection?.id, displayName: existingConnection?.display_name || `${target.name} Production`, environment: existingConnection?.environment || "Production" });
-  const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null); const [success, setSuccess] = useState(false);
+  const [form, setForm] = useState<FormState>({
+    ...EMPTY,
+    provider: target.id,
+    integrationId: existingConnection?.id,
+    displayName: existingConnection?.display_name || target.name + " Production",
+    environment: existingConnection?.environment || "Production",
+  });
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  const startGitHub = useServerFn(startGitHubAppInstall);
+  const startGenesys = useServerFn(startGenesysOAuth);
+  const prepareAws = useServerFn(prepareAwsConnection);
+  const saveProvider = useServerFn(connectProvider);
+  const startJira = useServerFn(startJiraOAuth);
+  const startSalesforce = useServerFn(startSalesforceOAuth);
+  const startServiceNow = useServerFn(startServiceNowOAuth);
+  const startSlack = useServerFn(startSlackOAuth);
+  const startHubSpot = useServerFn(startHubSpotOAuth);
+  const startZendesk = useServerFn(startZendeskOAuth);
+  const startGitLab = useServerFn(startGitLabOAuth);
+  const startFreshworks = useServerFn(startFreshworksOAuth);
+  const startZoho = useServerFn(startZohoOAuth);
+  const startConfluence = useServerFn(startConfluenceOAuth);
+  const startSnowflake = useServerFn(startSnowflakeOAuth);
+  const startCrowdStrike = useServerFn(startCrowdStrikeOAuth);
+  const startGcp = useServerFn(startGoogleCloudConnection);
+  const startGoogleWorkspace = useServerFn(startGoogleWorkspaceConnection);
+  const startSap = useServerFn(startSapOAuth);
+  const startCohesity = useServerFn(startCohesityConnection);
+  const startDatadog = useServerFn(startDatadogConnection);
+  const startDefender = useServerFn(startDefenderConnection);
+  const startMongoDb = useServerFn(startMongoDbConnection);
+  const startNewRelic = useServerFn(startNewRelicConnection);
+  const startOkta = useServerFn(startOktaConnection);
+  const startOracle = useServerFn(startOracleConnection);
+  const startPagerDuty = useServerFn(startPagerDutyConnection);
+  const startRubrik = useServerFn(startRubrikConnection);
+  const startSplunk = useServerFn(startSplunkConnection);
+  const startVeeam = useServerFn(startVeeamConnection);
+  const startWorkday = useServerFn(startWorkdayConnection);
+
   const set = (key: string, value: string) => setForm((current) => ({ ...current, [key]: value }));
   const editing = Boolean(form.integrationId);
   const limitReached = target.connections.length >= MAX_PROVIDER_INSTANCES && !editing;
-  const submit = async () => { if (limitReached) { setError("Maximum of 5 instances allowed for this provider in this workspace."); return; } setBusy(true); setError(null); setSuccess(false); try {
-    if (target.id === "github") { const result = await startGitHubAppInstall({ data: { connectionId: form.integrationId, displayName: form.displayName, environment: form.environment } }); if (result?.ok && result.installUrl) window.location.assign(result.installUrl); else throw new Error(result?.errorMessage || "Unable to start the GitHub App installation."); return; }
-    if (target.id === "genesys") { const result = await startGenesysOAuth({ data: { clientId: form.clientId || "", clientSecret: form.clientSecret || "", region: form.region || DEFAULT_GENESYS_REGION, displayName: form.displayName, environment: form.environment, integrationId: form.integrationId, redirectUri: `${window.location.origin}/integrations/genesys/callback` } }); if (result?.ok && result.authorizationUrl) window.location.href = result.authorizationUrl; else throw new Error(result?.errorMessage || "Unable to start Genesys OAuth."); return; }
-    if (target.id === "aws") { const result = await prepareAwsConnection({ data: { connectionId: form.integrationId } }); if (!result.ok) throw new Error(result.errorMessage); setForm((current) => ({ ...current, integrationId: result.connectionId, externalId: result.externalId, trustPolicy: result.trustPolicy })); if (!form.roleArn) throw new Error("Enter the AWS Role ARN, then click Connect & verify again."); const connected = await connectProvider({ data: { provider: "aws", connectionId: result.connectionId, roleArn: form.roleArn, externalId: result.externalId, displayName: form.displayName, environment: form.environment } as never }); if (!connected.ok) throw new Error(connected.error || "AWS connection failed."); setSuccess(true); return; }
-    const oauthStarts: Record<string, (() => Promise<any>) | undefined> = {
-      jira: () => startJiraOAuth({ data: { ...form, redirectUri: callbackUri("jira") } as never }),
-      salesforce: () => startSalesforceOAuth({ data: { ...form, redirectUri: callbackUri("salesforce") } as never }),
-      slack: () => startSlackOAuth({ data: { ...form, redirectUri: callbackUri("slack") } as never }),
-      servicenow: () => startServiceNowOAuth({ data: { ...form, instanceUrl: form.baseUrl, redirectUri: callbackUri("servicenow") } as never }),
-      hubspot: () => startHubSpotOAuth({ data: { ...form, redirectUri: callbackUri("hubspot") } as never }),
-      zendesk: () => startZendeskOAuth({ data: { ...form, redirectUri: callbackUri("zendesk") } as never }),
-      gitlab: () => startGitLabOAuth({ data: { ...form, instanceUrl: form.baseUrl, redirectUri: callbackUri("gitlab") } as never }),
-      freshworks: () => startFreshworksOAuth({ data: { ...form, redirectUri: callbackUri("freshworks") } as never }),
-      zoho: () => startZohoOAuth({ data: { ...form, redirectUri: callbackUri("zoho") } as never }),
-      confluence: () => startConfluenceOAuth({ data: { ...form, redirectUri: callbackUri("confluence") } as never }),
-      snowflake: () => startSnowflakeOAuth({ data: { ...form, redirectUri: callbackUri("snowflake") } as never }),
-      sap: () => startSapOAuth({ data: { ...form, redirectUri: callbackUri("sap") } as never }),
-    };
-    const oauth = oauthStarts[target.id]; if (oauth) {
-      const result = await oauth();
-      const authUrl = authorizationUrlFrom(result);
-      if (authUrl) { window.location.assign(authUrl); return; }
-      if (result?.ok === false) throw new Error(result.error || result.errorMessage || "Unable to start authorization.");
+
+  type ConnectionResult = { kind: "redirect"; url: string } | { kind: "connected" };
+
+  const mutation = useMutation<ConnectionResult, Error>({
+    mutationFn: async () => {
+      if (limitReached) throw new Error("Maximum of 5 instances allowed for this provider in this workspace.");
+
+      const redirect = (result: unknown): string | undefined => {
+        if (!result || typeof result !== "object") return undefined;
+        const value = result as Record<string, unknown>;
+        const authorizeUrl = typeof value.authorizeUrl === "string" ? value.authorizeUrl : undefined;
+        const authorizationUrl = typeof value.authorizationUrl === "string" ? value.authorizationUrl : undefined;
+        const installUrl = typeof value.installUrl === "string" ? value.installUrl : undefined;
+        return installUrl ?? authorizeUrl ?? authorizationUrl;
+      };
+
+      const finish = (result: unknown, fallback: string): ConnectionResult => {
+        if (result && typeof result === "object") {
+          const value = result as Record<string, unknown>;
+          if (value.ok === false) {
+            throw new Error(
+              (typeof value.errorMessage === "string" && value.errorMessage) ||
+              (typeof value.error === "string" && value.error) ||
+              fallback,
+            );
+          }
+          const url = redirect(result);
+          if (url) return { kind: "redirect", url };
+        }
+        return { kind: "connected" };
+      };
+
+      if (target.id === "github") {
+        const result = await startGitHub({
+          data: {
+            connectionId: form.integrationId,
+            displayName: form.displayName,
+            environment: form.environment,
+          },
+        });
+        return finish(result, "Unable to start the GitHub App installation.");
+      }
+
+      if (target.id === "genesys") {
+        const result = await startGenesys({
+          data: {
+            clientId: form.clientId || "",
+            clientSecret: form.clientSecret || "",
+            region: form.region || DEFAULT_GENESYS_REGION,
+            displayName: form.displayName,
+            environment: form.environment,
+            integrationId: form.integrationId,
+            redirectUri: window.location.origin + "/integrations/genesys/callback",
+          },
+        });
+        return finish(result, "Unable to start Genesys OAuth.");
+      }
+
+      if (target.id === "aws") {
+        const prepared = await prepareAws({ data: { connectionId: form.integrationId } });
+        if (!prepared.ok) throw new Error(prepared.errorMessage);
+        const roleArn = form.roleArn?.trim();
+        if (!roleArn) {
+          setForm((current) => ({
+            ...current,
+            integrationId: prepared.connectionId,
+            externalId: prepared.externalId,
+            trustPolicy: prepared.trustPolicy,
+          }));
+          throw new Error("Enter the AWS Role ARN, then click Connect & verify again.");
+        }
+        const connected = await saveProvider({
+          data: {
+            provider: "aws",
+            connectionId: prepared.connectionId,
+            roleArn,
+            externalId: prepared.externalId,
+            displayName: form.displayName,
+            environment: form.environment,
+          },
+        });
+        return finish(connected, "AWS connection failed.");
+      }
+
+      const callbacks = {
+        jira: callbackUri("jira"),
+        salesforce: callbackUri("salesforce"),
+        slack: callbackUri("slack"),
+        servicenow: callbackUri("servicenow"),
+        hubspot: callbackUri("hubspot"),
+        zendesk: callbackUri("zendesk"),
+        gitlab: callbackUri("gitlab"),
+        freshworks: callbackUri("freshworks"),
+        zoho: callbackUri("zoho"),
+        confluence: callbackUri("confluence"),
+        snowflake: callbackUri("snowflake"),
+        sap: callbackUri("sap"),
+        workday: callbackUri("workday"),
+      };
+
+      switch (target.id) {
+        case "jira":
+          return finish(await startJira({ data: {
+            connectionId: form.integrationId,
+            clientId: form.clientId || "",
+            clientSecret: form.clientSecret || "",
+            redirectUri: callbacks.jira,
+            displayName: form.displayName,
+            environment: form.environment,
+          }}), "Unable to start Jira OAuth.");
+        case "salesforce":
+          return finish(await startSalesforce({ data: {
+            connectionId: form.integrationId,
+            clientId: form.clientId || "",
+            clientSecret: form.clientSecret || undefined,
+            redirectUri: callbacks.salesforce,
+            displayName: form.displayName,
+            environment: form.environment,
+          }}), "Unable to start Salesforce OAuth.");
+        case "slack":
+          return finish(await startSlack({ data: {
+            connectionId: form.integrationId,
+            clientId: form.clientId || "",
+            clientSecret: form.clientSecret || "",
+            redirectUri: callbacks.slack,
+            displayName: form.displayName,
+            environment: form.environment,
+          }}), "Unable to start Slack OAuth.");
+        case "servicenow":
+          return finish(await startServiceNow({ data: {
+            connectionId: form.integrationId,
+            instanceUrl: form.baseUrl || "",
+            clientId: form.clientId || "",
+            clientSecret: form.clientSecret || "",
+            redirectUri: callbacks.servicenow,
+            displayName: form.displayName,
+            environment: form.environment,
+          }}), "Unable to start ServiceNow OAuth.");
+        case "hubspot":
+          return finish(await startHubSpot({ data: {
+            connectionId: form.integrationId,
+            clientId: form.clientId || "",
+            clientSecret: form.clientSecret || "",
+            redirectUri: callbacks.hubspot,
+            displayName: form.displayName,
+            environment: form.environment,
+          }}), "Unable to start HubSpot OAuth.");
+        case "zendesk":
+          return finish(await startZendesk({ data: {
+            connectionId: form.integrationId,
+            subdomain: form.subdomain || "",
+            clientId: form.clientId || "",
+            clientSecret: form.clientSecret || "",
+            redirectUri: callbacks.zendesk,
+            displayName: form.displayName,
+            environment: form.environment,
+          }}), "Unable to start Zendesk OAuth.");
+        case "gitlab":
+          return finish(await startGitLab({ data: {
+            connectionId: form.integrationId,
+            instanceUrl: form.baseUrl || "",
+            clientId: form.clientId || "",
+            clientSecret: form.clientSecret || "",
+            redirectUri: callbacks.gitlab,
+            displayName: form.displayName,
+            environment: form.environment,
+          }}), "Unable to start GitLab OAuth.");
+        case "freshworks":
+          return finish(await startFreshworks({ data: {
+            connectionId: form.integrationId,
+            orgUrl: form.orgUrl || "",
+            clientId: form.clientId || "",
+            clientSecret: form.clientSecret || "",
+            redirectUri: callbacks.freshworks,
+            displayName: form.displayName,
+            environment: form.environment,
+          }}), "Unable to start Freshworks OAuth.");
+        case "zoho":
+          return finish(await startZoho({ data: {
+            connectionId: form.integrationId,
+            accountsUrl: form.accountsUrl || "",
+            clientId: form.clientId || "",
+            clientSecret: form.clientSecret || "",
+            redirectUri: callbacks.zoho,
+            displayName: form.displayName,
+            environment: form.environment,
+          }}), "Unable to start Zoho OAuth.");
+        case "confluence":
+          return finish(await startConfluence({ data: {
+            connectionId: form.integrationId,
+            clientId: form.clientId || "",
+            clientSecret: form.clientSecret || "",
+            redirectUri: callbacks.confluence,
+            displayName: form.displayName,
+            environment: form.environment,
+          }}), "Unable to start Confluence OAuth.");
+        case "snowflake":
+          return finish(await startSnowflake({ data: {
+            connectionId: form.integrationId,
+            clientId: form.clientId || "",
+            clientSecret: form.clientSecret || "",
+            accountUrl: form.accountUrl || "",
+            redirectUri: callbacks.snowflake,
+            displayName: form.displayName,
+            environment: form.environment,
+          }}), "Unable to start Snowflake OAuth.");
+        case "sap":
+          return finish(await startSap({ data: {
+            connectionId: form.integrationId,
+            clientId: form.clientId || "",
+            clientSecret: form.clientSecret || "",
+            authorizationUrl: form.authorizationUrl || "",
+            tokenUrl: form.tokenUrl || "",
+            scope: form.scope || undefined,
+            redirectUri: callbacks.sap,
+            displayName: form.displayName,
+            environment: form.environment,
+          }}), "Unable to start SAP OAuth.");
+        case "crowdstrike":
+          return finish(await startCrowdStrike({ data: {
+            connectionId: form.integrationId,
+            clientId: form.clientId || "",
+            clientSecret: form.clientSecret || "",
+            apiBaseUrl: form.apiBaseUrl || "",
+            displayName: form.displayName,
+            environment: form.environment,
+          }}), "CrowdStrike connection failed.");
+        case "gcp":
+          return finish(await startGcp({ data: {
+            connectionId: form.integrationId,
+            clientEmail: form.clientEmail || "",
+            privateKey: form.privateKey || "",
+            projectId: form.projectId || "",
+            displayName: form.displayName,
+            environment: form.environment,
+          }}), "Google Cloud connection failed.");
+        case "google-workspace":
+          return finish(await startGoogleWorkspace({ data: {
+            connectionId: form.integrationId,
+            clientEmail: form.clientEmail || "",
+            privateKey: form.privateKey || "",
+            delegatedAdminEmail: form.delegatedAdminEmail || "",
+            displayName: form.displayName,
+            environment: form.environment,
+          }}), "Google Workspace connection failed.");
+        case "cohesity":
+          return finish(await startCohesity({ data: {
+            connectionId: form.integrationId,
+            baseUrl: form.baseUrl || "",
+            apiKey: form.apiKey || "",
+            displayName: form.displayName,
+            environment: form.environment,
+          }}), "Cohesity connection failed.");
+        case "datadog":
+          return finish(await startDatadog({ data: {
+            connectionId: form.integrationId,
+            apiKey: form.apiKey || "",
+            appKey: form.appKey || "",
+            site: form.site || undefined,
+            displayName: form.displayName,
+            environment: form.environment,
+          }}), "Datadog connection failed.");
+        case "microsoft-defender":
+          return finish(await startDefender({ data: {
+            connectionId: form.integrationId,
+            clientId: form.clientId || "",
+            clientSecret: form.clientSecret || "",
+            customerTenantId: form.customerTenantId || undefined,
+            displayName: form.displayName,
+            environment: form.environment,
+          }}), "Microsoft Defender connection failed.");
+        case "mongodb":
+          return finish(await startMongoDb({ data: {
+            connectionId: form.integrationId,
+            clientId: form.clientId || "",
+            clientSecret: form.clientSecret || "",
+            displayName: form.displayName,
+            environment: form.environment,
+          }}), "MongoDB connection failed.");
+        case "newrelic":
+          return finish(await startNewRelic({ data: {
+            connectionId: form.integrationId,
+            apiKey: form.apiKey || "",
+            region: (form.region || "us") as "us" | "eu" | "jp",
+            displayName: form.displayName,
+            environment: form.environment,
+          }}), "New Relic connection failed.");
+        case "okta":
+          return finish(await startOkta({ data: {
+            connectionId: form.integrationId,
+            baseUrl: form.baseUrl || "",
+            apiToken: form.apiToken || "",
+            displayName: form.displayName,
+            environment: form.environment,
+          }}), "Okta connection failed.");
+        case "oracle":
+          return finish(await startOracle({ data: {
+            connectionId: form.integrationId,
+            identityDomainUrl: form.identityDomainUrl || "",
+            clientId: form.clientId || "",
+            clientSecret: form.clientSecret || "",
+            scope: form.scope || "",
+            displayName: form.displayName,
+            environment: form.environment,
+          }}), "Oracle connection failed.");
+        case "pagerduty":
+          return finish(await startPagerDuty({ data: {
+            connectionId: form.integrationId,
+            apiToken: form.apiToken || "",
+            displayName: form.displayName,
+            environment: form.environment,
+          }}), "PagerDuty connection failed.");
+        case "rubrik":
+          return finish(await startRubrik({ data: {
+            connectionId: form.integrationId,
+            clientId: form.clientId || "",
+            clientSecret: form.clientSecret || "",
+            accessTokenUri: form.accessTokenUri || "",
+            displayName: form.displayName,
+            environment: form.environment,
+          }}), "Rubrik connection failed.");
+        case "splunk":
+          return finish(await startSplunk({ data: {
+            connectionId: form.integrationId,
+            baseUrl: form.baseUrl || "",
+            token: form.token || "",
+            displayName: form.displayName,
+            environment: form.environment,
+          }}), "Splunk connection failed.");
+        case "veeam":
+          return finish(await startVeeam({ data: {
+            connectionId: form.integrationId,
+            baseUrl: form.baseUrl || "",
+            username: form.username || "",
+            password: form.password || "",
+            displayName: form.displayName,
+            environment: form.environment,
+          }}), "Veeam connection failed.");
+        case "workday":
+          return finish(await startWorkday({ data: {
+            connectionId: form.integrationId,
+            region: (form.region || "us") as "us" | "usWcp" | "eu" | "sg" | "uk",
+            tenantAlias: form.tenantAlias || "",
+            clientId: form.clientId || "",
+            clientSecret: form.clientSecret || "",
+            redirectUri: callbacks.workday,
+            displayName: form.displayName,
+            environment: form.environment,
+          }}), "Unable to start Workday OAuth.");
+        case "azure":
+        case "m365":
+          return finish(await saveProvider({
+            data: {
+              provider: target.id,
+              connectionId: form.integrationId,
+              tenant: form.tenant || "",
+              clientId: form.clientId || "",
+              clientSecret: form.clientSecret || "",
+              displayName: form.displayName,
+              environment: form.environment,
+            },
+          }), target.name + " connection failed.");
+        default:
+          throw new Error(target.name + " does not have a connection handler in the catalog.");
+      }
+    },
+    onMutate: () => {
+      setError(null);
+      setSuccess(false);
+    },
+    onSuccess: (result) => {
+      if (result.kind === "redirect") {
+        window.location.assign(result.url);
+        return;
+      }
       setSuccess(true);
+    },
+    onError: (cause) => {
+      setError(cause instanceof Error ? cause.message : "Connection failed.");
+      if (import.meta.env.DEV) console.error("[integrations] connection failed", { provider: target.id, error: cause });
+    },
+  });
+
+  const submit = () => {
+    if (limitReached) {
+      setError("Maximum of 5 instances allowed for this provider in this workspace.");
       return;
     }
-    const credentialStarts: Record<string, (() => Promise<any>) | undefined> = {
-      cohesity: () => startCohesityConnection({ data: form as never }), datadog: () => startDatadogConnection({ data: form as never }),
-      "microsoft-defender": () => startDefenderConnection({ data: form as never }), mongodb: () => startMongoDbConnection({ data: form as never }),
-      newrelic: () => startNewRelicConnection({ data: form as never }), okta: () => startOktaConnection({ data: form as never }),
-      oracle: () => startOracleConnection({ data: { ...form, identityDomainUrl: form.identityDomainUrl } as never }),
-      pagerduty: () => startPagerDutyConnection({ data: form as never }), rubrik: () => startRubrikConnection({ data: form as never }),
-      splunk: () => startSplunkConnection({ data: form as never }), veeam: () => startVeeamConnection({ data: form as never }),
-      workday: () => startWorkdayConnection({ data: { ...form, redirectUri: callbackUri("workday") } as never }),
-      crowdstrike: () => startCrowdStrikeOAuth({ data: form as never }),
-      gcp: () => startGoogleCloudConnection({ data: form as never }),
-      "google-workspace": () => startGoogleWorkspaceConnection({ data: form as never }),
-    };
-    const credential = credentialStarts[target.id]; if (credential) {
-      const result = await credential();
-      const authUrl = authorizationUrlFrom(result);
-      if (authUrl) { window.location.assign(authUrl); return; }
-      if (result?.ok === false) throw new Error(result.error || result.errorMessage || "Connection failed.");
-      setSuccess(true);
-      return;
-    }
-    const result = await connectProvider({ data: form as never }); if (!result.ok) throw new Error(result.error || "Connection failed."); setSuccess(true);
-  } catch (cause) { setError(cause instanceof Error ? cause.message : "Connection failed."); } finally { setBusy(false); } };
-  return <Card><CardHeader><CardTitle className="flex items-center gap-3"><ProviderLogo provider={target} className="h-9 w-9" />{editing ? "Edit" : "Connect"} {target.name}</CardTitle><p className="text-sm text-muted-foreground">{editing ? "Update this integration instance without creating another instance." : "Each new instance gets its own connection id. You can install the same provider again with a different name and environment until the five-instance limit is reached."}</p></CardHeader><CardContent className="space-y-5"><div className="grid gap-4 sm:grid-cols-2"><Field label="Integration name" value={form.displayName} onChange={(v) => set("displayName", v)} placeholder={`${target.name} Production`} /><div><label className="mb-1 block text-xs font-medium text-muted-foreground">Environment</label><select value={form.environment} onChange={(e) => set("environment", e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"><option>Production</option><option>Staging</option><option>Development</option></select></div></div>{limitReached && <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">Maximum of {MAX_PROVIDER_INSTANCES} instances allowed for this provider in this workspace.</div>}<ProviderForm target={target} form={form} set={set} />{error && <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}{success && <div className="rounded-md border border-success/30 bg-success/10 p-3 text-sm text-success">Connection accepted by the existing provider flow. Final Connected state will only appear after evidence-derived health and sync checks succeed.</div>}<div className="flex flex-wrap gap-2"><Button onClick={submit} disabled={busy || target.availability !== "available" || limitReached}>{busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}{busy ? "Connecting…" : limitReached ? "Limit reached" : target.id === "github" ? "Authorize GitHub App" : target.id === "genesys" || ["jira", "salesforce", "slack", "servicenow", "hubspot", "zendesk", "gitlab", "freshworks", "zoho", "confluence", "snowflake", "crowdstrike", "gcp", "google-workspace", "sap"].includes(target.id) ? `Authorize ${target.name}` : editing ? "Save changes" : "Connect & verify"}</Button><Button asChild variant="outline"><Link to="/help" search={{ topic: `provider-${target.id}` }}>Setup guide</Link></Button><Button type="button" variant="ghost" onClick={() => navigate({ to: "/integrations/catalog" })}>Back</Button></div></CardContent></Card>;
+    mutation.mutate();
+  };
+
+  return <Card>
+    <CardHeader>
+      <CardTitle className="flex items-center gap-3">
+        <ProviderLogo provider={target} className="h-9 w-9" />
+        {editing ? "Edit" : "Connect"} {target.name}
+      </CardTitle>
+      <p className="text-sm text-muted-foreground">
+        {editing
+          ? "Update this integration instance without creating another instance."
+          : "Each new instance gets its own connection id. You can install the same provider again with a different name and environment until the five-instance limit is reached."}
+      </p>
+    </CardHeader>
+    <CardContent className="space-y-5">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Integration name" value={form.displayName} onChange={(v) => set("displayName", v)} placeholder={target.name + " Production"} />
+        <div>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Environment</label>
+          <select value={form.environment} onChange={(e) => set("environment", e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
+            <option>Production</option><option>Staging</option><option>Development</option>
+          </select>
+        </div>
+      </div>
+      {limitReached && <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">Maximum of {MAX_PROVIDER_INSTANCES} instances allowed for this provider in this workspace.</div>}
+      <ProviderForm target={target} form={form} set={set} />
+      {error && <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}
+      {success && <div className="rounded-md border border-success/30 bg-success/10 p-3 text-sm text-success">Connection accepted by the existing provider flow. Final Connected state will only appear after evidence-derived health and sync checks succeed.</div>}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          onClick={submit}
+          disabled={mutation.isPending || target.availability !== "available" || limitReached}
+        >
+          {mutation.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+          {mutation.isPending ? "Connecting…" : limitReached ? "Limit reached" : target.id === "github" ? "Authorize GitHub App" : editing ? "Save changes" : ["genesys", "jira", "salesforce", "slack", "servicenow", "hubspot", "zendesk", "gitlab", "freshworks", "zoho", "confluence", "snowflake", "sap", "workday"].includes(target.id) ? "Authorize " + target.name : "Connect & verify"}
+        </Button>
+        <Button type="button" asChild variant="outline"><Link to="/help" search={{ topic: "provider-" + target.id }}>Setup guide</Link></Button>
+        <Button type="button" variant="ghost" onClick={() => navigate({ to: "/integrations/catalog" })}>Back</Button>
+      </div>
+    </CardContent>
+  </Card>;
 }
 function ProviderDetailsPage() {
   const { providerId } = Route.useParams();
