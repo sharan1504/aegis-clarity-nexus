@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { FileBarChart, RefreshCw, Search, Settings2 } from "lucide-react";
+import { FileBarChart, RefreshCw, Settings2 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/AppLayout";
