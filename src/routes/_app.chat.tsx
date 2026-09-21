@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUp, BookOpen, ClipboardCheck, FileText, Link2, Maximize2, Plus, Search, ShieldAlert, Sparkles, Square, Trash2 } from "lucide-react";
+import { ArrowUp, BookOpen, ClipboardCheck, FileText, Link2, Maximize2, PanelLeftClose, PanelLeftOpen, Plus, Search, ShieldAlert, Sparkles, Square, Trash2 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { CenOpsResponseRenderer } from "@/components/chat/CenOpsResponseRenderer
 import { CenOpsReasoningPanel } from "@/components/chat/CenOpsReasoningPanel";
 import { executeEnterpriseChat, type EnterpriseChatMessage } from "@/lib/enterprise-chat.functions";
 import type { CenOpsResponse } from "@/lib/cenops-response-intelligence";
-import { createChatSession, deleteChatSession, getChatSession, getMyDepartments, listChatSessions, type ChatSession, type StoredChatMessage } from "@/lib/chat-history.functions";
+import { createChatSession, deleteChatSession, getChatSession, getMyDepartments, listChatSessions, updateChatSessionTitle, type ChatSession, type StoredChatMessage } from "@/lib/chat-history.functions";
 import { createChangeFromRecommendation } from "@/lib/change-recommendation.functions";
 import { pageHead } from "@/lib/seo";
 import { toast } from "sonner";
@@ -29,6 +29,40 @@ const suggestions = [
   { label: "Find optimization opportunities", prompt: "Find the most important license and operational optimization opportunities right now.", Icon: Sparkles },
 ];
 const cleanAssistantText = (value: string) => value.replace(/<svg[\s\S]*?<\/svg>/gi, "").replace(/<[^>]+>/g, "").replace(/(^|\n)\s*svg\s*(?=\n|$)/gi, "").replace(/\n{3,}/g, "\n\n").trim();
+const buildChatTitle = (message: string) => {
+  const text = message.replace(/[?!.:,;]+/g, " ").replace(/\s+/g, " ").trim();
+  const lower = text.toLowerCase();
+  const known: Array<[RegExp, string]> = [
+    [/license|entitlement/, "License Optimization"],
+    [/integration|connector|connect|jira|slack|salesforce|snowflake|genesys|aws|hubspot/, "Integration & Connectors"],
+    [/approval|human.?in.?the.?loop/, "Approval Center"],
+    [/guardrail|governance|policy/, "Guardrails & Governance"],
+    [/agent|copilot|agentic/, "AI Agents"],
+    [/incident|outage|failure|error|degraded/, "Incident Investigation"],
+    [/vulnerab|security|exposure/, "Security & Vulnerabilities"],
+    [/analytic|trend|report|metric/, "Operations Analytics"],
+    [/platform|capabilit|feature|overview/, "CenOps Platform Overview"],
+  ];
+  const match = known.find(([pattern]) => pattern.test(lower));
+  if (match) return match[1];
+  const stop = new Set(["tell", "me", "more", "about", "this", "the", "a", "an", "and", "or", "please", "can", "you", "what", "how", "does", "do", "is", "are", "to", "for", "on", "of", "with", "show", "explain"]);
+  const words = text.split(" ").filter((word) => !stop.has(word.toLowerCase())).slice(0, 5);
+  const title = words.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
+  return title || "CenOps Conversation";
+};
+const featureReferencesFor = (text: string) => {
+  const lower = text.toLowerCase();
+  const refs = [
+    lower.includes("integration") || /jira|slack|salesforce|snowflake|genesys|aws|connector/.test(lower) ? { label: "Integrations", to: "/integrations" as const } : null,
+    lower.includes("agent") || lower.includes("copilot") ? { label: "AI Agents", to: "/agents" as const } : null,
+    lower.includes("govern") || lower.includes("guardrail") ? { label: "Guardrails", to: "/governance" as const } : null,
+    lower.includes("approval") || lower.includes("human-in-the-loop") ? { label: "Approval Center", to: "/approvals" as const } : null,
+    lower.includes("incident") || lower.includes("operational") || lower.includes("command center") ? { label: "Command Center", to: "/" as const } : null,
+    lower.includes("analytic") || lower.includes("report") || lower.includes("metric") ? { label: "Analytics", to: "/analytics" as const } : null,
+    lower.includes("vulnerab") || lower.includes("security") ? { label: "Vulnerabilities", to: "/investigations" as const } : null,
+  ].filter(Boolean) as Array<{ label: string; to: "/" | "/analytics" | "/agents" | "/approvals" | "/governance" | "/integrations" | "/investigations" }>;
+  return refs.filter((item, index) => refs.findIndex((candidate) => candidate.to === item.to) === index).slice(0, 5);
+};
 function ChatPage() {
   const { user } = Route.useRouteContext();
   const firstName = useMemo(() => {
@@ -36,13 +70,55 @@ function ChatPage() {
     const name = typeof metadata?.full_name === "string" ? metadata.full_name : typeof metadata?.name === "string" ? metadata.name : "";
     return name.trim().split(/\s+/)[0] ?? "";
   }, [user]);
-  const chat = useServerFn(executeEnterpriseChat); const createSession = useServerFn(createChatSession); const loadSessions = useServerFn(listChatSessions); const loadSession = useServerFn(getChatSession); const loadDepartments = useServerFn(getMyDepartments); const removeSession = useServerFn(deleteChatSession); const createChange = useServerFn(createChangeFromRecommendation);
-  const [sessions, setSessions] = useState<ChatSession[]>([]); const [sessionId, setSessionId] = useState<string | null>(null); const [messages, setMessages] = useState<Message[]>([]); const [input, setInput] = useState(""); const [depth, setDepth] = useState<"quick" | "thorough">("thorough"); const [inputFocused, setInputFocused] = useState(false); const [hasTyped, setHasTyped] = useState(false); const [placeholderIndex, setPlaceholderIndex] = useState(0); const [departments, setDepartments] = useState<Array<{ department_key: string; display_name: string }>>([]); const [departmentKey, setDepartmentKey] = useState<string | null>(null); const [loading, setLoading] = useState(true); const [historyOpen, setHistoryOpen] = useState(false); const [historyQuery, setHistoryQuery] = useState("");
+  const chat = useServerFn(executeEnterpriseChat); const createSession = useServerFn(createChatSession); const renameSession = useServerFn(updateChatSessionTitle); const loadSessions = useServerFn(listChatSessions); const loadSession = useServerFn(getChatSession); const loadDepartments = useServerFn(getMyDepartments); const removeSession = useServerFn(deleteChatSession); const createChange = useServerFn(createChangeFromRecommendation);
+  const [sessions, setSessions] = useState<ChatSession[]>([]); const [sessionId, setSessionId] = useState<string | null>(null); const [messages, setMessages] = useState<Message[]>([]); const [input, setInput] = useState(""); const [depth, setDepth] = useState<"quick" | "thorough">("thorough"); const [inputFocused, setInputFocused] = useState(false); const [hasTyped, setHasTyped] = useState(false); const [placeholderIndex, setPlaceholderIndex] = useState(0); const [departments, setDepartments] = useState<Array<{ department_key: string; display_name: string }>>([]); const [departmentKey, setDepartmentKey] = useState<string | null>(null); const [loading, setLoading] = useState(true); const [historyOpen, setHistoryOpen] = useState(true); const [historyQuery, setHistoryQuery] = useState("");
   const refreshHistory = async () => { const result = await loadSessions(); setSessions(result.sessions); return result.sessions; };
   const startNewChat = async (requestedDepartment = departmentKey) => { try { const result = await createSession({ data: { departmentKey: requestedDepartment } }); setSessionId(result.session.id); setDepartmentKey(result.session.departmentKey); setMessages([]); setInput(""); setHasTyped(false); setInputFocused(false); setPlaceholderIndex(0); setHistoryQuery(""); await refreshHistory(); } catch (error) { toast.error(error instanceof Error ? error.message : "Could not start chat."); } };
-  useEffect(() => { let active = true; void (async () => { try { const [, dept] = await Promise.all([refreshHistory(), loadDepartments()]); if (!active) return; setDepartments(dept.departments.map((d: any) => ({ department_key: d.department_key, display_name: d.display_name }))); setDepartmentKey(dept.selected); const result = await createSession({ data: { departmentKey: dept.selected } }); if (!active) return; setSessionId(result.session.id); setDepartmentKey(result.session.departmentKey); setMessages([]); await refreshHistory(); } catch (error) { if (active) toast.error(error instanceof Error ? error.message : "Chat history could not be loaded."); } finally { if (active) setLoading(false); } })(); return () => { active = false; }; }, []);
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const [existing, dept] = await Promise.all([refreshHistory(), loadDepartments()]);
+        if (!active) return;
+        setDepartments(dept.departments.map((d: any) => ({ department_key: d.department_key, display_name: d.display_name })));
+        setDepartmentKey(dept.selected);
+        const pending = existing.find((session) => session.title === "New chat");
+        if (pending) {
+          const result = await loadSession({ data: { sessionId: pending.id } });
+          if (!active) return;
+          setSessionId(result.session.id);
+          setDepartmentKey(result.session.departmentKey);
+          setMessages(result.messages.map((m: StoredChatMessage) => ({ role: m.role, content: cleanAssistantText(m.content), result: m.result as Result | undefined, id: m.id, createdAt: m.createdAt })));
+        } else {
+          const result = await createSession({ data: { departmentKey: dept.selected } });
+          if (!active) return;
+          setSessionId(result.session.id);
+          setDepartmentKey(result.session.departmentKey);
+          setMessages([]);
+          await refreshHistory();
+        }
+      } catch (error) {
+        if (active) toast.error(error instanceof Error ? error.message : "Chat history could not be loaded.");
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
   const mutation = useMutation({ mutationFn: (next: EnterpriseChatMessage[]) => chat({ data: { sessionId: sessionId!, messages: next, depth } }), onSuccess: async (result) => { if (result.ok) { setMessages((current) => [...current, { role: "assistant", content: cleanAssistantText(result.answer ?? "Analysis complete."), result: result as Result }]); await refreshHistory(); } else toast.error(result.error); } });
-  const send = (text: string) => { const content = text.trim(); if (!content || mutation.isPending || !sessionId) return; const next = [...messages.map((m) => ({ role: m.role, content: m.content })), { role: "user" as const, content }]; setMessages((current) => [...current, { role: "user", content }]); setInput(""); mutation.mutate(next); };
+  const send = (text: string) => {
+  const content = text.trim();
+  if (!content || mutation.isPending || !sessionId) return;
+  const isFirstMessage = messages.length === 0;
+  const next = [...messages.map((m) => ({ role: m.role, content: m.content })), { role: "user" as const, content }];
+  setMessages((current) => [...current, { role: "user", content }]);
+  setInput("");
+  if (isFirstMessage) {
+    const title = buildChatTitle(content);
+    void renameSession({ data: { sessionId, title } }).then(() => refreshHistory()).catch((error) => toast.error(error instanceof Error ? error.message : "Could not name chat."));
+  }
+  mutation.mutate(next);
+};
   const handleInputKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); send(input); } };
   const openSession = async (id: string) => { try { const result = await loadSession({ data: { sessionId: id } }); setSessionId(result.session.id); setDepartmentKey(result.session.departmentKey); setMessages(result.messages.map((m: StoredChatMessage) => ({ role: m.role, content: cleanAssistantText(m.content), result: m.result as Result | undefined, id: m.id, createdAt: m.createdAt }))); setHistoryOpen(false); setHistoryQuery(""); } catch (error) { toast.error(error instanceof Error ? error.message : "Could not open chat."); } };
   const remove = async (id: string) => { try { await removeSession({ data: { sessionId: id } }); const remaining = await refreshHistory(); if (id === sessionId) { if (remaining[0]) await openSession(remaining[0].id); else await startNewChat(); } toast.success("Chat history deleted"); } catch (error) { toast.error(error instanceof Error ? error.message : "Could not delete chat."); } };
@@ -60,7 +136,12 @@ function ChatPage() {
     const timer = window.setInterval(() => setPlaceholderIndex((current) => (current + 1) % rotatingPlaceholders.length), 3200);
     return () => window.clearInterval(timer);
   }, [hasTyped, input, inputFocused, rotatingPlaceholders.length]);
-  const filteredSessions = useMemo(() => { const query = historyQuery.trim().toLowerCase(); if (!query) return sessions; return sessions.filter((s) => `${s.title} ${s.departmentName ?? "Workspace-wide"}`.toLowerCase().includes(query)); }, [historyQuery, sessions]);
+  const filteredSessions = useMemo(() => {
+    const query = historyQuery.trim().toLowerCase();
+    const candidates = sessions.filter((session) => session.title !== "New chat" || session.id === sessionId);
+    if (!query) return candidates;
+    return candidates.filter((s) => `${s.title} ${s.departmentName ?? "Workspace-wide"}`.toLowerCase().includes(query));
+  }, [historyQuery, sessions, sessionId]);
   if (loading) {
     return <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">Loading chat…</div>;
   }
@@ -102,9 +183,15 @@ function ChatPage() {
 
       <section className="flex min-w-0 flex-1 flex-col bg-white dark:bg-background">
         <header className="flex h-14 shrink-0 items-center justify-between border-b px-5 sm:px-8">
-          <div className="min-w-0 truncate text-sm font-medium text-foreground">{hasConversation ? conversationTitle : "CenOps Copilot"}</div>
+          <div className="flex min-w-0 items-center gap-2">
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 rounded-full" onClick={() => setHistoryOpen((open) => !open)} title={historyOpen ? "Close chat history" : "Open chat history"} aria-label={historyOpen ? "Close chat history" : "Open chat history"}>
+              {historyOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
+            </Button>
+            <div className="min-w-0 truncate text-sm font-medium text-foreground">{hasConversation ? conversationTitle : "New conversation"}</div>
+          </div>
           <div className="flex items-center gap-1">
             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => void startNewChat()} title="New chat"><Plus className="h-4 w-4" /></Button>
+            {!historyOpen && <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setHistoryOpen(true)} title="Open chat history" aria-label="Open chat history"><PanelLeftOpen className="h-4 w-4" /></Button>}
             <Button variant="ghost" size="icon" className="hidden h-8 w-8 rounded-full sm:inline-flex" onClick={() => void navigator.clipboard?.writeText(window.location.href)} title="Copy chat link"><Link2 className="h-4 w-4" /></Button>
             <Button variant="ghost" size="icon" className="hidden h-8 w-8 rounded-full md:inline-flex" onClick={() => void document.documentElement.requestFullscreen?.()} title="Full screen"><Maximize2 className="h-4 w-4" /></Button>
           </div>
@@ -138,6 +225,17 @@ function ChatPage() {
                     <div className="w-full text-[15px] leading-7">
                       <CenOpsReasoningPanel response={message.result.response} intent={message.result.intent} scope={departmentName} />
                       <CenOpsResponseRenderer response={message.result.response} onFollowUp={send} />
+                      {(() => {
+                        const refs = featureReferencesFor(displayContent);
+                        return refs.length ? (
+                          <div className="mt-5 border-t pt-3">
+                            <div className="mb-2 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Related features</div>
+                            <div className="flex flex-wrap gap-2">
+                              {refs.map((ref) => <Link key={ref.to} to={ref.to} className="rounded-full border bg-background px-3 py-1.5 text-xs font-medium text-foreground/80 transition hover:border-primary/40 hover:bg-primary/5 hover:text-foreground">{ref.label}</Link>)}
+                            </div>
+                          </div>
+                        ) : null;
+                      })()}
                     </div>
                   ) : <CenOpsMarkdownMessage content={displayContent} className="w-full" />}
 
