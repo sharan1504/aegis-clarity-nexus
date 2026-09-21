@@ -18,6 +18,7 @@ export const Route = createFileRoute("/_app/investigations")({
     key: typeof search.key === "string" ? search.key : undefined,
     severity: ["critical", "high", "medium", "low"].includes(String(search.severity)) ? String(search.severity) as Severity : undefined,
     provider: typeof search.provider === "string" ? search.provider : undefined,
+    status: search.status === "open" || search.status === "resolved" ? search.status as const : undefined,
     q: typeof search.q === "string" ? search.q : undefined,
   }),
   head: () => pageHead({ path: "/investigations", title: "Vulnerabilities — Aegis AI", description: "Prioritize evidence-backed operational and security vulnerabilities across the enterprise." }),
@@ -44,7 +45,7 @@ function severityBarClass(severity: Severity) {
 }
 
 function VulnerabilitiesPage() {
-  const { view, key, severity, provider, q } = Route.useSearch();
+  const { view, key, severity, provider, status, q } = Route.useSearch();
   const navigate = useNavigate();
   const { environmentMode } = useTenantContext();
   const list = useServerFn(getInvestigations);
@@ -93,9 +94,11 @@ function VulnerabilitiesPage() {
     return source.filter((item) => {
       const itemSeverity = item.severity.toLowerCase() as Severity;
       const text = `${item.title} ${item.key} ${item.category} ${item.impact} ${item.provider ?? ""}`.toLowerCase();
+      const isResolved = itemSeverity === "low";
       return (!normalizedQuery || text.includes(normalizedQuery))
         && (!severity || itemSeverity === severity)
-        && (!provider || item.provider === provider);
+        && (!provider || item.provider === provider)
+        && (!status || (status === "resolved" ? isResolved : !isResolved));
     }).sort((a, b) => {
       const severityDelta = SEVERITY_ORDER.indexOf(a.severity.toLowerCase() as Severity) - SEVERITY_ORDER.indexOf(b.severity.toLowerCase() as Severity);
       return severityDelta || a.title.localeCompare(b.title);
@@ -109,13 +112,14 @@ function VulnerabilitiesPage() {
 
   const correlated = useMemo(() => [...openItems].filter((item) => item.correlatedChangeCount > 0).sort((a, b) => b.correlatedChangeCount - a.correlatedChangeCount).slice(0, 5), [openItems]);
 
-  const goFindings = (next: { severity?: Severity; provider?: string; q?: string }) => {
+  const goFindings = (next: { severity?: Severity; provider?: string; status?: "open" | "resolved"; q?: string }) => {
     void navigate({ search: (prev) => ({
       ...prev,
       view: "findings",
       key: undefined,
       severity: next.severity,
       provider: next.provider,
+      status: next.status,
       q: next.q,
     }) });
   };
@@ -137,7 +141,7 @@ function VulnerabilitiesPage() {
 
     {!hasEvidence ? <Card className="border-dashed shadow-none"><CardContent className="flex flex-col items-center justify-center px-6 py-14 text-center"><div className="text-base font-semibold">No operational or security findings in current evidence.</div><p className="mt-1 max-w-lg text-sm text-muted-foreground">Aegis will show findings only when connected provider or operational evidence supports them.</p><div className="mt-5 flex flex-wrap justify-center gap-2"><Button asChild><Link to="/integrations/catalog">Connect providers</Link></Button><Button variant="outline" asChild><Link to="/">Open Command Center</Link></Button></div></CardContent></Card> :
       view === "findings"
-        ? <FindingsWorkspace items={filtered} total={source.length} providers={providers} query={q ?? ""} severity={severity} provider={provider} onQuery={(value) => goFindings({ severity, provider, q: value || undefined })} onSeverity={(value) => goFindings({ severity: value, provider, q })} onProvider={(value) => goFindings({ severity, provider: value || undefined, q })} onClear={clearFilters} isDemo={items.isDemo} />
+        ? <FindingsWorkspace items={filtered} total={source.length} providers={providers} query={q ?? ""} severity={severity} provider={provider} status={status} onQuery={(value) => goFindings({ severity, provider, q: value || undefined })} onSeverity={(value) => goFindings({ severity: value, provider, status, q })} onProvider={(value) => goFindings({ severity, provider: value || undefined, status, q })} onStatus={(value) => goFindings({ severity: undefined, provider, status: value, q })} onClear={clearFilters} isDemo={items.isDemo} />
         : <OverviewWorkspace source={source} openItems={openItems} counts={counts} providerGroups={providerGroups} topFindings={topFindings} correlated={correlated} isDemo={items.isDemo} onFindings={goFindings} />}
   </div>;
 }
@@ -225,25 +229,27 @@ function OverviewKpi({ label, value, tone, onClick }: { label: string; value: nu
   return <button type="button" onClick={onClick} className="group relative overflow-hidden rounded-lg border bg-card p-4 text-left shadow-none transition-colors hover:bg-muted/20"><span className={`absolute inset-y-0 left-0 w-1 ${accent}`} /><div className="flex items-center justify-between gap-3 pl-2"><div><div className="text-3xl font-semibold tabular-nums tracking-tight">{value}</div><div className="mt-1 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">{label}</div></div><ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" /></div></button>;
 }
 
-function FindingsWorkspace({ items, total, providers, query, severity, provider, onQuery, onSeverity, onProvider, onClear, isDemo }: {
+function FindingsWorkspace({ items, total, providers, query, severity, provider, status, onQuery, onSeverity, onProvider, onStatus, onClear, isDemo }: {
   items: InvestigationSummary[];
   total: number;
   providers: string[];
   query: string;
   severity?: Severity;
   provider?: string;
+  status?: "open" | "resolved";
   onQuery: (value: string) => void;
   onSeverity: (value?: Severity) => void;
   onProvider: (value?: string) => void;
+  onStatus: (value?: "open" | "resolved") => void;
   onClear: () => void;
   isDemo: boolean;
 }) {
-  const activeFilter: FindingsFilter = severity === "low" ? "resolved" : severity ? "active" : "all";
+  const activeFilter: FindingsFilter = status === "resolved" ? "resolved" : status === "open" ? "active" : severity ? "all" : "all";
   return <div className="space-y-3">
     <div className="flex flex-wrap items-center gap-2 border-b pb-3">
       <div className="relative min-w-[240px] flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={query} onChange={(e) => onQuery(e.target.value)} placeholder="Search findings, keys, categories or providers…" className="pl-9" /></div>
       <div className="flex items-center gap-1 rounded-md border p-1">
-        {(["all", "active", "resolved"] as FindingsFilter[]).map((value) => <button key={value} type="button" onClick={() => onSeverity(value === "all" ? undefined : value === "resolved" ? "low" : undefined)} className={`rounded px-2.5 py-1.5 text-xs ${activeFilter === value ? "bg-muted font-medium" : "text-muted-foreground hover:text-foreground"}`}>{value === "all" ? "All" : value === "active" ? "Open" : "Resolved"}</button>)}
+        {(["all", "active", "resolved"] as FindingsFilter[]).map((value) => <button key={value} type="button" onClick={() => value === "all" ? onClear() : value === "resolved" ? onStatus("resolved") : onStatus("open")} className={`rounded px-2.5 py-1.5 text-xs ${activeFilter === value ? "bg-muted font-medium" : "text-muted-foreground hover:text-foreground"}`}>{value === "all" ? "All" : value === "active" ? "Open" : "Resolved"}</button>)}
       </div>
       <select aria-label="Provider filter" value={provider ?? ""} onChange={(e) => onProvider(e.target.value || undefined)} className="h-9 max-w-[220px] rounded-md border bg-background px-3 text-xs"><option value="">All providers</option>{providers.map((name) => <option key={name} value={name}>{name}</option>)}</select>
       <Button variant="ghost" size="sm" onClick={onClear} disabled={!query && !severity && !provider}>Reset</Button>
