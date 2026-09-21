@@ -13,7 +13,8 @@ import { classifyCenOpsIntent } from "@/lib/cenops-ai-intent";
 import { formatCenOpsResponse, normalizeCenOpsResponse, type CenOpsResponse } from "@/lib/cenops-response-intelligence";
 
 export interface EnterpriseChatMessage { role: "user" | "assistant"; content: string; }
-export type ChatDepth = "quick" | "thorough";\nexport type ChatResult = { demo: boolean; answer?: string; analysis?: string; recommendations?: any[]; sources?: string[]; correlatedSignals?: any[]; confidence?: number; actionRequired?: boolean; intent?: string; intentConfidence?: number; response?: CenOpsResponse; };
+export type ChatDepth = "quick" | "thorough";
+export type ChatResult = { demo: boolean; answer?: string; analysis?: string; recommendations?: any[]; sources?: string[]; correlatedSignals?: any[]; confidence?: number; actionRequired?: boolean; intent?: string; intentConfidence?: number; response?: CenOpsResponse; };
 
 async function askModel(messages: Array<{ role: "system" | "user" | "assistant"; content: string }>) {
   return defaultModelGateway.complete({ task: "reasoning", messages, temperature: 0.1, json: true });
