@@ -45,8 +45,6 @@ async function resolveRequestTenant(): Promise<{ tenantId: string; userId: strin
     const authorization = request?.headers.get("authorization") ?? "";
     if (!authorization.startsWith("Bearer ")) return null;
     const token = authorization.slice("Bearer ".length).trim();
-    const payload = token.split(".")[1];
-    if (!payload) return null;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
     if (authError || !authData.user?.id) return null;
@@ -85,6 +83,8 @@ export async function writeAiUsageEvent(
     total_tokens: totalTokens,
     cost_estimate: estimateCost(model, usage),
     latency_ms: Math.max(0, Date.now() - startedAt),
+    agent_run_id: request.agentRunId ?? null,
+    trace_id: request.traceId ?? null,
   });
   if (error) console.error("[ai-usage] failed to write usage event", error);
 }

@@ -17,6 +17,8 @@ export interface ModelRequest {
   messages: ModelMessage[];
   temperature?: number;
   json?: boolean;
+  agentRunId?: string;
+  traceId?: string;
 }
 
 export interface ModelUsage {
