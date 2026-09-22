@@ -33,6 +33,33 @@ function canonicalProvider(provider: string): string {
   const normalized = provider.trim().toLowerCase();
   return normalized === "m365" ? "microsoft365" : normalized;
 }
+const GENERATED_MCP_TOOL_ALIASES: Record<string, string> = {
+  license_signals: "list_license_signals",
+};
+
+function canonicalizeGeneratedMcpStep(
+  step: GeneratedAgentWorkflowStep,
+  availableMcpToolNames: Set<string>,
+): GeneratedAgentWorkflowStep {
+  if (!step.provider || !step.capability) return step;
+
+  const provider = canonicalProvider(step.provider);
+  if (provider !== "aegis" && provider !== "aegis_mcp") return step;
+
+  let toolName = step.capability;
+  if (provider === "aegis") {
+    toolName = GENERATED_MCP_TOOL_ALIASES[toolName] ?? toolName;
+    if (toolName === "change_management") {
+      const mutationLike = /(^|\b)(delete|disable|remove|revoke|modify|update|change|execute|remediate|reclaim|create ticket|write)(\b|$)/i.test(
+        `${step.type} ${step.action}`,
+      );
+      toolName = mutationLike ? "propose_change_record" : "list_change_records";
+    }
+  }
+
+  if (!availableMcpToolNames.has(toolName)) return step;
+  return { ...step, provider: "aegis_mcp", capability: toolName };
+}
 
 const generatedWorkflowSchema = z.object({
   summary: z.string().trim().min(1).max(1000),
@@ -134,7 +161,7 @@ export const generateAgentWorkflowFromPrompt = createServerFn({ method: "POST" }
       tool.name + " (" + (tool.available ? (tool.readOnly ? "read" : "approval-gated") : "blocked") + ")" +
       (tool.available ? "" : ": " + (tool.reasons[0] ?? "not authorized"))
     );
-    const system = `You are the Aegis Workflow Architect. Convert a customer's natural-language request into a concrete, tenant-safe workflow for one Aegis AI agent. Use ONLY the agent's enabled integrations/capabilities and the available MCP tools supplied below. Never invent a provider capability. If the request needs an unavailable capability, represent it as an explicit assumption or explain the limitation in the summary rather than fabricating it. Build an inspectable workflow with trigger -> evidence -> conditions/decision -> action or recommendation -> verification. The workflow is a DRAFT: never claim that an external action has already happened. Keep write/mutation/remediation actions approval-gated. Notifications such as email/alert can be ungated when they are only informational and an actual notification capability is available. Return JSON only with exactly these fields: summary (string), trigger (string), config (object), steps (array), assumptions (string array). Each step must have id, name, type, provider, capability, action, requiresApproval, and optional verification. Keep the workflow practical and executable by Aegis's existing capability/MCP layer. Do not output code.`;
+    const system = `You are the Aegis Workflow Architect. Convert a customer's natural-language request into a concrete, tenant-safe workflow for one Aegis AI agent. Use ONLY the agent's enabled integrations/capabilities and the available MCP tools supplied below. Never invent a provider capability. For Aegis MCP tools, use provider "aegis_mcp" and set capability to the exact MCP tool name from availableMcpTools (for example list_license_signals, list_change_records, get_change_record, propose_change_record). Do not use shorthand capability names such as aegis/license_signals or aegis/change_management. If the request needs an unavailable capability, represent it as an explicit assumption or explain the limitation in the summary rather than fabricating it. Build an inspectable workflow with trigger -> evidence -> conditions/decision -> action or recommendation -> verification. The workflow is a DRAFT: never claim that an external action has already happened. Keep write/mutation/remediation actions approval-gated. Notifications such as email/alert can be ungated when they are only informational and an actual notification capability is available. Return JSON only with exactly these fields: summary (string), trigger (string), config (object), steps (array), assumptions (string array). Each step must have id, name, type, provider, capability, action, requiresApproval, and optional verification. Keep the workflow practical and executable by Aegis's existing capability/MCP layer. Do not output code.`;
     const user = JSON.stringify({
       agent: { key: detail.agentKey, name: detail.displayName, category: detail.category, description: detail.description },
       enabledCapabilities: capabilities,
@@ -147,6 +174,7 @@ export const generateAgentWorkflowFromPrompt = createServerFn({ method: "POST" }
     const allowed = new Set(capabilities.map((item) => `${item.provider}:${item.capability}`));
     const availableMcpTools = mcpAvailability.filter((tool) => tool.available);
     const allowedMcpToolNames = new Set(availableMcpTools.map((tool) => tool.name));
+    workflow.steps = workflow.steps.map((step) => canonicalizeGeneratedMcpStep(step, allowedMcpToolNames));
     const unsafe = workflow.steps.filter((step) => {
       if (!step.provider || !step.capability) return false;
       const provider = canonicalProvider(step.provider);
