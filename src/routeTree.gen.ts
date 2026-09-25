@@ -43,7 +43,7 @@ import { Route as AppApprovalsIndexRouteImport } from './routes/_app.approvals.i
 import { Route as AppApprovalsIdRouteImport } from './routes/_app.approvals.$id'
 import { Route as AppIntegrationsIndexRouteImport } from './routes/_app.integrations.index'
 import { Route as AppIntegrationsCatalogRouteImport } from './routes/_app.integrations.catalog'
-import { Route as AppIntegrationsCatalogIndexRouteImport } from './routes/_app.integrations.catalog.index'
+import { Route as AppIntegrationsMcpRouteImport } from './routes/_app.integrations.mcp'
 import { Route as AppSettingsItsmRoutingRouteImport } from './routes/_app.settings.itsm-routing'
 import { Route as ApiInternalProviderSyncRouteImport } from './routes/api.internal.provider-sync'
 import { Route as IntegrationsConfluenceCallbackRouteImport } from './routes/integrations.confluence.callback'
@@ -61,6 +61,7 @@ import { Route as IntegrationsSnowflakeCallbackRouteImport } from './routes/inte
 import { Route as IntegrationsWorkdayCallbackRouteImport } from './routes/integrations.workday.callback'
 import { Route as IntegrationsZendeskCallbackRouteImport } from './routes/integrations.zendesk.callback'
 import { Route as IntegrationsZohoCallbackRouteImport } from './routes/integrations.zoho.callback'
+import { Route as AppIntegrationsCatalogIndexRouteImport } from './routes/_app.integrations.catalog.index'
 import { Route as AppIntegrationsCatalogProviderIdRouteImport } from './routes/_app.integrations.catalog.$providerId'
 
 const AppRoute = AppRouteImport.update({
@@ -236,10 +237,10 @@ const AppIntegrationsCatalogRoute = AppIntegrationsCatalogRouteImport.update({
   path: '/catalog',
   getParentRoute: () => AppIntegrationsRoute,
 } as any)
-const AppIntegrationsCatalogIndexRoute = AppIntegrationsCatalogIndexRouteImport.update({
-  id: '/_app/integrations/catalog/',
-  path: '/',
-  getParentRoute: () => AppIntegrationsCatalogRoute,
+const AppIntegrationsMcpRoute = AppIntegrationsMcpRouteImport.update({
+  id: '/mcp',
+  path: '/mcp',
+  getParentRoute: () => AppIntegrationsRoute,
 } as any)
 const AppSettingsItsmRoutingRoute = AppSettingsItsmRoutingRouteImport.update({
   id: '/itsm-routing',
@@ -339,6 +340,12 @@ const IntegrationsZohoCallbackRoute =
     path: '/integrations/zoho/callback',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AppIntegrationsCatalogIndexRoute =
+  AppIntegrationsCatalogIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AppIntegrationsCatalogRoute,
+  } as any)
 const AppIntegrationsCatalogProviderIdRoute =
   AppIntegrationsCatalogProviderIdRouteImport.update({
     id: '/$providerId',
@@ -378,6 +385,7 @@ export interface FileRoutesByFullPath {
   '/agentic-studio/governance': typeof AppAgenticStudioGovernanceRoute
   '/approvals/$id': typeof AppApprovalsIdRoute
   '/integrations/catalog': typeof AppIntegrationsCatalogRouteWithChildren
+  '/integrations/mcp': typeof AppIntegrationsMcpRoute
   '/settings/itsm-routing': typeof AppSettingsItsmRoutingRoute
   '/api/internal/provider-sync': typeof ApiInternalProviderSyncRoute
   '/integrations/confluence/callback': typeof IntegrationsConfluenceCallbackRoute
@@ -398,6 +406,7 @@ export interface FileRoutesByFullPath {
   '/approvals/': typeof AppApprovalsIndexRoute
   '/integrations/': typeof AppIntegrationsIndexRoute
   '/integrations/catalog/$providerId': typeof AppIntegrationsCatalogProviderIdRoute
+  '/integrations/catalog/': typeof AppIntegrationsCatalogIndexRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRouteWithChildren
@@ -429,7 +438,7 @@ export interface FileRoutesByTo {
   '/agent/$agentKey': typeof AppAgentAgentKeyRoute
   '/agentic-studio/governance': typeof AppAgenticStudioGovernanceRoute
   '/approvals/$id': typeof AppApprovalsIdRoute
-  '/integrations/catalog': typeof AppIntegrationsCatalogRouteWithChildren
+  '/integrations/mcp': typeof AppIntegrationsMcpRoute
   '/settings/itsm-routing': typeof AppSettingsItsmRoutingRoute
   '/api/internal/provider-sync': typeof ApiInternalProviderSyncRoute
   '/integrations/confluence/callback': typeof IntegrationsConfluenceCallbackRoute
@@ -450,6 +459,7 @@ export interface FileRoutesByTo {
   '/approvals': typeof AppApprovalsIndexRoute
   '/integrations': typeof AppIntegrationsIndexRoute
   '/integrations/catalog/$providerId': typeof AppIntegrationsCatalogProviderIdRoute
+  '/integrations/catalog': typeof AppIntegrationsCatalogIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -485,6 +495,7 @@ export interface FileRoutesById {
   '/_app/agentic-studio/governance': typeof AppAgenticStudioGovernanceRoute
   '/_app/approvals/$id': typeof AppApprovalsIdRoute
   '/_app/integrations/catalog': typeof AppIntegrationsCatalogRouteWithChildren
+  '/_app/integrations/mcp': typeof AppIntegrationsMcpRoute
   '/_app/settings/itsm-routing': typeof AppSettingsItsmRoutingRoute
   '/api/internal/provider-sync': typeof ApiInternalProviderSyncRoute
   '/integrations/confluence/callback': typeof IntegrationsConfluenceCallbackRoute
@@ -505,6 +516,7 @@ export interface FileRoutesById {
   '/_app/approvals/': typeof AppApprovalsIndexRoute
   '/_app/integrations/': typeof AppIntegrationsIndexRoute
   '/_app/integrations/catalog/$providerId': typeof AppIntegrationsCatalogProviderIdRoute
+  '/_app/integrations/catalog/': typeof AppIntegrationsCatalogIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -540,6 +552,7 @@ export interface FileRouteTypes {
     | '/agentic-studio/governance'
     | '/approvals/$id'
     | '/integrations/catalog'
+    | '/integrations/mcp'
     | '/settings/itsm-routing'
     | '/api/internal/provider-sync'
     | '/integrations/confluence/callback'
@@ -560,6 +573,7 @@ export interface FileRouteTypes {
     | '/approvals/'
     | '/integrations/'
     | '/integrations/catalog/$providerId'
+    | '/integrations/catalog/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
@@ -591,7 +605,7 @@ export interface FileRouteTypes {
     | '/agent/$agentKey'
     | '/agentic-studio/governance'
     | '/approvals/$id'
-    | '/integrations/catalog'
+    | '/integrations/mcp'
     | '/settings/itsm-routing'
     | '/api/internal/provider-sync'
     | '/integrations/confluence/callback'
@@ -612,6 +626,7 @@ export interface FileRouteTypes {
     | '/approvals'
     | '/integrations'
     | '/integrations/catalog/$providerId'
+    | '/integrations/catalog'
   id:
     | '__root__'
     | '/_app'
@@ -646,6 +661,7 @@ export interface FileRouteTypes {
     | '/_app/agentic-studio/governance'
     | '/_app/approvals/$id'
     | '/_app/integrations/catalog'
+    | '/_app/integrations/mcp'
     | '/_app/settings/itsm-routing'
     | '/api/internal/provider-sync'
     | '/integrations/confluence/callback'
@@ -666,6 +682,7 @@ export interface FileRouteTypes {
     | '/_app/approvals/'
     | '/_app/integrations/'
     | '/_app/integrations/catalog/$providerId'
+    | '/_app/integrations/catalog/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -936,12 +953,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIntegrationsCatalogRouteImport
       parentRoute: typeof AppIntegrationsRoute
     }
-    '/_app/integrations/catalog/': {
-      id: '/_app/integrations/catalog/'
-      path: '/'
-      fullPath: '/integrations/catalog/'
-      preLoaderRoute: typeof AppIntegrationsCatalogIndexRouteImport
-      parentRoute: typeof AppIntegrationsCatalogRoute
+    '/_app/integrations/mcp': {
+      id: '/_app/integrations/mcp'
+      path: '/mcp'
+      fullPath: '/integrations/mcp'
+      preLoaderRoute: typeof AppIntegrationsMcpRouteImport
+      parentRoute: typeof AppIntegrationsRoute
     }
     '/_app/settings/itsm-routing': {
       id: '/_app/settings/itsm-routing'
@@ -1062,6 +1079,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IntegrationsZohoCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/integrations/catalog/': {
+      id: '/_app/integrations/catalog/'
+      path: '/'
+      fullPath: '/integrations/catalog/'
+      preLoaderRoute: typeof AppIntegrationsCatalogIndexRouteImport
+      parentRoute: typeof AppIntegrationsCatalogRoute
+    }
     '/_app/integrations/catalog/$providerId': {
       id: '/_app/integrations/catalog/$providerId'
       path: '/$providerId'
@@ -1084,15 +1108,15 @@ const AppAgenticStudioRouteWithChildren =
   AppAgenticStudioRoute._addFileChildren(AppAgenticStudioRouteChildren)
 
 interface AppIntegrationsCatalogRouteChildren {
-  AppIntegrationsCatalogIndexRoute: typeof AppIntegrationsCatalogIndexRoute
   AppIntegrationsCatalogProviderIdRoute: typeof AppIntegrationsCatalogProviderIdRoute
+  AppIntegrationsCatalogIndexRoute: typeof AppIntegrationsCatalogIndexRoute
 }
 
 const AppIntegrationsCatalogRouteChildren: AppIntegrationsCatalogRouteChildren =
   {
-    AppIntegrationsCatalogIndexRoute: AppIntegrationsCatalogIndexRoute,
     AppIntegrationsCatalogProviderIdRoute:
       AppIntegrationsCatalogProviderIdRoute,
+    AppIntegrationsCatalogIndexRoute: AppIntegrationsCatalogIndexRoute,
   }
 
 const AppIntegrationsCatalogRouteWithChildren =
@@ -1102,11 +1126,13 @@ const AppIntegrationsCatalogRouteWithChildren =
 
 interface AppIntegrationsRouteChildren {
   AppIntegrationsCatalogRoute: typeof AppIntegrationsCatalogRouteWithChildren
+  AppIntegrationsMcpRoute: typeof AppIntegrationsMcpRoute
   AppIntegrationsIndexRoute: typeof AppIntegrationsIndexRoute
 }
 
 const AppIntegrationsRouteChildren: AppIntegrationsRouteChildren = {
   AppIntegrationsCatalogRoute: AppIntegrationsCatalogRouteWithChildren,
+  AppIntegrationsMcpRoute: AppIntegrationsMcpRoute,
   AppIntegrationsIndexRoute: AppIntegrationsIndexRoute,
 }
 
