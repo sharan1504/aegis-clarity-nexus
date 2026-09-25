@@ -1,5 +1,5 @@
 import { Outlet, useNavigate, Link, useRouterState } from "@tanstack/react-router";
-import { LogOut, Moon, ShieldCheck, Sun, AlertTriangle, ChevronDown, CircleHelp } from "lucide-react";
+import { LogOut, Moon, ShieldCheck, Sun, AlertTriangle, ChevronDown, CircleHelp, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -15,7 +15,6 @@ import { RoleProvider, useRole } from "@/lib/rbac";
 import { TenantProvider, useTenantContext } from "@/lib/tenant";
 import { supabase } from "@/integrations/supabase/client";
 import { updateEnvironmentMode } from "@/lib/settings.functions";
-import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
 export function AppLayout() { return <TenantProvider><RoleProvider><AppShell /></RoleProvider></TenantProvider>; }
@@ -50,7 +49,7 @@ function EnvironmentModeControl() {
 function AppShell() {
   const { theme, toggle } = useTheme();
   const { role } = useRole();
-  const { user, tenantName, environmentMode, loading } = useTenantContext();
+  const { user, tenantId, tenantName, environmentMode, loading, provisioningError, refreshTenant } = useTenantContext();
   const navigate = useNavigate();
   const path = useRouterState({ select: (router) => router.location.pathname });
   const isChat = path === "/chat";
