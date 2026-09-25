@@ -2,21 +2,159 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { initRealtime, teardownRealtime } from "@/lib/realtime";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { provisionPersonalWorkspace } from "@/lib/tenant-provision.functions";
 
 export type AppRole = "admin" | "manager" | "analyst" | "viewer";
 export type EnvironmentMode = "live" | "demo";
-export interface TenantContextValue { user: User | null; tenantId: string | null; tenantName: string | null; primaryDomain: string | null; roles: AppRole[]; environmentMode: EnvironmentMode; loading: boolean; refreshTenant: () => Promise<void>; }
-function tenantNameFromEmail(email: string | undefined) { const domain = (email ?? "").split("@")[1] ?? "workspace"; const base = domain.split(".")[0] ?? "workspace"; return base.charAt(0).toUpperCase() + base.slice(1); }
-function slugify(input: string) { return input.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "workspace"; }
-export async function ensureTenantBootstrap(user: User): Promise<{ tenantId: string; tenantName: string; primaryDomain: string | null; roles: AppRole[]; environmentMode: EnvironmentMode; }> {
-  const { data: existing } = await supabase.from("profiles").select("id, tenant_id").eq("id", user.id).maybeSingle(); let tenantId = existing?.tenant_id ?? null; let tenantName: string | null = null; let primaryDomain: string | null = null; let environmentMode: EnvironmentMode = "live";
-  if (tenantId) { const { data: tenant } = await (supabase as any).from("tenants").select("name,primary_domain,environment_mode").eq("id", tenantId).maybeSingle(); tenantName = tenant?.name ?? null; primaryDomain = tenant?.primary_domain ?? null; environmentMode = tenant?.environment_mode === "demo" ? "demo" : "live"; }
-  if (!existing) await supabase.from("profiles").insert({ id: user.id, email: user.email ?? null, full_name: (user.user_metadata?.full_name as string | undefined) ?? null });
-  if (!tenantId) { const name = tenantNameFromEmail(user.email ?? undefined); const slug = `${slugify(name)}-${user.id.slice(0, 8)}`; const { data: tenant, error } = await (supabase as any).from("tenants").insert({ name, slug, environment_mode: "live" }).select("id,name,environment_mode").single(); if (error || !tenant) throw error ?? new Error("Could not create workspace"); const newTenantId = tenant.id as string; tenantId = newTenantId; tenantName = tenant.name; environmentMode = "live"; await supabase.from("profiles").update({ tenant_id: newTenantId }).eq("id", user.id); await supabase.from("user_roles").insert({ user_id: user.id, tenant_id: newTenantId, role: "admin" }); }
-  const { data: roleRows } = await supabase.from("user_roles").select("role").eq("user_id", user.id).eq("tenant_id", tenantId!); return { tenantId: tenantId!, tenantName: tenantName ?? "Workspace", primaryDomain, roles: (roleRows ?? []).map((r) => r.role as AppRole), environmentMode };
+export interface TenantContextValue {
+  user: User | null;
+  tenantId: string | null;
+  tenantName: string | null;
+  primaryDomain: string | null;
+  roles: AppRole[];
+  environmentMode: EnvironmentMode;
+  loading: boolean;
+  provisioningError: string | null;
+  refreshTenant: () => Promise<void>;
 }
-const EMPTY_TENANT_STATE = { user: null, tenantId: null, tenantName: null, primaryDomain: null, roles: [] as AppRole[], environmentMode: "live" as EnvironmentMode, loading: true };
-export function useTenant(): TenantContextValue { const [state, setState] = useState<Omit<TenantContextValue, "refreshTenant">>(EMPTY_TENANT_STATE); const activeRef = useRef(true); const resolve = useCallback(async (user: User | null) => { if (!user) { if (activeRef.current) setState({ ...EMPTY_TENANT_STATE, loading: false }); return; } try { const resolved = await ensureTenantBootstrap(user); if (activeRef.current) setState({ user, ...resolved, loading: false }); } catch { if (activeRef.current) setState({ ...EMPTY_TENANT_STATE, user, loading: false }); } }, []); const refreshTenant = useCallback(async () => { const { data } = await supabase.auth.getUser(); await resolve(data.user ?? null); }, [resolve]); useEffect(() => { activeRef.current = true; const { data: sub } = supabase.auth.onAuthStateChange((event, session) => { if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return; void resolve(session?.user ?? null); }); void supabase.auth.getUser().then(({ data }) => resolve(data.user ?? null)); return () => { activeRef.current = false; sub.subscription.unsubscribe(); }; }, [resolve]); return { ...state, refreshTenant }; }
-const TenantContext = createContext<TenantContextValue>({ ...EMPTY_TENANT_STATE, refreshTenant: async () => {} });
-export function TenantProvider({ children }: { children: ReactNode }) { const value = useTenant(); useEffect(() => { if (value.tenantId) initRealtime(value.tenantId); else if (!value.loading) teardownRealtime(); }, [value.tenantId, value.loading]); return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>; }
-export function useTenantContext() { return useContext(TenantContext); }
+
+export async function ensureTenantBootstrap(user: User) {
+  const provisioned = await provisionPersonalWorkspace();
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("tenant_id")
+    .eq("id", user.id)
+    .single();
+
+  if (profileError || !profile?.tenant_id) {
+    throw new Error("Workspace membership could not be loaded.");
+  }
+  if (profile.tenant_id !== provisioned.tenantId) {
+    throw new Error("Workspace membership could not be verified.");
+  }
+
+  const [tenantResult, rolesResult] = await Promise.all([
+    supabase
+      .from("tenants")
+      .select("name,primary_domain,environment_mode")
+      .eq("id", profile.tenant_id)
+      .single(),
+    supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("tenant_id", profile.tenant_id),
+  ]);
+
+  if (tenantResult.error || !tenantResult.data) {
+    throw new Error("Workspace details could not be loaded.");
+  }
+  if (rolesResult.error || !rolesResult.data?.length) {
+    throw new Error("Workspace role could not be loaded.");
+  }
+
+  return {
+    tenantId: profile.tenant_id,
+    tenantName: tenantResult.data.name,
+    primaryDomain: tenantResult.data.primary_domain,
+    roles: rolesResult.data.map((row) => row.role as AppRole),
+    environmentMode: tenantResult.data.environment_mode === "demo" ? "demo" : "live",
+  };
+}
+
+const EMPTY_TENANT_STATE = {
+  user: null,
+  tenantId: null,
+  tenantName: null,
+  primaryDomain: null,
+  roles: [] as AppRole[],
+  environmentMode: "live" as EnvironmentMode,
+  loading: true,
+  provisioningError: null as string | null,
+};
+
+export function useTenant(): TenantContextValue {
+  const [state, setState] = useState<Omit<TenantContextValue, "refreshTenant">>(EMPTY_TENANT_STATE);
+  const activeRef = useRef(true);
+
+  const resolve = useCallback(async (user: User | null) => {
+    if (!user) {
+      if (activeRef.current) setState({ ...EMPTY_TENANT_STATE, loading: false });
+      return;
+    }
+
+    if (activeRef.current) {
+      setState({ ...EMPTY_TENANT_STATE, user, loading: true });
+    }
+
+    try {
+      const resolved = await ensureTenantBootstrap(user);
+      if (activeRef.current) {
+        setState({ user, ...resolved, loading: false, provisioningError: null });
+      }
+    } catch (error) {
+      if (activeRef.current) {
+        setState({
+          ...EMPTY_TENANT_STATE,
+          user,
+          loading: false,
+          provisioningError:
+            error instanceof Error
+              ? error.message
+              : "We could not set up your workspace. Please retry or sign out.",
+        });
+      }
+    }
+  }, []);
+
+  const refreshTenant = useCallback(async () => {
+    const { data, error } = await supabase.auth.getUser();
+    if (error) {
+      if (activeRef.current) {
+        setState((current) => ({
+          ...current,
+          loading: false,
+          provisioningError: "Your session could not be verified. Please sign out and try again.",
+        }));
+      }
+      return;
+    }
+    await resolve(data.user ?? null);
+  }, [resolve]);
+
+  useEffect(() => {
+    activeRef.current = true;
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+      void resolve(session?.user ?? null);
+    });
+    void refreshTenant();
+    return () => {
+      activeRef.current = false;
+      sub.subscription.unsubscribe();
+    };
+  }, [refreshTenant, resolve]);
+
+  return { ...state, refreshTenant };
+}
+
+const TenantContext = createContext<TenantContextValue>({
+  ...EMPTY_TENANT_STATE,
+  refreshTenant: async () => {},
+});
+
+export function TenantProvider({ children }: { children: ReactNode }) {
+  const value = useTenant();
+
+  useEffect(() => {
+    if (value.tenantId) initRealtime(value.tenantId);
+    else if (!value.loading) teardownRealtime();
+  }, [value.tenantId, value.loading]);
+
+  return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;
+}
+
+export function useTenantContext() {
+  return useContext(TenantContext);
+}
