@@ -57,6 +57,20 @@ function AppShell() {
   const signOut = async () => { await supabase.auth.signOut(); navigate({ to: "/auth" }); };
   const demo = environmentMode === "demo";
 
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-6">
+        <div className="flex max-w-sm flex-col items-center text-center">
+          <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 text-primary">
+            <ShieldCheck className="h-6 w-6 animate-pulse" />
+          </div>
+          <h1 className="text-xl font-semibold text-foreground">Setting up your workspace…</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Securing your account and loading your organization.</p>
+        </div>
+      </div>
+    );
+  }
+
   return <SidebarProvider>
     <div className={`flex min-h-screen w-full flex-col ${demo ? "border-t-2 border-warning" : ""}`}>
       {demo && <div className="sticky top-0 z-50 flex min-h-7 items-center justify-center gap-2 bg-warning px-3 py-1 text-center text-[11px] font-semibold text-warning-foreground"><AlertTriangle className="h-3.5 w-3.5" />DEMO MODE — This workspace is using mock data.</div>}
