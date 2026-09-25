@@ -2899,7 +2899,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      provision_personal_workspace: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       app_role: "admin" | "manager" | "analyst" | "viewer"
