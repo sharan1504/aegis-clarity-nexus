@@ -85,6 +85,10 @@ function AppShell() {
               <RefreshCw className="mr-2 h-4 w-4" />
               Retry
             </Button>
+            <Button type="button" variant="outline" onClick={() => void signOut()}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign out
+            </Button>
           </div>
         </div>
       </div>
