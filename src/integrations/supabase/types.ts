@@ -345,63 +345,45 @@ export type Database = {
       agent_run_events: {
         Row: {
           actor_id: string | null
-          attempt: number
           capability_key: string | null
-          duration_ms: number | null
           event_type: string
           id: string
           occurred_at: string
           outcome: string | null
-          parent_event_id: string | null
           payload: Json
-          payload_hash: string | null
           provider: string | null
-          redacted: boolean
           run_id: string
           sequence: number
           step: string | null
           tenant_id: string
-          trace_id: string | null
         }
         Insert: {
           actor_id?: string | null
-          attempt?: number
           capability_key?: string | null
-          duration_ms?: number | null
           event_type: string
           id?: string
           occurred_at?: string
           outcome?: string | null
-          parent_event_id?: string | null
           payload?: Json
-          payload_hash?: string | null
           provider?: string | null
-          redacted?: boolean
           run_id: string
           sequence: number
           step?: string | null
           tenant_id: string
-          trace_id?: string | null
         }
         Update: {
           actor_id?: string | null
-          attempt?: number
           capability_key?: string | null
-          duration_ms?: number | null
           event_type?: string
           id?: string
           occurred_at?: string
           outcome?: string | null
-          parent_event_id?: string | null
           payload?: Json
-          payload_hash?: string | null
           provider?: string | null
-          redacted?: boolean
           run_id?: string
           sequence?: number
           step?: string | null
           tenant_id?: string
-          trace_id?: string | null
         }
         Relationships: [
           {
@@ -466,111 +448,51 @@ export type Database = {
         Row: {
           agent_key: string
           approval: Json | null
-          cancel_requested: boolean
-          checkpoint: Json | null
-          checkpointed_at: string | null
-          cost_usd: number
           created_at: string
           created_by: string | null
           current_step: string
-          deadline_at: string | null
           error: string | null
           execution: Json | null
           id: string
           input: string
-          input_tokens: number
-          max_cost_usd: number
-          max_input_tokens: number
-          max_output_tokens: number
-          max_retries: number
-          max_steps: number
-          max_tool_calls: number
-          max_wall_time_seconds: number
-          output_tokens: number
           plan: Json | null
           policy_verdict: Json | null
-          retry_count: number
-          runtime_version: string
-          started_at: string | null
           status: string
-          step_count: number
           tenant_id: string
-          tool_call_count: number
-          trace_id: string
           updated_at: string
           verification: Json | null
         }
         Insert: {
           agent_key: string
           approval?: Json | null
-          cancel_requested?: boolean
-          checkpoint?: Json | null
-          checkpointed_at?: string | null
-          cost_usd?: number
           created_at?: string
           created_by?: string | null
           current_step?: string
-          deadline_at?: string | null
           error?: string | null
           execution?: Json | null
           id?: string
           input: string
-          input_tokens?: number
-          max_cost_usd?: number
-          max_input_tokens?: number
-          max_output_tokens?: number
-          max_retries?: number
-          max_steps?: number
-          max_tool_calls?: number
-          max_wall_time_seconds?: number
-          output_tokens?: number
           plan?: Json | null
           policy_verdict?: Json | null
-          retry_count?: number
-          runtime_version?: string
-          started_at?: string | null
           status?: string
-          step_count?: number
           tenant_id: string
-          tool_call_count?: number
-          trace_id?: string
           updated_at?: string
           verification?: Json | null
         }
         Update: {
           agent_key?: string
           approval?: Json | null
-          cancel_requested?: boolean
-          checkpoint?: Json | null
-          checkpointed_at?: string | null
-          cost_usd?: number
           created_at?: string
           created_by?: string | null
           current_step?: string
-          deadline_at?: string | null
           error?: string | null
           execution?: Json | null
           id?: string
           input?: string
-          input_tokens?: number
-          max_cost_usd?: number
-          max_input_tokens?: number
-          max_output_tokens?: number
-          max_retries?: number
-          max_steps?: number
-          max_tool_calls?: number
-          max_wall_time_seconds?: number
-          output_tokens?: number
           plan?: Json | null
           policy_verdict?: Json | null
-          retry_count?: number
-          runtime_version?: string
-          started_at?: string | null
           status?: string
-          step_count?: number
           tenant_id?: string
-          tool_call_count?: number
-          trace_id?: string
           updated_at?: string
           verification?: Json | null
         }
@@ -2206,192 +2128,6 @@ export type Database = {
           },
         ]
       }
-      mcp_server_connections: {
-        Row: {
-          auth_type: string
-          base_url: string
-          created_at: string
-          created_by: string | null
-          display_name: string
-          encrypted_auth: string | null
-          id: string
-          last_discovered_at: string | null
-          last_error: string | null
-          metadata: Json
-          secret_ref: string | null
-          status: string
-          tenant_id: string
-          updated_at: string
-        }
-        Insert: {
-          auth_type?: string
-          base_url: string
-          created_at?: string
-          created_by?: string | null
-          display_name: string
-          encrypted_auth?: string | null
-          id?: string
-          last_discovered_at?: string | null
-          last_error?: string | null
-          metadata?: Json
-          secret_ref?: string | null
-          status?: string
-          tenant_id: string
-          updated_at?: string
-        }
-        Update: {
-          auth_type?: string
-          base_url?: string
-          created_at?: string
-          created_by?: string | null
-          display_name?: string
-          encrypted_auth?: string | null
-          id?: string
-          last_discovered_at?: string | null
-          last_error?: string | null
-          metadata?: Json
-          secret_ref?: string | null
-          status?: string
-          tenant_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "mcp_server_connections_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      mcp_tool_agent_bindings: {
-        Row: {
-          agent_key: string
-          created_at: string
-          created_by: string | null
-          enabled: boolean
-          id: string
-          tenant_id: string
-          tool_definition_id: string
-          updated_at: string
-        }
-        Insert: {
-          agent_key: string
-          created_at?: string
-          created_by?: string | null
-          enabled?: boolean
-          id?: string
-          tenant_id: string
-          tool_definition_id: string
-          updated_at?: string
-        }
-        Update: {
-          agent_key?: string
-          created_at?: string
-          created_by?: string | null
-          enabled?: boolean
-          id?: string
-          tenant_id?: string
-          tool_definition_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "mcp_tool_agent_bindings_agent_key_fkey"
-            columns: ["agent_key"]
-            isOneToOne: false
-            referencedRelation: "agent_definitions"
-            referencedColumns: ["agent_key"]
-          },
-          {
-            foreignKeyName: "mcp_tool_agent_bindings_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "mcp_tool_agent_bindings_tool_definition_id_fkey"
-            columns: ["tool_definition_id"]
-            isOneToOne: false
-            referencedRelation: "mcp_tool_definitions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      mcp_tool_definitions: {
-        Row: {
-          capability_key: string
-          created_at: string
-          created_by: string | null
-          description: string | null
-          enabled: boolean
-          execution_class: string
-          handler_config: Json
-          handler_kind: string
-          id: string
-          origin: string
-          provider: string | null
-          read_only: boolean
-          tenant_id: string | null
-          title: string
-          tool_name: string
-          updated_at: string
-        }
-        Insert: {
-          capability_key: string
-          created_at?: string
-          created_by?: string | null
-          description?: string | null
-          enabled?: boolean
-          execution_class?: string
-          handler_config?: Json
-          handler_kind: string
-          id?: string
-          origin?: string
-          provider?: string | null
-          read_only?: boolean
-          tenant_id?: string | null
-          title: string
-          tool_name: string
-          updated_at?: string
-        }
-        Update: {
-          capability_key?: string
-          created_at?: string
-          created_by?: string | null
-          description?: string | null
-          enabled?: boolean
-          execution_class?: string
-          handler_config?: Json
-          handler_kind?: string
-          id?: string
-          origin?: string
-          provider?: string | null
-          read_only?: boolean
-          tenant_id?: string | null
-          title?: string
-          tool_name?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "mcp_tool_definitions_capability_key_fkey"
-            columns: ["capability_key"]
-            isOneToOne: false
-            referencedRelation: "capabilities"
-            referencedColumns: ["capability_key"]
-          },
-          {
-            foreignKeyName: "mcp_tool_definitions_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       notifications: {
         Row: {
           body: string | null
@@ -3163,57 +2899,9 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      append_agent_run_event: {
+      provision_personal_workspace: {
         Args: {
-          p_actor_id: string
-          p_attempt?: number
-          p_capability_key?: string
-          p_duration_ms?: number
-          p_event_type: string
-          p_outcome?: string
-          p_parent_event_id?: string
-          p_payload?: Json
-          p_provider?: string
-          p_run_id: string
-          p_step?: string
-          p_tenant_id: string
-          p_trace_id?: string
-        }
-        Returns: {
-          actor_id: string | null
-          attempt: number
-          capability_key: string | null
-          duration_ms: number | null
-          event_type: string
-          id: string
-          occurred_at: string
-          outcome: string | null
-          parent_event_id: string | null
-          payload: Json
-          payload_hash: string | null
-          provider: string | null
-          redacted: boolean
-          run_id: string
-          sequence: number
-          step: string | null
-          tenant_id: string
-          trace_id: string | null
-        }
-        SetofOptions: {
-          from: "*"
-          to: "agent_run_events"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      claim_agent_budget: {
-        Args: {
-          p_cost_usd?: number
-          p_input_tokens?: number
-          p_kind: string
-          p_output_tokens?: number
-          p_run_id: string
-          p_tenant_id: string
+          p_user_id: string
         }
         Returns: Json
       }
