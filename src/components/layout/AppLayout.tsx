@@ -1,5 +1,5 @@
 import { Outlet, useNavigate, Link, useRouterState } from "@tanstack/react-router";
-import { LogOut, Moon, ShieldCheck, Sun, AlertTriangle, ChevronDown, CircleHelp } from "lucide-react";
+import { LogOut, Moon, ShieldCheck, Sun, AlertTriangle, ChevronDown, CircleHelp, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -15,7 +15,6 @@ import { RoleProvider, useRole } from "@/lib/rbac";
 import { TenantProvider, useTenantContext } from "@/lib/tenant";
 import { supabase } from "@/integrations/supabase/client";
 import { updateEnvironmentMode } from "@/lib/settings.functions";
-import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
 export function AppLayout() { return <TenantProvider><RoleProvider><AppShell /></RoleProvider></TenantProvider>; }
@@ -50,13 +49,51 @@ function EnvironmentModeControl() {
 function AppShell() {
   const { theme, toggle } = useTheme();
   const { role } = useRole();
-  const { user, tenantName, environmentMode, loading } = useTenantContext();
+  const { user, tenantId, tenantName, environmentMode, loading, provisioningError, refreshTenant } = useTenantContext();
   const navigate = useNavigate();
   const path = useRouterState({ select: (router) => router.location.pathname });
   const isChat = path === "/chat";
   const initials = (user?.email ?? "AW").replace(/@.*$/, "").split(/[.\-_]/).map((part) => part.charAt(0).toUpperCase()).slice(0, 2).join("");
   const signOut = async () => { await supabase.auth.signOut(); navigate({ to: "/auth" }); };
   const demo = environmentMode === "demo";
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-6">
+        <div className="flex max-w-sm flex-col items-center text-center">
+          <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 text-primary">
+            <ShieldCheck className="h-6 w-6 animate-pulse" />
+          </div>
+          <h1 className="text-xl font-semibold text-foreground">Setting up your workspace…</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Securing your account and loading your organization.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (provisioningError || !tenantId) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-6">
+        <div className="w-full max-w-md rounded-lg border border-border bg-card p-6 text-center shadow-sm">
+          <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-lg border border-destructive/30 bg-destructive/10 text-destructive">
+            <AlertTriangle className="h-6 w-6" />
+          </div>
+          <h1 className="text-xl font-semibold text-foreground">Workspace setup needs attention</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{provisioningError ?? "Your account is not attached to a workspace."}</p>
+          <div className="mt-6 flex justify-center gap-2">
+            <Button type="button" onClick={() => void refreshTenant()}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Retry
+            </Button>
+            <Button type="button" variant="outline" onClick={() => void signOut()}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign out
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return <SidebarProvider>
     <div className={`flex min-h-screen w-full flex-col ${demo ? "border-t-2 border-warning" : ""}`}>
@@ -80,7 +117,7 @@ function AppShell() {
               </div>
             </div>
           </header>}
-          <main className={isChat ? "min-h-[calc(100vh-1.75rem)] flex-1 p-0" : "min-h-[calc(100vh-4rem)] flex-1 p-4 sm:p-5 lg:p-6"}>{loading ? <div className="space-y-4"><Skeleton className="h-9 w-64" /><Skeleton className="h-4 w-96" /><div className="grid gap-3 md:grid-cols-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24" />)}</div><Skeleton className="h-72" /></div> : <Outlet />}</main>
+          <main className={isChat ? "min-h-[calc(100vh-1.75rem)] flex-1 p-0" : "min-h-[calc(100vh-4rem)] flex-1 p-4 sm:p-5 lg:p-6"}><Outlet /></main>
         </SidebarInset>
       </div>
     </div>
