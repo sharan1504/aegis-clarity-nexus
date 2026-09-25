@@ -71,6 +71,26 @@ function AppShell() {
     );
   }
 
+  if (provisioningError || !tenantId) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-6">
+        <div className="w-full max-w-md rounded-lg border border-border bg-card p-6 text-center shadow-sm">
+          <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-lg border border-destructive/30 bg-destructive/10 text-destructive">
+            <AlertTriangle className="h-6 w-6" />
+          </div>
+          <h1 className="text-xl font-semibold text-foreground">Workspace setup needs attention</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{provisioningError ?? "Your account is not attached to a workspace."}</p>
+          <div className="mt-6 flex justify-center gap-2">
+            <Button type="button" onClick={() => void refreshTenant()}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Retry
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return <SidebarProvider>
     <div className={`flex min-h-screen w-full flex-col ${demo ? "border-t-2 border-warning" : ""}`}>
       {demo && <div className="sticky top-0 z-50 flex min-h-7 items-center justify-center gap-2 bg-warning px-3 py-1 text-center text-[11px] font-semibold text-warning-foreground"><AlertTriangle className="h-3.5 w-3.5" />DEMO MODE — This workspace is using mock data.</div>}
