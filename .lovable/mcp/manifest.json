@@ -229,6 +229,52 @@
         "outputSchema": null
       },
       {
+        "name": "list_license_signals",
+        "title": "List license signals",
+        "description": "Read synchronized license and license-assignment records for the tenant. No provider mutation is performed.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "provider": {
+              "description": "Optional provider filter.",
+              "type": "string"
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_agent_run_status",
+        "title": "Get agent run status",
+        "description": "Read the persisted state and evidence count of a governed agent run in the current tenant.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "runId": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Persisted agent run id."
+            }
+          },
+          "required": [
+            "runId"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
         "name": "list_reports_and_recommendations",
         "title": "List reports and AI recommendations",
         "description": "Return only report evidence and proposed changes backed by this tenant's real synchronized data and change records.",
