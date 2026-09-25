@@ -117,7 +117,7 @@ function AppShell() {
               </div>
             </div>
           </header>}
-          <main className={isChat ? "min-h-[calc(100vh-1.75rem)] flex-1 p-0" : "min-h-[calc(100vh-4rem)] flex-1 p-4 sm:p-5 lg:p-6"}>{loading ? <div className="space-y-4"><Skeleton className="h-9 w-64" /><Skeleton className="h-4 w-96" /><div className="grid gap-3 md:grid-cols-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24" />)}</div><Skeleton className="h-72" /></div> : <Outlet />}</main>
+          <main className={isChat ? "min-h-[calc(100vh-1.75rem)] flex-1 p-0" : "min-h-[calc(100vh-4rem)] flex-1 p-4 sm:p-5 lg:p-6"}><Outlet /></main>
         </SidebarInset>
       </div>
     </div>
