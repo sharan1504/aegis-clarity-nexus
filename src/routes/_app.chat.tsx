@@ -17,6 +17,7 @@ import { createChangeFromRecommendation } from "@/lib/change-recommendation.func
 import { pageHead } from "@/lib/seo";
 import { toast } from "sonner";
 import { FeatureHelpButton } from "@/components/onboarding/FeatureHelpDrawer";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/_app/chat")({ head: () => pageHead({ path: "/chat", title: "CenOps Copilot", description: "Evidence-grounded operational analysis for enterprise operations." }), component: ChatPage });
 type Recommendation = { title?: string; rationale?: string; impact?: string; risk?: string; nextStep?: string; actionType?: string; requiresApproval?: boolean };
@@ -73,7 +74,7 @@ function ChatPage() {
     return name.trim().split(/\s+/)[0] ?? "";
   }, [user]);
   const chat = useServerFn(executeEnterpriseChat); const createSession = useServerFn(createChatSession); const renameSession = useServerFn(updateChatSessionTitle); const loadSessions = useServerFn(listChatSessions); const loadSession = useServerFn(getChatSession); const loadDepartments = useServerFn(getMyDepartments); const removeSession = useServerFn(deleteChatSession); const createChange = useServerFn(createChangeFromRecommendation);
-  const [sessions, setSessions] = useState<ChatSession[]>([]); const [sessionId, setSessionId] = useState<string | null>(null); const [messages, setMessages] = useState<Message[]>([]); const [input, setInput] = useState(""); const [depth, setDepth] = useState<"quick" | "thorough">("thorough"); const [inputFocused, setInputFocused] = useState(false); const [hasTyped, setHasTyped] = useState(false); const [placeholderIndex, setPlaceholderIndex] = useState(0); const [departments, setDepartments] = useState<Array<{ department_key: string; display_name: string }>>([]); const [departmentKey, setDepartmentKey] = useState<string | null>(null); const [loading, setLoading] = useState(true); const [historyOpen, setHistoryOpen] = useState(true); const [historyQuery, setHistoryQuery] = useState("");
+  const [sessions, setSessions] = useState<ChatSession[]>([]); const [sessionId, setSessionId] = useState<string | null>(null); const [messages, setMessages] = useState<Message[]>([]); const [input, setInput] = useState(""); const [depth, setDepth] = useState<"quick" | "thorough">("quick"); const [inputFocused, setInputFocused] = useState(false); const [hasTyped, setHasTyped] = useState(false); const [placeholderIndex, setPlaceholderIndex] = useState(0); const [departments, setDepartments] = useState<Array<{ department_key: string; display_name: string }>>([]); const [departmentKey, setDepartmentKey] = useState<string | null>(null); const [loading, setLoading] = useState(true); const [historyOpen, setHistoryOpen] = useState(true); const [mobileHistoryOpen, setMobileHistoryOpen] = useState(false); const [historyQuery, setHistoryQuery] = useState(""); const [pendingDelete, setPendingDelete] = useState<ChatSession | null>(null);
   const refreshHistory = async () => { const result = await loadSessions(); setSessions(result.sessions); return result.sessions; };
   const startNewChat = async (requestedDepartment = departmentKey) => { try { const result = await createSession({ data: { departmentKey: requestedDepartment } }); setSessionId(result.session.id); setDepartmentKey(result.session.departmentKey); setMessages([]); setInput(""); setHasTyped(false); setInputFocused(false); setPlaceholderIndex(0); setHistoryQuery(""); await refreshHistory(); } catch (error) { toast.error(error instanceof Error ? error.message : "Could not start chat."); } };
   useEffect(() => {
@@ -112,18 +113,18 @@ function ChatPage() {
   const content = text.trim();
   if (!content || mutation.isPending || !sessionId) return;
   const isFirstMessage = messages.length === 0;
-  const next = [...messages.map((m) => ({ role: m.role, content: m.content })), { role: "user" as const, content }];
+  const next = [...messages.map((m) => ({ role: m.role, content: m.content })), { role: "user" as const, content }].slice(-12);
   setMessages((current) => [...current, { role: "user", content }]);
   setInput("");
   if (isFirstMessage) {
     const title = buildChatTitle(content);
-    void renameSession({ data: { sessionId, title } }).then(() => refreshHistory()).catch((error) => toast.error(error instanceof Error ? error.message : "Could not name chat."));
+    void renameSession({ data: { sessionId, title } }).catch((error) => toast.error(error instanceof Error ? error.message : "Could not name chat."));
   }
   mutation.mutate(next);
 };
   const handleInputKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); send(input); } };
   const openSession = async (id: string) => { try { const result = await loadSession({ data: { sessionId: id } }); setSessionId(result.session.id); setDepartmentKey(result.session.departmentKey); setMessages(result.messages.map((m: StoredChatMessage) => ({ role: m.role, content: cleanAssistantText(m.content), result: m.result as Result | undefined, id: m.id, createdAt: m.createdAt }))); setHistoryQuery(""); } catch (error) { toast.error(error instanceof Error ? error.message : "Could not open chat."); } };
-  const remove = async (id: string) => { try { await removeSession({ data: { sessionId: id } }); const remaining = await refreshHistory(); if (id === sessionId) { if (remaining[0]) await openSession(remaining[0].id); else await startNewChat(); } toast.success("Chat history deleted"); } catch (error) { toast.error(error instanceof Error ? error.message : "Could not delete chat."); } };
+  const remove = async (id: string) => { try { await removeSession({ data: { sessionId: id } }); const remaining = await refreshHistory(); if (id === sessionId) { if (remaining[0]) await openSession(remaining[0].id); else await startNewChat(); } setPendingDelete(null); toast.success("Chat history deleted"); } catch (error) { toast.error(error instanceof Error ? error.message : "Could not delete chat."); } };
   const submitRecommendation = async (recommendation: Recommendation) => { try { const result = await createChange({ data: recommendation }); if (!result.ok) toast.error(result.error); else toast.success("Sent to Approval Center", { description: result.id }); } catch (error) { toast.error(error instanceof Error ? error.message : "Could not create change."); } };
   const departmentName = useMemo(() => departments.find((d) => d.department_key === departmentKey)?.display_name ?? "Workspace-wide", [departments, departmentKey]);
   const rotatingPlaceholders = useMemo(() => [
@@ -175,7 +176,7 @@ function ChatPage() {
                     <div className="flex min-w-0 items-center gap-2"><span className="h-2 w-2 shrink-0 rounded-full bg-muted-foreground/30" /><span className="truncate">{session.title || "Untitled chat"}</span></div>
                     {session.id === sessionId && <div className="mt-1 pl-4 text-[11px] text-muted-foreground">Now</div>}
                   </button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground opacity-0 transition group-hover:opacity-100" onClick={() => void remove(session.id)} aria-label={"Delete " + (session.title || "chat")}><Trash2 className="h-3.5 w-3.5" /></Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring" onClick={() => setPendingDelete(session)} aria-label={"Delete " + (session.title || "chat")}><Trash2 className="h-3.5 w-3.5" /></Button>
                 </div>
               ))}
             </div>
@@ -183,10 +184,24 @@ function ChatPage() {
         </aside>
       )}
 
+      {mobileHistoryOpen && (
+        <div className="fixed inset-0 z-40 bg-black/30 lg:hidden" role="presentation" onClick={() => setMobileHistoryOpen(false)}>
+          <aside className="flex h-full w-[min(86vw,340px)] flex-col border-r bg-background shadow-xl" role="dialog" aria-label="Chat history" onClick={(event) => event.stopPropagation()}>
+            <div className="border-b p-4">
+              <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={historyQuery} onChange={(event) => setHistoryQuery(event.target.value)} placeholder="Search chats" className="h-9 rounded-lg pl-9 text-sm" /></div>
+              <Button variant="secondary" className="mt-3 h-9 w-full justify-center font-medium" onClick={() => { setMobileHistoryOpen(false); void startNewChat(); }}><Plus className="mr-2 h-4 w-4" />New chat</Button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4"><div className="mb-3 flex items-center justify-between px-2 text-xs font-medium text-muted-foreground"><span>All</span><span>{filteredSessions.length}</span></div><div className="space-y-1">
+              {filteredSessions.map((session) => (<div key={session.id} className="group flex items-center gap-1 rounded-lg"><button type="button" onClick={() => { setMobileHistoryOpen(false); void openSession(session.id); }} className={"min-w-0 flex-1 rounded-lg px-3 py-2.5 text-left text-sm transition hover:bg-muted/60 " + (session.id === sessionId ? "bg-primary/10 text-foreground" : "text-muted-foreground")}><div className="flex min-w-0 items-center gap-2"><span className="h-2 w-2 shrink-0 rounded-full bg-muted-foreground/30" /><span className="truncate">{session.title || "Untitled chat"}</span></div>{session.id === sessionId && <div className="mt-1 pl-4 text-[11px] text-muted-foreground">Now</div>}</button><Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring" onClick={() => setPendingDelete(session)} aria-label={"Delete " + (session.title || "chat")} title="Delete chat"><Trash2 className="h-3.5 w-3.5" /></Button></div>))}
+            </div></div>
+          </aside>
+        </div>
+      )}
+
       <section className="flex min-w-0 flex-1 flex-col bg-white dark:bg-background">
         <header className="flex h-14 shrink-0 items-center justify-between border-b px-5 sm:px-8">
           <div className="flex min-w-0 items-center gap-2">
-            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 rounded-full" onClick={() => setHistoryOpen((open) => !open)} title={historyOpen ? "Close chat history" : "Open chat history"} aria-label={historyOpen ? "Close chat history" : "Open chat history"}>
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 rounded-full" onClick={() => { if (window.matchMedia("(max-width: 1023px)").matches) setMobileHistoryOpen((open) => !open); else setHistoryOpen((open) => !open); }} title="Toggle chat history" aria-label="Toggle chat history">
               {historyOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
             </Button>
             <div className="min-w-0 truncate text-sm font-medium text-foreground">{hasConversation ? conversationTitle : "New conversation"}</div>
@@ -274,14 +289,14 @@ function ChatPage() {
               <div className="mt-2 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                   <button type="button" className="flex h-9 w-9 items-center justify-center rounded-full border bg-background transition hover:bg-muted" title="Add attachment"><Plus className="h-4 w-4" /></button>
-                  <span className="font-medium">Plan</span>
+                  <span className="font-medium">{depth === "thorough" ? "Thorough" : "Quick"}</span>
                   <button type="button" role="switch" aria-checked={depth === "thorough"} onClick={() => setDepth((current) => current === "thorough" ? "quick" : "thorough")} className={"relative h-5 w-9 rounded-full border transition " + (depth === "thorough" ? "bg-primary" : "bg-muted")}>
                     <span className={"absolute top-0.5 h-3.5 w-3.5 rounded-full bg-background shadow transition " + (depth === "thorough" ? "left-[18px]" : "left-0.5")} />
                   </button>
                 </div>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                   <select aria-label="Response mode" value={depth} onChange={(event) => setDepth(event.target.value as "quick" | "thorough")} className="h-8 appearance-none bg-transparent px-1 text-xs font-medium outline-none">
-                    <option value="thorough">Auto</option><option value="quick">Quick</option>
+                    <option value="quick">Quick</option><option value="thorough">Thorough</option>
                   </select>
                   <Button type="submit" size="icon" className="h-10 w-10 rounded-full" disabled={!input.trim() || mutation.isPending || !sessionId} title={mutation.isPending ? "Thinking" : "Send"}>
                     {mutation.isPending ? <Square className="h-4 w-4 fill-current" /> : <ArrowUp className="h-4 w-4" />}
@@ -317,6 +332,8 @@ function ChatPage() {
       </section>
 
       {mutation.isError && <div className="fixed bottom-4 right-4 z-50 w-[min(420px,calc(100vw-2rem))]"><Alert variant="destructive"><AlertTitle>Enterprise AI unavailable</AlertTitle><AlertDescription>{mutation.error instanceof Error ? mutation.error.message : "Try again."}</AlertDescription></Alert></div>}
+      <AlertDialog open={Boolean(pendingDelete)} onOpenChange={(open) => { if (!open) setPendingDelete(null); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete this chat permanently?</AlertDialogTitle><AlertDialogDescription>{pendingDelete ? <>This will permanently delete <span className="font-medium text-foreground">{pendingDelete.title || "this conversation"}</span> and its saved messages from your chat history.</> : "This chat will be permanently deleted."}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => { if (pendingDelete) void remove(pendingDelete.id); }}>Delete chat</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+
     </div>
   );
 }
