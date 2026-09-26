@@ -31,6 +31,7 @@ function OnboardingExperience() {
   const load = useServerFn(getOnboardingState);
   const save = useServerFn(saveOnboardingState);
   const [state, setState] = useState<OnboardingState | null>(null);
+  const [tourClosed, setTourClosed] = useState(false);
   const manual = new URLSearchParams(searchStr).get("onboarding") === "1";
 
   useEffect(() => {
@@ -49,16 +50,21 @@ function OnboardingExperience() {
   }, [tenantId, path, state, save]);
 
   useEffect(() => {
+    if (manual) setTourClosed(false);
+  }, [manual]);
+
+  useEffect(() => {
     if (!manual || !tenantId) return;
     void save({ data: { tourDismissed: false } }).then(setState).catch(() => undefined);
   }, [manual, tenantId, save]);
 
   const automatic = Boolean(state?.eligible && environmentMode === "demo" && !state.tourCompleted && !state.tourDismissed);
-  const open = manual || automatic;
+  const open = !tourClosed && (manual || automatic);
   if (!open) return null;
 
   const close = (nextOpen: boolean) => {
     if (nextOpen) return;
+    setTourClosed(true);
     if (manual) window.history.replaceState(null, "", window.location.pathname);
   };
 
