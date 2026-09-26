@@ -21,45 +21,17 @@ export interface TenantContextValue {
 export async function ensureTenantBootstrap(user: User) {
   const provisioned = await provisionPersonalWorkspace();
 
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("tenant_id")
-    .eq("id", user.id)
-    .single();
-
-  if (profileError || !profile?.tenant_id) {
-    throw new Error("Workspace membership could not be loaded.");
-  }
-  if (profile.tenant_id !== provisioned.tenantId) {
-    throw new Error("Workspace membership could not be verified.");
-  }
-
-  const [tenantResult, rolesResult] = await Promise.all([
-    supabase
-      .from("tenants")
-      .select("name,primary_domain,environment_mode")
-      .eq("id", profile.tenant_id)
-      .single(),
-    supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .eq("tenant_id", profile.tenant_id),
-  ]);
-
-  if (tenantResult.error || !tenantResult.data) {
-    throw new Error("Workspace details could not be loaded.");
-  }
-  if (rolesResult.error || !rolesResult.data?.length) {
-    throw new Error("Workspace role could not be loaded.");
-  }
-
+  // The trusted server function has already created/verified the workspace and
+  // returns the authoritative tenant + role payload. Do not immediately re-read
+  // these rows through the browser client: RLS/session propagation can lag behind
+  // the server-side service-role transaction and make a successful bootstrap look
+  // like a failure.
   return {
-    tenantId: profile.tenant_id,
-    tenantName: tenantResult.data.name,
-    primaryDomain: tenantResult.data.primary_domain,
-    roles: rolesResult.data.map((row) => row.role as AppRole),
-    environmentMode: tenantResult.data.environment_mode === "demo" ? "demo" : "live",
+    tenantId: provisioned.tenantId,
+    tenantName: provisioned.tenantName,
+    primaryDomain: provisioned.primaryDomain,
+    roles: provisioned.roles,
+    environmentMode: provisioned.environmentMode,
   };
 }
 

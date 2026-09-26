@@ -5,10 +5,11 @@ import { evaluateAgentRun } from "./agent-evaluation";
 import type { AgentRunEvent } from "./agent-run-events";
 import type { AgentRunState } from "./agent-runtime";
 
-const errorResult = (error: unknown) => ({
+const errorResult = (error: unknown) => { console.error("[agent-evaluation] failed", error); return ({
   ok: false as const,
   error: error instanceof Error ? error.message : "Agent evaluation failed.",
 });
+};
 
 async function loadEvaluationInput(supabase: any, tenantId: string, runId: string) {
   const { data: row, error } = await supabase
