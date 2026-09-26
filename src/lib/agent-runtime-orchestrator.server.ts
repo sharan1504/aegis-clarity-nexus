@@ -33,7 +33,8 @@ export async function orchestrateSecurityRun(supabase: UserClient, userId: strin
   if (token) {
     try {
       const availability = await getAgentMcpToolAvailability(supabase, routed.tenantId, SECURITY_AGENT_KEY);
-      const securityTools = availability.filter((tool) => tool.available && tool.capability === "security_findings" && tool.origin !== "builtin").slice(0, 8);
+      const playbookCapabilities = new Set(["security_findings", "user_inventory", "incident_signals", "operations_overview"]);
+      const securityTools = availability.filter((tool) => tool.available && tool.capability && playbookCapabilities.has(tool.capability)).slice(0, 12);
       const dynamicResults = await Promise.all(securityTools.map(async (tool) => {
         try {
           const governed = await runGovernedWithToken(token, userId, {
@@ -51,7 +52,7 @@ export async function orchestrateSecurityRun(supabase: UserClient, userId: strin
         }
       }));
       dynamicEvidence.push(...dynamicResults.filter(Boolean));
-      if (!securityTools.length) dynamicWarnings.push("Data gap: no additional provider security evidence tool is authorized for this run.");
+      if (!securityTools.length) dynamicWarnings.push("Data gap: no additional cross-provider security playbook tool is authorized for this run.");
     } catch (error) {
       dynamicWarnings.push(error instanceof Error ? error.message : "Additional provider security evidence could not be discovered.");
     }
