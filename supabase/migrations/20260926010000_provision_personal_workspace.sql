@@ -74,7 +74,7 @@ BEGIN
   v_slug := v_slug || '-' || left(replace(p_user_id::text, '-', ''), 8);
 
   INSERT INTO public.tenants (name, slug, primary_domain, environment_mode, created_by)
-    VALUES (v_name, v_slug, NULLIF(v_domain, 'workspace'), 'live'::public.environment_mode, p_user_id)
+    VALUES (v_name, v_slug, NULLIF(v_domain, 'workspace'), 'demo'::public.environment_mode, p_user_id)
     ON CONFLICT (slug) DO NOTHING RETURNING * INTO v_tenant;
   IF v_tenant.id IS NULL THEN
     SELECT t.* INTO STRICT v_tenant FROM public.tenants AS t WHERE t.slug = v_slug;
