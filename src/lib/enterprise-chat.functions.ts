@@ -122,7 +122,7 @@ export const executeEnterpriseChat = createServerFn({ method: "POST" }).middlewa
       ? await Promise.all([
           safeEvidenceRead(
             "workspace",
-            () => runEvidenceTool("Genesys", "cenops-workspace", "loadLiveWorkspaceData", { departmentKey: department.departmentKey }, () => loadLiveWorkspaceData(context.supabase, context.userId, department.department.departmentKey)),
+            () => runEvidenceTool("Genesys", "cenops-workspace", "loadLiveWorkspaceData", { departmentKey: department.departmentKey }, () => loadLiveWorkspaceData(context.supabase, context.userId, department.departmentKey)),
             { entities: [], fetchedAt: new Date().toISOString(), warnings: ["No connected workspace evidence was available."] },
           ),
           shouldLoadProviderEvidence
