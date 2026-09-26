@@ -6,16 +6,13 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { saveOnboardingState } from "@/lib/onboarding.functions";
-import type { OnboardingState } from "@/lib/onboarding.functions";
 import { TOUR_STEPS } from "@/lib/onboarding-config";
 
 export function OnboardingTour({
   open,
-  state: _state,
   onOpenChange,
 }: {
   open: boolean;
-  state: OnboardingState | null;
   onOpenChange: (open: boolean) => void;
 }) {
   const navigate = useNavigate();
