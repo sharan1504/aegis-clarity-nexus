@@ -47,7 +47,7 @@ BEGIN
       'environmentMode', v_tenant.environment_mode, 'created', false, 'via', 'existing');
   END IF;
 
-  SELECT count(DISTINCT ur.tenant_id), min(ur.tenant_id) INTO v_membership_count, v_membership_tenant
+  SELECT count(DISTINCT ur.tenant_id), (pg_catalog.array_agg(DISTINCT ur.tenant_id))[1] INTO v_membership_count, v_membership_tenant
     FROM public.user_roles AS ur WHERE ur.user_id = p_user_id;
   IF v_membership_count > 1 THEN
     RAISE EXCEPTION 'User has memberships in multiple workspaces but no active profile workspace' USING ERRCODE = '23514';
