@@ -11,7 +11,7 @@ import { HELP_GROUPS, HELP_TOPIC_BY_ID, HELP_TOPICS_WITH_PROVIDERS, type HelpTop
 import { pageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/_app/help")({
-  validateSearch: (search: Record<string, unknown>) => ({ topic: typeof search.topic === "string" ? search.topic : undefined }),
+  validateSearch: (search: Record<string, unknown>) => ({ topic: typeof search.topic === "string" ? search.topic : undefined, onboarding: typeof search.onboarding === "string" ? search.onboarding : undefined }),
   head: () => pageHead({ path: "/help", title: "Help Center — CenOps", description: "In-product documentation for Aegis / CenOps operations, integrations, agents, governance and troubleshooting." }),
   component: HelpPage,
 });
