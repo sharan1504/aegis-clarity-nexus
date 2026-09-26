@@ -6,6 +6,7 @@ import { resolveActor } from "@/lib/execution/gateway.server";
 import { executeApprovedAgentRun } from "@/lib/execution/agent-execution-handoff.server";
 import { executeApprovedAction } from "@/lib/integrations/github-governed-action.server";
 import { recordOperationalIssueSafely } from "@/lib/operational-issues.server";
+import { recordAgentLearningOutcome } from "@/lib/agent-learning.functions";
 import { assertAgentRunOperator, checkpointAgentRun, requireAgentBudget, sanitizeTracePayload } from "@/lib/agent-execution-controller.server";
 import { orchestrateSecurityRun } from "./agent-runtime-orchestrator.server";
 import { orchestrateGenericReadOnlyRun } from "./agent-runtime-generic-orchestrator.server";
@@ -25,6 +26,24 @@ export const orchestrateAgentRun = createServerFn({ method: "POST" }).middleware
       const result = run.agentKey === "agent-security"
         ? await orchestrateSecurityRun(context.supabase, context.userId, run)
         : await orchestrateGenericReadOnlyRun(context.supabase, context.userId, run); await persistRun(context.supabase, tenant.tenantId, result.run); await checkpointAgentRun(context.supabase, tenant.tenantId, data.runId, { currentStep: result.run.currentStep, status: result.run.status, evidenceCount: result.run.evidence.length, policyVerdict: result.run.policyVerdict, approval: result.run.approval });
+    try {
+      await recordAgentLearningOutcome(context.supabase, {
+        tenantId: tenant.tenantId,
+        agentRunId: data.runId,
+        agentKey: result.run.agentKey,
+        outcomeType: result.run.status === "failed" ? "run_failed" : "run_completed",
+        metadata: {
+          status: result.run.status,
+          evidenceCount: result.run.evidence.length,
+          currentStep: result.run.currentStep,
+          warnings: "warnings" in result ? result.warnings : [],
+          verification: result.run.verification,
+        },
+        createdBy: context.userId,
+      });
+    } catch (learningError) {
+      console.error("[agent-runtime] learning outcome ledger write failed", learningError);
+    }
     if (result.run.evidence.length > run.evidence.length) await appendEvent(context.supabase, { runId: data.runId, tenantId: tenant.tenantId, actorId: context.userId, eventType: "stage_completed", step: "investigate", outcome: "completed", payload: result.run.evidence[result.run.evidence.length - 1] }); if (result.run.policyVerdict !== null && run.policyVerdict === null) await appendEvent(context.supabase, { runId: data.runId, tenantId: tenant.tenantId, actorId: context.userId, eventType: "stage_completed", step: "policy", outcome: "evaluated", payload: result.run.policyVerdict }); if (result.run.status === "waiting_approval" && run.status !== "waiting_approval") await appendEvent(context.supabase, { runId: data.runId, tenantId: tenant.tenantId, actorId: context.userId, eventType: "approval_requested", step: "approval", outcome: "pending", payload: result.run.approval }); if (result.run.status === "failed" && run.status !== "failed") { await appendEvent(context.supabase, { runId: data.runId, tenantId: tenant.tenantId, actorId: context.userId, eventType: "run_failed", step: run.currentStep, outcome: "failed", payload: { error: result.run.error } }); await recordOperationalIssueSafely(context.supabase, { tenantId: tenant.tenantId, source: "agent_run", severity: "high", title: `${run.agentKey} run failed`, detail: result.run.error ?? "The agent run failed without an error detail.", relatedId: data.runId }); } return { ok: true as const, ...result, events: await loadEvents(context.supabase, tenant.tenantId, data.runId) }; } catch (error) { return runtimeError(error); } });
 export const executeAgentRun = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { runId: string; changeRecordId: string }) => ({ runId: String(input.runId ?? "").trim(), changeRecordId: String(input.changeRecordId ?? "").trim() })).handler(async ({ data, context }) => { try { if (!data.runId || !data.changeRecordId) throw new Error("A run id and approved change record id are required."); const tenant = await resolveTenantContext(context.supabase, context.userId); await assertAgentRunOperator(context.supabase, tenant.tenantId, context.userId, data.runId); const actor = await resolveActor(context.supabase, context.userId); const outcome = await executeApprovedAgentRun(context.supabase, actor, data, async ({ supabase, actor: executionActor, change }) => {
       if (change.provider !== "github") throw new Error(`Provider mutation is not implemented for ${change.provider ?? "this provider"}; execution was denied rather than simulated.`);
