@@ -68,7 +68,7 @@ function OnboardingExperience() {
     if (manual) window.history.replaceState(null, "", window.location.pathname);
   };
 
-  return <OnboardingTour open={open} state={state} onOpenChange={close} />;
+  return <OnboardingTour open={open} onOpenChange={close} />;
 }
 
 function EnvironmentModeControl() {
