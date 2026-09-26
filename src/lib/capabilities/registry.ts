@@ -10,6 +10,16 @@ import type { JsonValue } from "@/lib/json";
 import type { FreshnessState } from "./freshness";
 
 export type CapabilityKey =
+  | "operations_overview"
+  | "integration_inventory"
+  | "agent_inventory"
+  | "change_records"
+  | "incident_signals"
+  | "report_inventory"
+  | "tool_catalog"
+  | "agent_runtime"
+  | "knowledge_inventory"
+  | "external_tools"
   | "license_inventory"
   | "user_inventory"
   | "queue_inventory"
