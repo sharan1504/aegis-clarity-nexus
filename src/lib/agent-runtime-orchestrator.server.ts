@@ -9,6 +9,7 @@ import { createProposedChangeRecord } from "@/lib/change-proposal.server";
 import { getAgentMcpToolAvailability } from "@/lib/mcp/agent-tool-availability.server";
 import { invokeDynamicMcpTool } from "@/lib/mcp/dynamic-invoker.server";
 import { runGovernedWithToken } from "@/lib/execution/gateway.server";
+import { MCP_TOOL_REGISTRY } from "@/lib/mcp/gateway-catalog";
 import { orchestrateAgentRun } from "./agent-runtime-orchestrator";
 import type { AgentRunState } from "./agent-runtime";
 
@@ -37,6 +38,10 @@ export async function orchestrateSecurityRun(supabase: UserClient, userId: strin
       const securityTools = availability.filter((tool) => tool.available && tool.capability && playbookCapabilities.has(tool.capability)).slice(0, 12);
       const dynamicResults = await Promise.all(securityTools.map(async (tool) => {
         try {
+          if (tool.origin === "builtin") {
+            const result = await MCP_TOOL_REGISTRY.invoke(tool.name, run.input ?? {}, { isAuthenticated: () => true, token, userId });
+            return { tool: tool.name, provider: tool.provider, capability: tool.capability, result };
+          }
           const governed = await runGovernedWithToken(token, userId, {
             origin: "mcp",
             actionKey: tool.actionKey,
