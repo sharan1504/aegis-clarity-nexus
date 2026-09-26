@@ -3,6 +3,7 @@ import { initRealtime, teardownRealtime } from "@/lib/realtime";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { provisionPersonalWorkspace } from "@/lib/tenant-provision.functions";
+import { initializeOnboardingState } from "@/lib/onboarding.functions";
 
 export type AppRole = "admin" | "manager" | "analyst" | "viewer";
 export type EnvironmentMode = "live" | "demo";
@@ -20,6 +21,14 @@ export interface TenantContextValue {
 
 export async function ensureTenantBootstrap(user: User) {
   const provisioned = await provisionPersonalWorkspace();
+  if (provisioned.created) {
+    try {
+      await initializeOnboardingState();
+    } catch (error) {
+      // Onboarding is presentation-only; never fail workspace bootstrap because its state cannot be stored.
+      console.warn("[onboarding] initialization failed", error);
+    }
+  }
 
   // The trusted server function has already created/verified the workspace and
   // returns the authoritative tenant + role payload. Do not immediately re-read
