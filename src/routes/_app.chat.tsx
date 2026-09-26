@@ -16,6 +16,7 @@ import { createChatSession, deleteChatSession, getChatSession, getMyDepartments,
 import { createChangeFromRecommendation } from "@/lib/change-recommendation.functions";
 import { pageHead } from "@/lib/seo";
 import { toast } from "sonner";
+import { FeatureHelpButton } from "@/components/onboarding/FeatureHelpDrawer";
 
 export const Route = createFileRoute("/_app/chat")({ head: () => pageHead({ path: "/chat", title: "CenOps Copilot", description: "Evidence-grounded operational analysis for enterprise operations." }), component: ChatPage });
 type Recommendation = { title?: string; rationale?: string; impact?: string; risk?: string; nextStep?: string; actionType?: string; requiresApproval?: boolean };
@@ -194,6 +195,7 @@ function ChatPage() {
             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => void startNewChat()} title="New chat"><Plus className="h-4 w-4" /></Button>
             <Button variant="ghost" size="icon" className="hidden h-8 w-8 rounded-full sm:inline-flex" onClick={() => void navigator.clipboard?.writeText(window.location.href)} title="Copy chat link"><Link2 className="h-4 w-4" /></Button>
             <Button variant="ghost" size="icon" className="hidden h-8 w-8 rounded-full md:inline-flex" onClick={() => void document.documentElement.requestFullscreen?.()} title="Full screen"><Maximize2 className="h-4 w-4" /></Button>
+            <FeatureHelpButton topicId="copilot" />
           </div>
         </header>
 
