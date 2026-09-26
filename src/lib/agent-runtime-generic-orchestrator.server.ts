@@ -15,12 +15,6 @@ function requestToken(): string {
   return header.slice("Bearer ".length).trim();
 }
 
-function requestToken(): string {
-  const header = getRequest()?.headers.get("authorization");
-  if (!header?.startsWith("Bearer ")) throw new Error("Authenticated request token is unavailable.");
-  return header.slice("Bearer ".length).trim();
-}
-
 function selectPlaybookTools(playbook: ReturnType<typeof getAgentPlaybook>, availability: Awaited<ReturnType<typeof getAgentMcpToolAvailability>>) {
   const selected: Array<{ stepId: string; stepName: string; tool: (typeof availability)[number] }> = [];
   const seen = new Set<string>();
