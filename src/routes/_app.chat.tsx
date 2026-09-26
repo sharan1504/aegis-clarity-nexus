@@ -289,7 +289,7 @@ function ChatPage() {
               <div className="mt-2 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                   <button type="button" className="flex h-9 w-9 items-center justify-center rounded-full border bg-background transition hover:bg-muted" title="Add attachment"><Plus className="h-4 w-4" /></button>
-                  <span className="font-medium">Plan</span>
+                  <span className="font-medium">{depth === "thorough" ? "Thorough" : "Quick"}</span>
                   <button type="button" role="switch" aria-checked={depth === "thorough"} onClick={() => setDepth((current) => current === "thorough" ? "quick" : "thorough")} className={"relative h-5 w-9 rounded-full border transition " + (depth === "thorough" ? "bg-primary" : "bg-muted")}>
                     <span className={"absolute top-0.5 h-3.5 w-3.5 rounded-full bg-background shadow transition " + (depth === "thorough" ? "left-[18px]" : "left-0.5")} />
                   </button>
