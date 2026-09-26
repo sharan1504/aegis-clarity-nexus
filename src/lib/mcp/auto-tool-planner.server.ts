@@ -7,11 +7,12 @@ const TEMPLATE_MAP: Record<string, { providers: string[] | "*"; toolPrefix: stri
   user_inventory: { providers: "*", toolPrefix: "list_users", entityTypes: ["user","directory_user","identity"], title: "List users" },
   cost_inventory: { providers: ["aws","azure","gcp"], toolPrefix: "list_cost_signals", entityTypes: ["cost","billing","usage"], title: "List cost signals" },
   cloud_resource_inventory: { providers: ["aws","azure","gcp"], toolPrefix: "list_cloud_resources", entityTypes: ["resource","instance","cloud_resource"], title: "List cloud resources" },
-  security_findings: { providers: ["github","gitlab","crowdstrike","microsoft-defender","okta","splunk"], toolPrefix: "list_security_findings", entityTypes: ["finding","vulnerability","security_finding","alert"], title: "List security findings" },
+  security_findings: { providers: ["github","gitlab","crowdstrike","microsoft-defender","okta","splunk","rubrik","aws","azure"], toolPrefix: "list_security_findings", entityTypes: ["finding","vulnerability","security_finding","alert"], title: "List security findings" },
   incident_signals: { providers: ["pagerduty","datadog","newrelic","splunk","servicenow","jira"], toolPrefix: "list_incidents", entityTypes: ["incident","alert"], title: "List incidents" },
   queue_inventory: { providers: ["genesys"], toolPrefix: "list_contact_queues", entityTypes: ["queue"], title: "List contact queues" },
   presence_inventory: { providers: ["genesys"], toolPrefix: "list_user_presence", entityTypes: ["presence","user_presence"], title: "List user presence" },
   knowledge_inventory: { providers: ["confluence","slack","zendesk","freshworks"], toolPrefix: "list_knowledge_sources", entityTypes: ["page","ticket","channel","knowledge_source"], title: "List knowledge sources" },
+  productivity_activity: { providers: "*", toolPrefix: "list_productivity_activity", entityTypes: ["issue","ticket","case","task","work_item","interaction","activity"], title: "List productivity activity" },
 };
 
 const asDb = (supabase: SupabaseClient<Database>) => supabase as unknown as SupabaseClient;
