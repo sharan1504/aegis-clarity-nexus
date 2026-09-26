@@ -52,7 +52,21 @@ async function loadEvaluationInput(supabase: any, tenantId: string, runId: strin
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
-  return { run, events: (eventRows ?? []) as AgentRunEvent[] };
+  const events: AgentRunEvent[] = (eventRows ?? []).map((event: any) => ({
+    id: event.id,
+    runId: event.run_id,
+    tenantId: event.tenant_id,
+    sequence: event.sequence,
+    eventType: event.event_type,
+    step: event.step,
+    actorId: event.actor_id,
+    provider: event.provider,
+    capabilityKey: event.capability_key,
+    outcome: event.outcome,
+    payload: event.payload ?? {},
+    occurredAt: event.occurred_at,
+  }));
+  return { run, events };
 }
 
 export const evaluateAgentRunFn = createServerFn({ method: "POST" })
