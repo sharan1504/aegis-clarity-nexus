@@ -75,6 +75,7 @@ export const FEATURE_HELP_BY_PATH: Record<string, string> = {
   "/": "command-center",
   "/chat": "copilot",
   "/analytics": "analytics-reports",
+  "/analytics/workspace": "analytics-reports",
   "/agents": "ai-agents",
   "/integrations": "integrations",
   "/governance": "governance",
