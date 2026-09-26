@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUp, BookOpen, ClipboardCheck, FileText, Link2, Maximize2, PanelLeftClose, PanelLeftOpen, Plus, Search, ShieldAlert, Sparkles, Square, Trash2 } from "lucide-react";
+import { ArrowUp, BookOpen, Bot, ClipboardCheck, Compass, FileText, Link2, Maximize2, PanelLeftClose, PanelLeftOpen, Plus, Plug, Search, ShieldAlert, Sparkles, Square, Trash2 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -16,17 +16,19 @@ import { createChatSession, deleteChatSession, getChatSession, getMyDepartments,
 import { createChangeFromRecommendation } from "@/lib/change-recommendation.functions";
 import { pageHead } from "@/lib/seo";
 import { toast } from "sonner";
+import { FeatureHelpButton } from "@/components/onboarding/FeatureHelpDrawer";
 
 export const Route = createFileRoute("/_app/chat")({ head: () => pageHead({ path: "/chat", title: "CenOps Copilot", description: "Evidence-grounded operational analysis for enterprise operations." }), component: ChatPage });
 type Recommendation = { title?: string; rationale?: string; impact?: string; risk?: string; nextStep?: string; actionType?: string; requiresApproval?: boolean };
 type Result = { demo?: boolean; answer?: string; analysis?: string; recommendations?: Recommendation[]; sources?: string[]; confidence?: number; actionRequired?: boolean; investigationId?: string; response?: CenOpsResponse; intent?: string };
 type Message = EnterpriseChatMessage & { result?: Result; id?: string; createdAt?: string };
 const suggestions = [
+  { label: "What can CenOps do?", prompt: "What can CenOps do? Give me a practical tour of the core features and explain where I should start.", Icon: Sparkles },
+  { label: "Walk me through Command Center", prompt: "Walk me through Command Center and explain what I should look at first.", Icon: Compass },
+  { label: "Which agent should I try first?", prompt: "Which AI agent should I try first in this workspace, and what does it demonstrate?", Icon: Bot },
+  { label: "What do I need to connect for license optimization?", prompt: "What integrations and evidence do I need for license optimization, especially the Genesys license workflow?", Icon: Plug },
   { label: "Investigate an incident", prompt: "Investigate the most important operational incident affecting this workspace right now.", Icon: ShieldAlert },
   { label: "Review approvals", prompt: "Review the pending approvals and highlight anything that needs attention.", Icon: ClipboardCheck },
-  { label: "Explain a capability", prompt: "Explain how CenOps guardrails work and when they require human approval.", Icon: BookOpen },
-  { label: "Generate a report", prompt: "Generate an executive report on the current operational health of this workspace.", Icon: FileText },
-  { label: "Find optimization opportunities", prompt: "Find the most important license and operational optimization opportunities right now.", Icon: Sparkles },
 ];
 const cleanAssistantText = (value: string) => value.replace(/<svg[\s\S]*?<\/svg>/gi, "").replace(/<[^>]+>/g, "").replace(/(^|\n)\s*svg\s*(?=\n|$)/gi, "").replace(/\n{3,}/g, "\n\n").trim();
 const buildChatTitle = (message: string) => {
@@ -193,6 +195,7 @@ function ChatPage() {
             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => void startNewChat()} title="New chat"><Plus className="h-4 w-4" /></Button>
             <Button variant="ghost" size="icon" className="hidden h-8 w-8 rounded-full sm:inline-flex" onClick={() => void navigator.clipboard?.writeText(window.location.href)} title="Copy chat link"><Link2 className="h-4 w-4" /></Button>
             <Button variant="ghost" size="icon" className="hidden h-8 w-8 rounded-full md:inline-flex" onClick={() => void document.documentElement.requestFullscreen?.()} title="Full screen"><Maximize2 className="h-4 w-4" /></Button>
+            <FeatureHelpButton topicId="copilot" />
           </div>
         </header>
 

@@ -6,6 +6,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupConte
 import { useTenantContext } from "@/lib/tenant";
 import { Badge } from "@/components/ui/badge";
 import { listOperationalIssues } from "@/lib/operational-console.functions";
+import { ExploreChecklist } from "@/components/onboarding/ExploreChecklist";
 
 const nav = [
   { section: "Overview", items: [
@@ -66,6 +67,7 @@ export function AppSidebar() {
           {group.items.map((item) => <SidebarMenuItem key={item.url}><SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title} className="h-9 rounded-lg px-3 text-[13px] font-medium text-sidebar-foreground/80 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground data-[active=true]:text-sidebar-foreground"><Link to={item.url} className="flex items-center gap-3"><item.icon className="h-[17px] w-[17px] shrink-0" />{!collapsed && <span className="flex min-w-0 flex-1 items-center gap-2"><span className="truncate">{item.title}</span>{item.url === "/operational-console" && openHighCritical > 0 && <Badge variant="destructive" className="ml-auto h-5 min-w-5 rounded-full px-1 text-[10px]">{openHighCritical}</Badge>}</span>}</Link></SidebarMenuButton></SidebarMenuItem>)}
         </SidebarMenu></SidebarGroupContent>
       </SidebarGroup>)}
+      <ExploreChecklist collapsed={collapsed} />
     </SidebarContent>
     <SidebarFooter className="border-t border-sidebar-border/70 p-2">
       {!collapsed && <div className="mb-2 rounded-xl border border-sidebar-border bg-sidebar-accent/20 px-3 py-3"><div className="flex items-center gap-2 text-[12px] font-medium text-sidebar-foreground"><span className="h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_8px_var(--color-success)]" />Protected operations</div></div>}

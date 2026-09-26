@@ -1,5 +1,5 @@
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
-import { BookOpen, CheckCircle2, ChevronRight, ExternalLink, Menu, Search, ShieldCheck } from "lucide-react";
+import { BookOpen, CheckCircle2, ChevronRight, ExternalLink, Menu, Search, ShieldCheck, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { PageHeader } from "@/components/layout/AppLayout";
@@ -11,7 +11,7 @@ import { HELP_GROUPS, HELP_TOPIC_BY_ID, HELP_TOPICS_WITH_PROVIDERS, type HelpTop
 import { pageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/_app/help")({
-  validateSearch: (search: Record<string, unknown>) => ({ topic: typeof search.topic === "string" ? search.topic : undefined }),
+  validateSearch: (search: Record<string, unknown>) => ({ topic: typeof search.topic === "string" ? search.topic : undefined, onboarding: typeof search.onboarding === "string" ? search.onboarding : undefined }),
   head: () => pageHead({ path: "/help", title: "Help Center — CenOps", description: "In-product documentation for Aegis / CenOps operations, integrations, agents, governance and troubleshooting." }),
   component: HelpPage,
 });
@@ -43,7 +43,7 @@ function HelpPage() {
       <PageHeader
         title="Help Center"
         description="Operational documentation for Aegis / CenOps. The guidance below is based on the current product surfaces and intentionally distinguishes contract-backed evidence from auth-only or catalog-only states."
-        actions={<Button variant="outline" size="sm" onClick={() => setMobileOpen((value) => !value)} className="lg:hidden"><Menu className="mr-2 h-4 w-4" /> Topics</Button>}
+        actions={<div className="flex flex-wrap gap-2"><Button asChild variant="outline" size="sm"><a href="/?onboarding=1"><Sparkles className="mr-2 h-4 w-4" /> Restart tour</a></Button><Button variant="outline" size="sm" onClick={() => setMobileOpen((value) => !value)} className="lg:hidden"><Menu className="mr-2 h-4 w-4" /> Topics</Button></div>}
       />
       <div className="grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
         <aside className={`${mobileOpen ? "block" : "hidden"} lg:sticky lg:top-24 lg:block lg:self-start`} aria-label="Help topics">

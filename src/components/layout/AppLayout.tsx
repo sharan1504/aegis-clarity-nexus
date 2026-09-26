@@ -1,6 +1,7 @@
 import { Outlet, useNavigate, Link, useRouterState } from "@tanstack/react-router";
 import { LogOut, Moon, ShieldCheck, Sun, AlertTriangle, ChevronDown, CircleHelp, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
@@ -16,8 +17,59 @@ import { TenantProvider, useTenantContext } from "@/lib/tenant";
 import { supabase } from "@/integrations/supabase/client";
 import { updateEnvironmentMode } from "@/lib/settings.functions";
 import { toast } from "sonner";
+import { FeatureHelpButton } from "@/components/onboarding/FeatureHelpDrawer";
+import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
+import { getOnboardingState, saveOnboardingState, type OnboardingState } from "@/lib/onboarding.functions";
+import { FEATURE_HELP_BY_PATH, ONBOARDING_VISIT_PATHS } from "@/lib/onboarding-config";
 
 export function AppLayout() { return <TenantProvider><RoleProvider><AppShell /></RoleProvider></TenantProvider>; }
+
+function OnboardingExperience() {
+  const { tenantId, environmentMode, loading } = useTenantContext();
+  const path = useRouterState({ select: (router) => router.location.pathname });
+  const searchStr = useRouterState({ select: (router) => router.location.searchStr });
+  const load = useServerFn(getOnboardingState);
+  const save = useServerFn(saveOnboardingState);
+  const [state, setState] = useState<OnboardingState | null>(null);
+  const [tourClosed, setTourClosed] = useState(false);
+  const manual = new URLSearchParams(searchStr).get("onboarding") === "1";
+
+  useEffect(() => {
+    if (!tenantId || loading) return;
+    void load().then(setState).catch(() => setState(null));
+  }, [tenantId, loading, load]);
+
+  useEffect(() => {
+    if (!tenantId || !state?.eligible) return;
+    const feature = ONBOARDING_VISIT_PATHS[path];
+    if (!feature || state.visitedFeatures[feature]) return;
+    void save({ data: { visitedFeature: feature } }).then((next) => {
+      setState(next);
+      window.dispatchEvent(new Event("cenops:onboarding-updated"));
+    }).catch(() => undefined);
+  }, [tenantId, path, state, save]);
+
+  useEffect(() => {
+    if (manual) setTourClosed(false);
+  }, [manual]);
+
+  useEffect(() => {
+    if (!manual || !tenantId) return;
+    void save({ data: { tourDismissed: false } }).then(setState).catch(() => undefined);
+  }, [manual, tenantId, save]);
+
+  const automatic = Boolean(state?.eligible && environmentMode === "demo" && !state.tourCompleted && !state.tourDismissed);
+  const open = !tourClosed && (manual || automatic);
+  if (!open) return null;
+
+  const close = (nextOpen: boolean) => {
+    if (nextOpen) return;
+    setTourClosed(true);
+    if (manual) window.history.replaceState(null, "", window.location.pathname);
+  };
+
+  return <OnboardingTour open={open} onOpenChange={close} />;
+}
 
 function EnvironmentModeControl() {
   const { environmentMode, refreshTenant } = useTenantContext();
@@ -56,6 +108,7 @@ function AppShell() {
   const initials = (user?.email ?? "AW").replace(/@.*$/, "").split(/[.\-_]/).map((part) => part.charAt(0).toUpperCase()).slice(0, 2).join("");
   const signOut = async () => { await supabase.auth.signOut(); navigate({ to: "/auth" }); };
   const demo = environmentMode === "demo";
+  const helpTopic = FEATURE_HELP_BY_PATH[path];
 
   if (loading) {
     return (
@@ -104,6 +157,7 @@ function AppShell() {
           {!isChat && <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border/80 bg-background/95 px-4 backdrop-blur-xl lg:px-5">
             <SidebarTrigger className="shrink-0 text-muted-foreground hover:text-foreground lg:hidden" />
             <GlobalSearch />
+            {helpTopic && <FeatureHelpButton topicId={helpTopic} />}
             <div className="ml-auto flex shrink-0 items-center gap-1.5">
               <Badge variant="outline" className="hidden h-8 gap-1.5 rounded-lg border-border bg-card/40 px-2.5 text-[10px] font-medium xl:flex"><span className={`h-1.5 w-1.5 rounded-full ${demo ? "bg-warning" : "bg-success shadow-[0_0_7px_var(--color-success)]"}`} />{tenantName ? tenantName : "All systems operational"}</Badge>
               <EnvironmentModeControl />
@@ -121,6 +175,7 @@ function AppShell() {
         </SidebarInset>
       </div>
     </div>
+    <OnboardingExperience />
     <Toaster richColors position="bottom-right" />
   </SidebarProvider>;
 }

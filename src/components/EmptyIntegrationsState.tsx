@@ -20,11 +20,16 @@ export function EmptyIntegrationsState({
           <h3 className="text-lg font-semibold">{title}</h3>
           <p className="mt-1 text-sm text-muted-foreground">{description}</p>
         </div>
-        <Button asChild>
-          <Link to="/integrations">
-            Go to Integrations <ArrowRight className="ml-1.5 h-4 w-4" />
-          </Link>
-        </Button>
+        <div className="flex flex-wrap justify-center gap-2">
+          <Button asChild>
+            <Link to="/integrations">
+              Go to Integrations <ArrowRight className="ml-1.5 h-4 w-4" />
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/help" search={{ topic: "integrations" }}>Learn how this works</Link>
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
