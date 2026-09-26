@@ -3163,13 +3163,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      provision_personal_workspace: {
-        Args: {
-          p_user_id: string
-        }
-        Returns: Json
-      }
-
       append_agent_run_event: {
         Args: {
           p_actor_id: string
@@ -3222,6 +3215,10 @@ export type Database = {
           p_run_id: string
           p_tenant_id: string
         }
+        Returns: Json
+      }
+      provision_personal_workspace: {
+        Args: { p_user_id: string }
         Returns: Json
       }
     }
