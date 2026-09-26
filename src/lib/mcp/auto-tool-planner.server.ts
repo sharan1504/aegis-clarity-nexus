@@ -11,6 +11,7 @@ const TEMPLATE_MAP: Record<string, { providers: string[] | "*"; toolPrefix: stri
   incident_signals: { providers: ["pagerduty","datadog","newrelic","splunk","servicenow","jira"], toolPrefix: "list_incidents", entityTypes: ["incident","alert"], title: "List incidents" },
   queue_inventory: { providers: ["genesys"], toolPrefix: "list_contact_queues", entityTypes: ["queue"], title: "List contact queues" },
   presence_inventory: { providers: ["genesys"], toolPrefix: "list_user_presence", entityTypes: ["presence","user_presence"], title: "List user presence" },
+  routing_inventory: { providers: ["genesys"], toolPrefix: "list_routing_signals", entityTypes: ["routing","routing_rule","routing_configuration","skill"], title: "List routing signals" },
   knowledge_inventory: { providers: ["confluence","slack","zendesk","freshworks"], toolPrefix: "list_knowledge_sources", entityTypes: ["page","ticket","channel","knowledge_source"], title: "List knowledge sources" },
   productivity_activity: { providers: "*", toolPrefix: "list_productivity_activity", entityTypes: ["issue","ticket","case","task","work_item","interaction","activity"], title: "List productivity activity" },
 };
