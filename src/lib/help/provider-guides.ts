@@ -1,4 +1,6 @@
-import type { HelpSection, HelpTopic } from "./content";
+import type { HelpSection, HelpTopic as BaseHelpTopic } from "./content-base";
+
+type HelpTopic = Omit<BaseHelpTopic, "group"> & { group: typeof PROVIDER_HELP_GROUP };
 import { PROVIDER_REGISTRY, type ProviderDefinition } from "@/lib/integrations/provider-registry";
 import { CONTRACT_IMPLEMENTED_PROVIDERS } from "@/lib/integrations/provider-contract";
 import { PROVIDER_SETUP_GUIDE_BY_ID } from "@/lib/integrations/provider-setup-guides";
