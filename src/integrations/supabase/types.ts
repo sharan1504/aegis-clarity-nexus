@@ -2878,6 +2878,7 @@ export type Database = {
           analytics_settings: Json
           created_at: string
           created_by: string | null
+          description: string | null
           environment_mode: Database["public"]["Enums"]["environment_mode"]
           id: string
           name: string
@@ -2891,6 +2892,7 @@ export type Database = {
           analytics_settings?: Json
           created_at?: string
           created_by?: string | null
+          description?: string | null
           environment_mode?: Database["public"]["Enums"]["environment_mode"]
           id?: string
           name: string
@@ -2904,6 +2906,7 @@ export type Database = {
           analytics_settings?: Json
           created_at?: string
           created_by?: string | null
+          description?: string | null
           environment_mode?: Database["public"]["Enums"]["environment_mode"]
           id?: string
           name?: string
