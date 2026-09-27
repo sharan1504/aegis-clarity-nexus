@@ -95,13 +95,6 @@ const governedActions = (provider: ProviderDefinition) => provider.id === "githu
   ? "GitHub create issue is the only documented governed external write. Lifecycle: Proposed → Approved / Ready to Execute → Executing → Verified | Failed. The server verifies the created issue, posts provider sync/reconciliation and records immutable audit evidence. Verification Unsupported is reserved for a future action where authoritative verification is genuinely impossible."
   : "Not enabled for external mutations. Registry capability flags such as write/events do not by themselves enable production writes.";
 
-const commonFailures = (provider: ProviderDefinition) => [
-  "Authentication succeeds but status is pending → waiting for healthy health evidence and successful sync with lastSuccessfulAt.",
-  "Health is healthy but sync fails → still not Connected.",
-  `${provider.name} returns provider_not_implemented → it is not admitted to the production contract path yet.`,
-  "Do not treat a catalog card, OAuth callback or stored credential as proof of production readiness.",
-];
-
 function buildConnectSteps(provider: ProviderDefinition): string[] {
   const steps = [
     "Open Integrations and select the provider.",
@@ -151,7 +144,7 @@ export function buildProviderHelpTopic(provider: ProviderDefinition): HelpTopic 
       s("Capabilities", "Current production capability boundary:", capabilitiesFor(provider)),
       s("Governed actions", governedActions(provider)),
       s("Official documentation", "Use the vendor documentation below for provider-side configuration:", undefined, undefined, links),
-      s("Common failures / integrity notes", "Use these diagnostics without upgrading a partial implementation into a production claim:", [...setup.troubleshooting, ...commonFailures(provider)]),
+      s("Troubleshooting", "If the connection does not complete, review the provider-specific troubleshooting guidance below and verify the credentials, permissions, redirect URI and provider-side configuration.", setup.troubleshooting.filter((item) => !/AEGIS_CREDENTIAL_ENCRYPTION_KEY|VITE_|production contract|provider_not_implemented|production readiness|catalog card|OAuth callback|stored credential|lastSuccessfulAt|Connected/i.test(item))),
     ],
     relatedRoutes: [
       { label: "Integrations", to: "/integrations" },
