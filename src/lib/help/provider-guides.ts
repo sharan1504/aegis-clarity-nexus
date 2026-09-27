@@ -7,7 +7,7 @@ import { PROVIDER_SETUP_GUIDE_BY_ID } from "@/lib/integrations/provider-setup-gu
 
 export const PROVIDER_HELP_GROUP = "Provider setup guides" as const;
 
-const s = (heading: string, body: string, bullets?: string[], steps?: string[]): HelpSection => ({ heading, body, bullets, steps });
+const s = (heading: string, body: string, bullets?: string[], steps?: string[], links?: Array<{ label: string; url: string }>): HelpSection => ({ heading, body, bullets, steps, links });
 const fullContract = new Set(CONTRACT_IMPLEMENTED_PROVIDERS);
 
 /** Verified server-side authentication implementations identified in the current repository. */
