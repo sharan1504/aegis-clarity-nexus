@@ -33,11 +33,65 @@ export const executeEnterpriseChat = createServerFn({ method: "POST" }).middlewa
   const { environmentMode } = await resolveTenantContext(context.supabase, context.userId);
   let intent = classifyCenOpsIntent(latest, data.messages.slice(0, -1));
   let productQuestion = intent.productQuestion || isProductQuestion(latest);
-  if (environmentMode === "demo" && !productQuestion) {
+  if (environmentMode === "demo") {
+    const { tenantId } = await resolveTenantContext(context.supabase, context.userId);
+    const db = context.supabase as any;
+    let effectiveSessionId = data.sessionId;
+    const { data: existingSession } = await db.from("chat_sessions")
+      .select("id,title").eq("id", effectiveSessionId).eq("tenant_id", tenantId).eq("user_id", context.userId).maybeSingle();
+
+    if (!existingSession) {
+      const { data: replacement, error: replacementError } = await db.from("chat_sessions")
+        .insert({ tenant_id: tenantId, user_id: context.userId, title: "New chat", department_key: "contact-center" })
+        .select("id").single();
+      if (replacementError || !replacement) throw new Error(replacementError?.message ?? "Unable to recover the chat session.");
+      effectiveSessionId = replacement.id;
+    }
+
+    const { error: userMessageError } = await db.from("chat_messages").insert({
+      tenant_id: tenantId, session_id: effectiveSessionId, user_id: context.userId, role: "user", content: latest,
+    });
+    if (userMessageError) throw new Error(userMessageError.message);
+
     const investigation = DEMO_INVESTIGATIONS[0];
     const response = demoResponse(latest);
     const answer = formatCenOpsResponse(response);
-    return { ok: true as const, demo: true, answer, analysis: "Demo investigation uses deterministic, tenant-safe evidence fixtures. No external provider was contacted.", recommendations: response.recommendations, sources: response.evidence.map((e) => e.source), correlatedSignals: [], confidence: response.confidence, actionRequired: response.actionRequired, intent: intent.intent, intentConfidence: intent.confidence, response, provider: "CenOps Demo", model: "demo-evidence", readOnly: true as const, fetchedAt: "2026-09-04T08:30:00.000Z", investigationId: investigation.id, investigationEvidence: { investigationId: investigation.id, channel: "chat", tools: [{ provider: "Demo CRM", server: "demo-crm", name: "getCustomerProfile", arguments: { customerId: investigation.customer }, result: { tier: "Gold" } }, { provider: "Demo OMS", server: "demo-oms", name: "getShipmentStatus", arguments: { orderId: "ORD-DEMO-8821" }, result: { status: "delayed" } }, { provider: "CenOps", server: "demo-governance", name: "getApprovalState", arguments: { finding: "demo-aws-public-security-group" }, result: { status: "approval_required" } }], steps: ["Customer request received", "Evidence gathered", "Finding correlated", "Governed next step prepared"] } };
+    const demoResult = {
+      ok: true as const,
+      demo: true,
+      answer,
+      analysis: "Demo investigation uses deterministic, tenant-safe evidence fixtures. No external provider was contacted.",
+      recommendations: response.recommendations,
+      sources: response.evidence.map((e) => e.source),
+      correlatedSignals: [],
+      confidence: response.confidence,
+      actionRequired: response.actionRequired,
+      intent: intent.intent,
+      intentConfidence: intent.confidence,
+      response,
+      provider: "CenOps Demo",
+      model: "demo-evidence",
+      readOnly: true as const,
+      fetchedAt: "2026-09-04T08:30:00.000Z",
+      investigationId: investigation.id,
+      sessionId: effectiveSessionId,
+      investigationEvidence: {
+        investigationId: investigation.id,
+        channel: "chat",
+        tools: [
+          { provider: "Demo CRM", server: "demo-crm", name: "getCustomerProfile", arguments: { customerId: investigation.customer }, result: { tier: "Gold" } },
+          { provider: "Demo OMS", server: "demo-oms", name: "getShipmentStatus", arguments: { orderId: "ORD-DEMO-8821" }, result: { status: "delayed" } },
+          { provider: "CenOps", server: "demo-governance", name: "getApprovalState", arguments: { finding: "demo-aws-public-security-group" }, result: { status: "approval_required" } },
+        ],
+        steps: ["Customer request received", "Evidence gathered", "Finding correlated", "Governed next step prepared"],
+      },
+    };
+    const { error: assistantMessageError } = await db.from("chat_messages").insert({
+      tenant_id: tenantId, session_id: effectiveSessionId, user_id: context.userId, role: "assistant", content: answer, result: demoResult,
+    });
+    if (assistantMessageError) throw new Error(assistantMessageError.message);
+    await db.from("chat_sessions").update({ updated_at: new Date().toISOString() }).eq("id", effectiveSessionId).eq("tenant_id", tenantId).eq("user_id", context.userId);
+    return demoResult;
   }
   let investigationId: string | undefined; let investigationTenantId: string | undefined; let investigationDb: any;
   try {

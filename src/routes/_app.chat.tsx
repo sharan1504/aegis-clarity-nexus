@@ -108,7 +108,7 @@ function ChatPage() {
     })();
     return () => { active = false; };
   }, []);
-  const mutation = useMutation({ mutationFn: (next: EnterpriseChatMessage[]) => chat({ data: { sessionId: sessionId!, messages: next, depth } }), onSuccess: async (result) => { if (result.ok) { setMessages((current) => [...current, { role: "assistant", content: cleanAssistantText(result.answer ?? "Analysis complete."), result: result as Result }]); await refreshHistory(); } else toast.error(result.error); } });
+  const mutation = useMutation({ mutationFn: (next: EnterpriseChatMessage[]) => chat({ data: { sessionId: sessionId!, messages: next, depth } }), onSuccess: async (result) => { if (result.ok) { if (result.sessionId) setSessionId(result.sessionId); setMessages((current) => [...current, { role: "assistant", content: cleanAssistantText(result.answer ?? "Analysis complete."), result: result as Result }]); await refreshHistory(); } else toast.error(result.error); } });
   const send = (text: string) => {
   const content = text.trim();
   if (!content || mutation.isPending || !sessionId) return;
