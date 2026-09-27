@@ -3220,6 +3220,15 @@ export type Database = {
         }
         Returns: Json
       }
+      create_workspace_for_user: {
+        Args: {
+          p_description: string
+          p_name: string
+          p_role: Database["public"]["Enums"]["app_role"]
+          p_user_id: string
+        }
+        Returns: Json
+      }
       provision_personal_workspace: {
         Args: { p_user_id: string }
         Returns: Json

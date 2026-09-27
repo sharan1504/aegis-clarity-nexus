@@ -18,6 +18,7 @@ import { pageHead } from "@/lib/seo";
 import { toast } from "sonner";
 import { FeatureHelpButton } from "@/components/onboarding/FeatureHelpDrawer";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { boundCopilotContext, CLIENT_CONTEXT_LIMIT } from "@/lib/copilot-runtime-policy";
 
 export const Route = createFileRoute("/_app/chat")({ head: () => pageHead({ path: "/chat", title: "CenOps Copilot", description: "Evidence-grounded operational analysis for enterprise operations." }), component: ChatPage });
 type Recommendation = { title?: string; rationale?: string; impact?: string; risk?: string; nextStep?: string; actionType?: string; requiresApproval?: boolean };
@@ -108,19 +109,27 @@ function ChatPage() {
     })();
     return () => { active = false; };
   }, []);
-  const mutation = useMutation({ mutationFn: (next: EnterpriseChatMessage[]) => chat({ data: { sessionId: sessionId!, messages: next, depth } }), onSuccess: async (result) => { if (result.ok) { if (result.sessionId) setSessionId(result.sessionId); setMessages((current) => [...current, { role: "assistant", content: cleanAssistantText(result.answer ?? "Analysis complete."), result: result as Result }]); await refreshHistory(); } else toast.error(result.error); } });
+  const mutation = useMutation({
+    mutationFn: async ({ activeSessionId, next, title }: { activeSessionId: string; next: EnterpriseChatMessage[]; title?: string }) => {
+      const responsePromise = chat({ data: { sessionId: activeSessionId, messages: next, depth } });
+      const titlePromise = title
+        ? renameSession({ data: { sessionId: activeSessionId, title } }).catch((error) => {
+            toast.error(error instanceof Error ? error.message : "Could not name chat.");
+          })
+        : Promise.resolve();
+      const [result] = await Promise.all([responsePromise, titlePromise]);
+      return result;
+    },
+    onSuccess: async (result) => { if (result.ok) { if (result.sessionId) setSessionId(result.sessionId); setMessages((current) => [...current, { role: "assistant", content: cleanAssistantText(result.answer ?? "Analysis complete."), result: result as Result }]); await refreshHistory(); } else toast.error(result.error); },
+  });
   const send = (text: string) => {
   const content = text.trim();
   if (!content || mutation.isPending || !sessionId) return;
   const isFirstMessage = messages.length === 0;
-  const next = [...messages.map((m) => ({ role: m.role, content: m.content })), { role: "user" as const, content }].slice(-12);
+  const next = boundCopilotContext([...messages.map((m) => ({ role: m.role, content: m.content })), { role: "user" as const, content }], CLIENT_CONTEXT_LIMIT);
   setMessages((current) => [...current, { role: "user", content }]);
   setInput("");
-  if (isFirstMessage) {
-    const title = buildChatTitle(content);
-    void renameSession({ data: { sessionId, title } }).catch((error) => toast.error(error instanceof Error ? error.message : "Could not name chat."));
-  }
-  mutation.mutate(next);
+  mutation.mutate({ activeSessionId: sessionId, next, title: isFirstMessage ? buildChatTitle(content) : undefined });
 };
   const handleInputKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); send(input); } };
   const openSession = async (id: string) => { try { const result = await loadSession({ data: { sessionId: id } }); setSessionId(result.session.id); setDepartmentKey(result.session.departmentKey); setMessages(result.messages.map((m: StoredChatMessage) => ({ role: m.role, content: cleanAssistantText(m.content), result: m.result as Result | undefined, id: m.id, createdAt: m.createdAt }))); setHistoryQuery(""); } catch (error) { toast.error(error instanceof Error ? error.message : "Could not open chat."); } };

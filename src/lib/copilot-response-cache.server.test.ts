@@ -14,7 +14,13 @@ describe("copilot response cache", () => {
     const base = { tenantId: "tenant-a", environmentMode: "live", intent: "platform_overview", message: "What can CenOps do?" };
     const key = copilotCacheKey(base);
     const otherTenant = copilotCacheKey({ ...base, tenantId: "tenant-b" });
+    const otherEnvironment = copilotCacheKey({ ...base, environmentMode: "demo" });
+    const otherIntent = copilotCacheKey({ ...base, intent: "product_feature" });
+    const otherRequest = copilotCacheKey({ ...base, message: "How does CenOps work?" });
     expect(key).not.toBe(otherTenant);
+    expect(key).not.toBe(otherEnvironment);
+    expect(key).not.toBe(otherIntent);
+    expect(key).not.toBe(otherRequest);
     const value = { safeResult: { answer: "cached" }, fetchedAt: new Date().toISOString() };
     setCachedCopilotResponse(key, value, 1_000);
     expect(getCachedCopilotResponse(key, 1_000)).toEqual(value);
