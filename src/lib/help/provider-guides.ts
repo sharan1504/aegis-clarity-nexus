@@ -133,7 +133,7 @@ export function buildProviderHelpTopic(provider: ProviderDefinition): HelpTopic 
   const fieldText = setup.fieldMap
     .map((field) => `${field.label}${field.required ? " (required)" : ""}${field.sensitive ? " [secret]" : ""}`)
     .join(", ");
-  const links = setup.officialLinks.map((link) => `${link.label}: ${link.url}`);
+  const links = setup.officialLinks;
   return {
     id: `provider-${provider.id}`,
     title: `${provider.name} setup`,
@@ -150,7 +150,7 @@ export function buildProviderHelpTopic(provider: ProviderDefinition): HelpTopic 
       s("Connected criteria", connectedCriteria),
       s("Capabilities", "Current production capability boundary:", capabilitiesFor(provider)),
       s("Governed actions", governedActions(provider)),
-      s("Official documentation", "Use the vendor documentation below for provider-side configuration:", links),
+      s("Official documentation", "Use the vendor documentation below for provider-side configuration:", undefined, undefined, links),
       s("Common failures / integrity notes", "Use these diagnostics without upgrading a partial implementation into a production claim:", [...setup.troubleshooting, ...commonFailures(provider)]),
     ],
     relatedRoutes: [
