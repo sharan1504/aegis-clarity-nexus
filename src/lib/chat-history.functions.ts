@@ -64,7 +64,7 @@ async function ensureDemoSeeded(context: any, tenantId: string, db: any) {
       user_id: context.userId,
       role: message.role,
       content: message.content,
-      created_at: new Date(row.updatedAt).getTime() + index,
+      created_at: new Date(new Date(row.updatedAt).getTime() + index).toISOString(),
     }));
 
     const { error: messageError } = await db.from("chat_messages").insert(messages);
