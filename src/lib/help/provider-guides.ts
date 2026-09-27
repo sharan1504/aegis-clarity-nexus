@@ -4,6 +4,7 @@ type HelpTopic = Omit<BaseHelpTopic, "group"> & { group: typeof PROVIDER_HELP_GR
 import { PROVIDER_REGISTRY, type ProviderDefinition } from "@/lib/integrations/provider-registry";
 import { CONTRACT_IMPLEMENTED_PROVIDERS } from "@/lib/integrations/provider-contract";
 import { PROVIDER_SETUP_GUIDE_BY_ID } from "@/lib/integrations/provider-setup-guides";
+import { getProviderPermissionRequirement } from "@/lib/integrations/provider-permission-requirements";
 
 export const PROVIDER_HELP_GROUP = "Provider setup guides" as const;
 
@@ -127,6 +128,7 @@ export function buildProviderHelpTopic(provider: ProviderDefinition): HelpTopic 
     .map((field) => `${field.label}${field.required ? " (required)" : ""}${field.sensitive ? " [secret]" : ""}`)
     .join(", ");
   const links = setup.officialLinks;
+  const permissionRequirement = getProviderPermissionRequirement(provider.id);
   return {
     id: `provider-${provider.id}`,
     title: `${provider.name} setup`,
@@ -137,6 +139,9 @@ export function buildProviderHelpTopic(provider: ProviderDefinition): HelpTopic 
       s("Contract status", status),
       s("Auth model", provider.auth),
       s("Prerequisites", setup.prerequisites.join(" ")),
+      permissionRequirement
+        ? s("Exact provider permissions", permissionRequirement.body, permissionRequirement.items, permissionRequirement.notes)
+        : s("Exact provider permissions", "The provider-specific permission contract is not yet documented. Do not guess or grant broad administrator access.", ["Ask your provider administrator to use the exact read permissions required by the deployed CenOps connector."]),
       s("Step-by-step connect", "Prepare the provider first, then use the real CenOps Integrations flow.", [], [...setup.providerSteps, ...setup.cenopsSteps]),
       s("CenOps fields", "Enter only the fields shown by the provider form.", [fieldText]),
       s("Health & sync", `${scope} ${fullContract.has(provider.id) ? "Successful contract-backed sync reconciles entities absent from the latest successful snapshot as stale where implemented." : "This provider is not currently contract-complete, so authentication alone must not be treated as Connected."}`),
