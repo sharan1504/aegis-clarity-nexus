@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useServerFn } from "@tanstack/react-start";
 import { createWorkspace } from "@/lib/workspace-onboarding.functions";
+import { initializeOnboardingState } from "@/lib/onboarding.functions";
 import type { WorkspaceSetupRole } from "@/lib/workspace-onboarding.functions";
 
 const ROLES: Array<{ value: WorkspaceSetupRole; label: string; description: string }> = [
@@ -40,6 +41,7 @@ export function WorkspaceSetupScreen({
 
     try {
       await create({ data: { name, description, role } });
+      await initializeOnboardingState().catch(() => undefined);
       setCreated(true);
       await new Promise((resolve) => setTimeout(resolve, 450));
       await onCreated();
