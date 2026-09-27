@@ -3,7 +3,6 @@ import { initRealtime, teardownRealtime } from "@/lib/realtime";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { getWorkspaceSetupState } from "@/lib/workspace-onboarding.functions";
-import { initializeOnboardingState } from "@/lib/onboarding.functions";
 
 export type AppRole = "admin" | "manager" | "analyst" | "viewer";
 export type EnvironmentMode = "live" | "demo";
