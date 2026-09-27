@@ -4,6 +4,7 @@ import { PROVIDER_REGISTRY } from "@/lib/integrations/provider-registry";
 import { HELP_TOPIC_BY_ID } from "./content";
 import { PROVIDER_HELP_TOPICS } from "./provider-guides";
 import { PROVIDER_SETUP_GUIDES } from "@/lib/integrations/provider-setup-guides";
+import { getProviderPermissionRequirement } from "@/lib/integrations/provider-permission-requirements";
 
 describe("provider help guides", () => {
   it("documents every registry provider with a stable topic id", () => {
@@ -25,7 +26,7 @@ describe("provider help guides", () => {
       "Connected criteria",
       "Capabilities",
       "Governed actions",
-      "Common failures / integrity notes",
+      "Troubleshooting",
     ];
     for (const topic of PROVIDER_HELP_TOPICS) {
       const headings = new Set(topic.sections.map((section) => section.heading));
@@ -65,10 +66,17 @@ describe("provider setup guide catalog", () => {
     }
   });
 
-  it("exposes setup fields and official documentation through every help topic", () => {
-    for (const topic of PROVIDER_HELP_TOPICS) {
-      expect(topic.sections.some((section) => section.heading === "CenOps fields")).toBe(true);
-      expect(topic.sections.some((section) => section.heading === "Official documentation")).toBe(true);
+  it("exposes setup fields, exact permissions, and official documentation through every help topic", () => {
+    for (const provider of PROVIDER_REGISTRY) {
+      const topic = PROVIDER_HELP_TOPICS.find((item) => item.id === `provider-${provider.id}`);
+      expect(topic).toBeDefined();
+      expect(topic?.sections.some((section) => section.heading === "CenOps fields")).toBe(true);
+      expect(topic?.sections.some((section) => section.heading === "Exact provider permissions")).toBe(true);
+      const requirement = getProviderPermissionRequirement(provider.id);
+      expect(requirement, provider.id).toBeDefined();
+      expect(requirement?.items.length).toBeGreaterThan(0);
+      expect(topic?.sections.find((section) => section.heading === "Exact provider permissions")?.bullets).toEqual(requirement?.items);
+      expect(topic?.sections.some((section) => section.heading === "Official documentation")).toBe(true);
     }
   });
 });
