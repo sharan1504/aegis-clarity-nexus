@@ -2,8 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { initRealtime, teardownRealtime } from "@/lib/realtime";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { provisionPersonalWorkspace } from "@/lib/tenant-provision.functions";
-import { initializeOnboardingState } from "@/lib/onboarding.functions";
+import { getWorkspaceSetupState } from "@/lib/workspace-onboarding.functions";
 
 export type AppRole = "admin" | "manager" | "analyst" | "viewer";
 export type EnvironmentMode = "live" | "demo";
@@ -16,31 +15,19 @@ export interface TenantContextValue {
   environmentMode: EnvironmentMode;
   loading: boolean;
   provisioningError: string | null;
+  needsWorkspaceSetup: boolean;
   refreshTenant: () => Promise<void>;
 }
 
-export async function ensureTenantBootstrap(user: User) {
-  const provisioned = await provisionPersonalWorkspace();
-  if (provisioned.created) {
-    try {
-      await initializeOnboardingState();
-    } catch (error) {
-      // Onboarding is presentation-only; never fail workspace bootstrap because its state cannot be stored.
-      console.warn("[onboarding] initialization failed", error);
-    }
-  }
-
-  // The trusted server function has already created/verified the workspace and
-  // returns the authoritative tenant + role payload. Do not immediately re-read
-  // these rows through the browser client: RLS/session propagation can lag behind
-  // the server-side service-role transaction and make a successful bootstrap look
-  // like a failure.
+export async function ensureTenantBootstrap() {
+  const workspace = await getWorkspaceSetupState();
   return {
-    tenantId: provisioned.tenantId,
-    tenantName: provisioned.tenantName,
-    primaryDomain: provisioned.primaryDomain,
-    roles: provisioned.roles,
-    environmentMode: provisioned.environmentMode,
+    tenantId: workspace.tenantId,
+    tenantName: workspace.tenantName,
+    primaryDomain: workspace.primaryDomain,
+    roles: workspace.roles,
+    environmentMode: workspace.environmentMode ?? "live",
+    needsWorkspaceSetup: workspace.needsSetup,
   };
 }
 
@@ -53,6 +40,7 @@ const EMPTY_TENANT_STATE = {
   environmentMode: "live" as EnvironmentMode,
   loading: true,
   provisioningError: null as string | null,
+  needsWorkspaceSetup: false,
 };
 
 export function useTenant(): TenantContextValue {
@@ -70,7 +58,7 @@ export function useTenant(): TenantContextValue {
     }
 
     try {
-      const resolved = await ensureTenantBootstrap(user);
+      const resolved = await ensureTenantBootstrap();
       if (activeRef.current) {
         setState({ user, ...resolved, loading: false, provisioningError: null });
       }
