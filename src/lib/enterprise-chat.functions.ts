@@ -12,6 +12,7 @@ import { formatCenOpsKnowledge } from "@/lib/enterprise-ai-knowledge";
 import { classifyCenOpsIntent } from "@/lib/cenops-ai-intent";
 import { formatCenOpsResponse, normalizeCenOpsResponse, type CenOpsResponse } from "@/lib/cenops-response-intelligence";
 import { copilotCacheKey, getCachedCopilotResponse, isStableCopilotCacheCandidate, setCachedCopilotResponse } from "@/lib/copilot-response-cache.server";
+import { boundCopilotContext, copilotEvidencePolicy, MODEL_CONTEXT_LIMIT, normalizeCopilotDepth, SERVER_CONTEXT_LIMIT } from "@/lib/copilot-runtime-policy";
 
 export interface EnterpriseChatMessage { role: "user" | "assistant"; content: string; }
 export type ChatDepth = "quick" | "thorough";
@@ -25,7 +26,7 @@ const isProductQuestion = (message: string) => { const text = message.toLowerCas
 
 const demoResponse = (latest: string): CenOpsResponse => { const security = /security|vulnerab/i.test(latest); const license = /license/i.test(latest); return normalizeCenOpsResponse({ responseType: "operational", executiveSummary: security ? "7 security findings are represented in the demo workspace, including 1 critical AWS exposure. Remediation remains approval-gated." : license ? "17 Genesys licenses show 90+ days of inactivity in the demo evidence, making license optimization the clearest immediate opportunity." : `The demo workspace currently represents ${DEMO_COMMAND_CENTER.metrics.openFindings} open findings and ${DEMO_COMMAND_CENTER.metrics.pendingApprovals} pending approval items.`, keyFindings: [{ title: security ? "Critical AWS exposure" : license ? "Inactive license population" : "Open operational findings", detail: security ? "A critical security exposure is present in the simulated AWS evidence." : license ? "17 licenses have been inactive for more than 90 days." : `${DEMO_COMMAND_CENTER.metrics.openFindings} findings are represented in the demo workspace.`, severity: security ? "critical" : "high", status: "Demo evidence" }], metrics: [{ label: "Open findings", value: String(DEMO_COMMAND_CENTER.metrics.openFindings) }, { label: "Pending approvals", value: String(DEMO_COMMAND_CENTER.metrics.pendingApprovals) }], risks: security ? [{ title: "Critical AWS exposure", whyItMatters: "A high-severity exposure can create material security and compliance risk.", impact: "Potential unauthorized access or policy exposure.", evidence: ["Demo AWS evidence"], priority: 1, severity: "critical" }] : [], opportunities: license ? [{ title: "Optimize inactive licenses", value: "17 licenses", rationale: "Long-inactive entitlements may represent avoidable spend.", evidence: ["Demo Genesys evidence"] }] : [], recommendations: [{ title: security ? "Review the critical finding" : "Review the evidence trail", rationale: "Validate the simulated evidence before taking any consequential action.", impact: "Improves decision confidence", risk: "Low", nextStep: "Open the finding and review its evidence.", requiresApproval: security }], whatChanged: [], whatRequiresAttention: security ? ["Critical AWS exposure requires review before remediation."] : [], evidence: [{ source: "CenOps Demo", detail: "Deterministic tenant-safe evidence fixtures; no external provider was contacted." }], confidence: 96, actionRequired: security }, "operational"); };
 
-export const executeEnterpriseChat = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { sessionId: string; messages: EnterpriseChatMessage[]; depth?: ChatDepth }) => ({ sessionId: String(input?.sessionId ?? "").trim(), messages: Array.isArray(input?.messages) ? input.messages : [], depth: input?.depth === "thorough" ? "thorough" as const : "quick" as const })).handler(async ({ data, context }) => {
+export const executeEnterpriseChat = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { sessionId: string; messages: EnterpriseChatMessage[]; depth?: ChatDepth }) => ({ sessionId: String(input?.sessionId ?? "").trim(), messages: boundCopilotContext(Array.isArray(input?.messages) ? input.messages : [], SERVER_CONTEXT_LIMIT), depth: normalizeCopilotDepth(input?.depth) })).handler(async ({ data, context }) => {
   const startedAt = Date.now();
   const latest = data.messages.at(-1)?.content?.trim();
   if (!data.sessionId) return { ok: false as const, error: "A chat session is required." };
@@ -91,6 +92,7 @@ export const executeEnterpriseChat = createServerFn({ method: "POST" }).middlewa
     });
     if (assistantMessageError) throw new Error(assistantMessageError.message);
     await db.from("chat_sessions").update({ updated_at: new Date().toISOString() }).eq("id", effectiveSessionId).eq("tenant_id", tenantId).eq("user_id", context.userId);
+    console.info("[copilot-latency]", { tenantId, intent: intent.intent, depth: data.depth, cacheHit: false, evidenceMs: 0, modelMs: 0, persistenceMs: Date.now() - startedAt, totalMs: Date.now() - startedAt, environmentMode: "demo" });
     return demoResult;
   }
   let investigationId: string | undefined; let investigationTenantId: string | undefined; let investigationDb: any;
@@ -122,8 +124,9 @@ export const executeEnterpriseChat = createServerFn({ method: "POST" }).middlewa
     try { investigationId = await startCustomerInvestigation(db, { tenantId, userId: context.userId, conversationId: data.sessionId, interactionId: data.sessionId, channel: "chat", subject: latest.slice(0, 160) }); await recordInvestigationStep(db, investigationId, tenantId, { stepNumber: stepNumber++, stepType: "intent", name: "Customer request classified", input: { message: latest, intent: intent.intent, confidence: intent.confidence }, finding: `CenOps classified this request as ${intent.intent}.` }); } catch (error) { console.error("[customer-investigation] could not initialize", error); }
     const toolContext = { tenantId, investigationId, conversationId: data.sessionId, interactionId: data.sessionId, userId: context.userId };
     const runEvidenceTool = <T,>(provider: string, serverName: string, toolName: string, args: unknown, operation: () => Promise<T>) => investigationId ? runRecordedTool(db, toolContext, { provider, serverName, toolName, arguments: args }, operation) : operation();
-    const shouldLoadLiveEvidence = intent.requiresLiveEvidence || !intent.productQuestion;
-    const shouldLoadProviderEvidence = shouldLoadLiveEvidence && data.depth === "thorough";
+    const evidencePolicy = copilotEvidencePolicy(intent, data.depth);
+    const shouldLoadLiveEvidence = evidencePolicy.workspace;
+    const shouldLoadProviderEvidence = evidencePolicy.providers;
     const evidenceStartedAt = Date.now();
     const safeEvidenceRead = async <T>(name: string, operation: () => Promise<T>, fallback: T): Promise<T> => {
       try { return await operation(); } catch (error) {
