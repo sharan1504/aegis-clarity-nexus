@@ -73,6 +73,18 @@ export function FeatureHelpDrawer({
             </section>
           )}
 
+          {topic.sections.find((section) => section.heading === "Official documentation")?.links?.length ? (
+            <section>
+              <h3 className="text-sm font-semibold">Official documentation</h3>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {topic.sections.find((section) => section.heading === "Official documentation")?.links?.map((link) => (
+                  <a key={link.url} href={link.url} target="_blank" rel="noreferrer" className="inline-flex items-center rounded-md border px-2.5 py-1.5 text-sm text-primary underline-offset-4 hover:underline">
+                    {link.label}
+                  </a>
+                ))}
+              </div>
+            </section>
+          ) : null}
           <div className="flex flex-wrap gap-2 border-t pt-4">
             {(topic.relatedRoutes ?? []).slice(0, 2).map((route) => (
               <Button key={route.to} asChild size="sm">

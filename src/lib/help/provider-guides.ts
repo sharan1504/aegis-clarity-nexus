@@ -7,7 +7,7 @@ import { PROVIDER_SETUP_GUIDE_BY_ID } from "@/lib/integrations/provider-setup-gu
 
 export const PROVIDER_HELP_GROUP = "Provider setup guides" as const;
 
-const s = (heading: string, body: string, bullets?: string[], steps?: string[]): HelpSection => ({ heading, body, bullets, steps });
+const s = (heading: string, body: string, bullets?: string[], steps?: string[], links?: Array<{ label: string; url: string }>): HelpSection => ({ heading, body, bullets, steps, links });
 const fullContract = new Set(CONTRACT_IMPLEMENTED_PROVIDERS);
 
 /** Verified server-side authentication implementations identified in the current repository. */
@@ -133,7 +133,7 @@ export function buildProviderHelpTopic(provider: ProviderDefinition): HelpTopic 
   const fieldText = setup.fieldMap
     .map((field) => `${field.label}${field.required ? " (required)" : ""}${field.sensitive ? " [secret]" : ""}`)
     .join(", ");
-  const links = setup.officialLinks.map((link) => `${link.label}: ${link.url}`);
+  const links = setup.officialLinks;
   return {
     id: `provider-${provider.id}`,
     title: `${provider.name} setup`,
@@ -150,7 +150,7 @@ export function buildProviderHelpTopic(provider: ProviderDefinition): HelpTopic 
       s("Connected criteria", connectedCriteria),
       s("Capabilities", "Current production capability boundary:", capabilitiesFor(provider)),
       s("Governed actions", governedActions(provider)),
-      s("Official documentation", "Use the vendor documentation below for provider-side configuration:", links),
+      s("Official documentation", "Use the vendor documentation below for provider-side configuration:", undefined, undefined, links),
       s("Common failures / integrity notes", "Use these diagnostics without upgrading a partial implementation into a production claim:", [...setup.troubleshooting, ...commonFailures(provider)]),
     ],
     relatedRoutes: [
