@@ -19,7 +19,7 @@ export interface TenantContextValue {
   refreshTenant: () => Promise<void>;
 }
 
-export async function ensureTenantBootstrap(user: User) {
+export async function ensureTenantBootstrap() {
   const workspace = await getWorkspaceSetupState();
   return {
     tenantId: workspace.tenantId,
@@ -58,7 +58,7 @@ export function useTenant(): TenantContextValue {
     }
 
     try {
-      const resolved = await ensureTenantBootstrap(user);
+      const resolved = await ensureTenantBootstrap();
       if (activeRef.current) {
         setState({ user, ...resolved, loading: false, provisioningError: null });
       }
