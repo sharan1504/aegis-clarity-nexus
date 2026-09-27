@@ -123,6 +123,8 @@ function buildConnectSteps(provider: ProviderDefinition): string[] {
   return steps;
 }
 
+export const PROVIDER_HELP_TOPICS: HelpTopic[] = PROVIDER_REGISTRY.map(buildProviderHelpTopic);
+
 export function buildProviderHelpTopic(provider: ProviderDefinition): HelpTopic {
   const setup = PROVIDER_SETUP_GUIDE_BY_ID.get(provider.id);
   if (!setup) throw new Error(`Missing setup guide for ${provider.id}`);
