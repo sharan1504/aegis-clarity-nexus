@@ -1,6 +1,7 @@
 import type { HelpSection, HelpTopic } from "./content";
 import { PROVIDER_REGISTRY, type ProviderDefinition } from "@/lib/integrations/provider-registry";
 import { CONTRACT_IMPLEMENTED_PROVIDERS } from "@/lib/integrations/provider-contract";
+import { PROVIDER_SETUP_GUIDE_BY_ID } from "@/lib/integrations/provider-setup-guides";
 
 export const PROVIDER_HELP_GROUP = "Provider setup guides" as const;
 
@@ -121,24 +122,32 @@ function buildConnectSteps(provider: ProviderDefinition): string[] {
 }
 
 export function buildProviderHelpTopic(provider: ProviderDefinition): HelpTopic {
+  const setup = PROVIDER_SETUP_GUIDE_BY_ID.get(provider.id);
+  if (!setup) throw new Error(`Missing setup guide for ${provider.id}`);
   const status = statusFor(provider);
   const scope = entityScope[provider.id] ?? "Contract-backed entity scope is not documented for this provider because the production health/sync contract is not complete.";
+  const fieldText = setup.fieldMap
+    .map((field) => `${field.label}${field.required ? " (required)" : ""}${field.sensitive ? " [secret]" : ""}`)
+    .join(", ");
+  const links = setup.officialLinks.map((link) => `${link.label}: ${link.url}`);
   return {
     id: `provider-${provider.id}`,
     title: `${provider.name} setup`,
     group: PROVIDER_HELP_GROUP,
-    summary: `${provider.name} setup with an explicit production contract boundary: ${status}.`,
+    summary: setup.summary,
     sections: [
       s("What it is", provider.description),
       s("Contract status", status),
-      s("Auth model", authModel[provider.id] ?? provider.auth),
-      s("Prerequisites", defaultPrerequisites(provider)),
-      s("Step-by-step connect", "Use the real Integrations surface. Unsupported production paths must remain explicitly unsupported.", [], buildConnectSteps(provider)),
+      s("Auth model", provider.auth),
+      s("Prerequisites", setup.prerequisites.join(" ")),
+      s("Step-by-step connect", "Prepare the provider first, then use the real CenOps Integrations flow.", [], [...setup.providerSteps, ...setup.cenopsSteps]),
+      s("CenOps fields", "Enter only the fields shown by the provider form.", [fieldText]),
       s("Health & sync", `${scope} ${fullContract.has(provider.id) ? "Successful contract-backed sync reconciles entities absent from the latest successful snapshot as stale where implemented." : "This provider is not currently contract-complete, so authentication alone must not be treated as Connected."}`),
       s("Connected criteria", connectedCriteria),
       s("Capabilities", "Current production capability boundary:", capabilitiesFor(provider)),
       s("Governed actions", governedActions(provider)),
-      s("Common failures / integrity notes", "Use these diagnostics without upgrading a partial implementation into a production claim:", commonFailures(provider)),
+      s("Official documentation", "Use the vendor documentation below for provider-side configuration:", links),
+      s("Common failures / integrity notes", "Use these diagnostics without upgrading a partial implementation into a production claim:", [...setup.troubleshooting, ...commonFailures(provider)]),
     ],
     relatedRoutes: [
       { label: "Integrations", to: "/integrations" },
@@ -147,4 +156,3 @@ export function buildProviderHelpTopic(provider: ProviderDefinition): HelpTopic 
   };
 }
 
-export const PROVIDER_HELP_TOPICS: HelpTopic[] = PROVIDER_REGISTRY.map(buildProviderHelpTopic);
