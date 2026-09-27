@@ -3,6 +3,7 @@ export type HelpSection = {
   body: string;
   bullets?: string[];
   steps?: string[];
+  links?: Array<{ label: string; url: string }>;
 };
 
 export type HelpTopic = {
@@ -14,7 +15,7 @@ export type HelpTopic = {
   relatedRoutes?: Array<{ label: string; to: string; topic?: string }>;
 };
 
-const s = (heading: string, body: string, bullets?: string[], steps?: string[]): HelpSection => ({ heading, body, bullets, steps });
+const s = (heading: string, body: string, bullets?: string[], steps?: string[], links?: Array<{ label: string; url: string }>): HelpSection => ({ heading, body, bullets, steps, links });
 
 export const HELP_TOPICS: HelpTopic[] = [
   {
