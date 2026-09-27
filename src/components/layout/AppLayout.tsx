@@ -21,6 +21,7 @@ import { FeatureHelpButton } from "@/components/onboarding/FeatureHelpDrawer";
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour";
 import { getOnboardingState, saveOnboardingState, type OnboardingState } from "@/lib/onboarding.functions";
 import { FEATURE_HELP_BY_PATH, ONBOARDING_VISIT_PATHS } from "@/lib/onboarding-config";
+import { WorkspaceSetupScreen } from "@/components/workspace/WorkspaceSetupScreen";
 
 export function AppLayout() { return <TenantProvider><RoleProvider><AppShell /></RoleProvider></TenantProvider>; }
 
@@ -101,7 +102,7 @@ function EnvironmentModeControl() {
 function AppShell() {
   const { theme, toggle } = useTheme();
   const { role } = useRole();
-  const { user, tenantId, tenantName, environmentMode, loading, provisioningError, refreshTenant } = useTenantContext();
+  const { user, tenantId, tenantName, environmentMode, loading, provisioningError, needsWorkspaceSetup, refreshTenant } = useTenantContext();
   const navigate = useNavigate();
   const path = useRouterState({ select: (router) => router.location.pathname });
   const isChat = path === "/chat";
@@ -122,6 +123,10 @@ function AppShell() {
         </div>
       </div>
     );
+  }
+
+  if (needsWorkspaceSetup && !provisioningError) {
+    return <WorkspaceSetupScreen userEmail={user?.email} onCreated={refreshTenant} />;
   }
 
   if (provisioningError || !tenantId) {
