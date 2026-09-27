@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { PROVIDER_REGISTRY } from "@/lib/integrations/provider-registry";
 import { HELP_TOPIC_BY_ID } from "./content";
 import { PROVIDER_HELP_TOPICS } from "./provider-guides";
+import { PROVIDER_SETUP_GUIDES } from "@/lib/integrations/provider-setup-guides";
 
 describe("provider help guides", () => {
   it("documents every registry provider with a stable topic id", () => {
@@ -38,6 +39,36 @@ describe("provider help guides", () => {
     expect(github.sections.find((section) => section.heading === "Governed actions")?.body).toContain("GitHub create issue");
     for (const topic of PROVIDER_HELP_TOPICS.filter((topic) => topic.id !== "provider-github")) {
       expect(topic.sections.find((section) => section.heading === "Governed actions")?.body).toContain("Not enabled for external mutations");
+    }
+  });
+});
+
+
+describe("provider setup guide catalog", () => {
+  it("has a typed setup guide for every registry provider", () => {
+    expect(PROVIDER_SETUP_GUIDES).toHaveLength(PROVIDER_REGISTRY.length);
+    const ids = new Set(PROVIDER_SETUP_GUIDES.map((guide) => guide.providerId));
+    expect(ids.size).toBe(PROVIDER_REGISTRY.length);
+    for (const provider of PROVIDER_REGISTRY) {
+      const guide = PROVIDER_SETUP_GUIDES.find((item) => item.providerId === provider.id);
+      expect(guide, provider.id).toBeDefined();
+      expect(guide?.summary).toBeTruthy();
+      expect(guide?.prerequisites.length).toBeGreaterThan(0);
+      expect(guide?.providerSteps.length).toBeGreaterThan(0);
+      expect(guide?.cenopsSteps.length).toBeGreaterThan(0);
+      expect(guide?.fieldMap.length).toBeGreaterThan(0);
+      expect(guide?.officialLinks.length).toBeGreaterThan(0);
+      expect(guide?.troubleshooting.length).toBeGreaterThan(0);
+      for (const link of guide?.officialLinks ?? []) {
+        expect(link.url).toMatch(/^https?:\/\//);
+      }
+    }
+  });
+
+  it("exposes setup fields and official documentation through every help topic", () => {
+    for (const topic of PROVIDER_HELP_TOPICS) {
+      expect(topic.sections.some((section) => section.heading === "CenOps fields")).toBe(true);
+      expect(topic.sections.some((section) => section.heading === "Official documentation")).toBe(true);
     }
   });
 });
