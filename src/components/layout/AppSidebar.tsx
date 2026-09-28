@@ -30,8 +30,6 @@ const nav = [
   ] },
   { section: "Administration", items: [
     { title: "Guardrails", url: "/governance", icon: ShieldAlert },
-    { title: "User Management", url: "/users", icon: Users },
-    { title: "Settings", url: "/settings", icon: Settings },
   ] },
 ];
 
@@ -40,7 +38,8 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const path = useRouterState({ select: (r) => r.location.pathname });
   const { tenantName, primaryDomain } = useTenantContext();
-  const [openHighCritical, setOpenHighCritical] = useState(0);\n  const [organizationOpen, setOrganizationOpen] = useState(() => window.localStorage.getItem("cenops:organization-settings-open") !== "false");
+  const [openHighCritical, setOpenHighCritical] = useState(0);
+  const [organizationOpen, setOrganizationOpen] = useState(() => window.localStorage.getItem("cenops:organization-settings-open") !== "false");
   const loadIssues = useServerFn(listOperationalIssues);
   const workspaceName = tenantName ?? "Workspace";\n  const organizationActive = path === "/settings" || path === "/users";\n  const toggleOrganization = () => setOrganizationOpen((current) => { const next = !current; window.localStorage.setItem("cenops:organization-settings-open", String(next)); return next; });
   const isActive = (url: string) => url === "/" ? path === "/" : (url === "/agentic-studio" || url === "/settings" ? path === url : path.startsWith(url));
@@ -65,6 +64,8 @@ export function AppSidebar() {
         {!collapsed && <SidebarGroupLabel className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/70">{group.section}</SidebarGroupLabel>}
         <SidebarGroupContent><SidebarMenu className="gap-0.5">
           {group.items.map((item) => <SidebarMenuItem key={item.url}><SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title} className="h-9 rounded-lg px-3 text-[13px] font-medium text-sidebar-foreground/80 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground data-[active=true]:text-sidebar-foreground"><Link to={item.url} className="flex items-center gap-3"><item.icon className="h-[17px] w-[17px] shrink-0" />{!collapsed && <span className="flex min-w-0 flex-1 items-center gap-2"><span className="truncate">{item.title}</span>{item.url === "/operational-console" && openHighCritical > 0 && <Badge variant="destructive" className="ml-auto h-5 min-w-5 rounded-full px-1 text-[10px]">{openHighCritical}</Badge>}</span>}</Link></SidebarMenuButton></SidebarMenuItem>)}
+          {group.section === "Administration" && <SidebarMenuItem><SidebarMenuButton type="button" onClick={toggleOrganization} isActive={organizationActive} tooltip="Organization Settings" className="h-9 rounded-lg px-3 text-[13px] font-medium text-sidebar-foreground/80 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground data-[active=true]:text-sidebar-foreground"><Settings className="h-[17px] w-[17px] shrink-0" />{!collapsed && <span className="flex min-w-0 flex-1 items-center gap-2"><span className="truncate">Organization Settings</span><ChevronRight className={`ml-auto h-4 w-4 transition-transform ${organizationOpen ? "rotate-90" : ""}`} /></span>}</SidebarMenuButton></SidebarMenuItem>}
+          {group.section === "Administration" && organizationOpen && !collapsed && <div className="ml-7 mt-1 space-y-0.5 border-l pl-2">{[["Workspace Settings","/settings"],["Users","/users"],["Divisions","/settings?section=divisions"],["Groups","/settings?section=groups"],["Data Privacy","/settings?section=privacy"]].map(([title,url]) => <Link key={url} to={url as never} className={`flex h-8 items-center rounded-md px-2.5 text-xs ${(url === "/settings" ? path === "/settings" : url === "/users" ? path === "/users" : path === "/settings") ? "bg-sidebar-accent text-sidebar-foreground" : "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"}`}>{title}</Link>)}</div>}
         </SidebarMenu></SidebarGroupContent>
       </SidebarGroup>)}
       <ExploreChecklist collapsed={collapsed} />
