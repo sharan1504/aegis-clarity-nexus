@@ -35,7 +35,6 @@ export function DivisionsSettings() {
 
   useEffect(() => { if (selected) setForm({ name: selected.display_name, key: selected.department_key, description: selected.description ?? "", parentDivisionId: selected.parent_department_id ?? "" }); }, [selectedId, selected?.id]);
 
-  const children = useMemo(() => new Map<string | null, Directory["divisions"]>([]), [data]);
   const topLevel = data?.divisions.filter((d) => !d.parent_department_id) ?? [];
   const descendants = (parentId: string): Directory["divisions"] => data?.divisions.filter((d) => d.parent_department_id === parentId) ?? [];
 
