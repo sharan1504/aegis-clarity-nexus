@@ -23,12 +23,10 @@ export function GroupsSettings() {
   const [selectedId, setSelectedId] = useState("");
   const [form, setForm] = useState({ name: "", description: "", divisionId: "", ownerUserId: "" });
   const refresh = async () => { try { const next = await load(); setData(next); setSelectedId((id) => id || next.groups[0]?.id || ""); } catch (e) { toast.error("Groups could not be loaded", { description: e instanceof Error ? e.message : "Try again." }); } };
-  useEffect(() => { void refresh(); }, []);
+  useEffect(() => { void refresh(); }, [load]);
   const selected = data?.groups.find((g) => g.id === selectedId) ?? null;
   const members = data?.members.filter((m) => m.group_id === selectedId) ?? [];
   const selectedDivision = selected ? data?.divisions.find((d) => d.id === selected.department_id) : null;
-  const divisionUsers = data?.users.filter((u) => members.some((m) => m.user_id === u.id) || data.members.some((m) => m.group_id === selectedId && m.user_id === u.id)) ?? [];
-  const eligibleUsers = selected ? data?.users.filter((u) => data.members.some((m) => m.group_id === selected.id && m.user_id === u.id) || true) ?? [] : [];
   const toggleMember = async (userId: string, checked: boolean) => { if (!selected) return; const current = new Set(members.map((m) => m.user_id)); if (checked) current.add(userId); else current.delete(userId); try { await updateMembers({ data: { groupId: selected.id, userIds: [...current] } }); await refresh(); } catch (e) { toast.error("Group membership could not be updated", { description: e instanceof Error ? e.message : "Try again." }); } };
   const addGroup = async () => { if (!form.name || !form.divisionId) return; try { const result = await create({ data: { name: form.name, description: form.description, divisionId: form.divisionId, ownerUserId: form.ownerUserId || null } }); toast.success("Group created"); setForm({ name: "", description: "", divisionId: "", ownerUserId: "" }); await refresh(); setSelectedId(result.group.id); } catch (e) { toast.error("Group could not be created", { description: e instanceof Error ? e.message : "Try again." }); } };
   const deleteGroup = async () => { if (!selected || !window.confirm(`Delete ${selected.name}?`)) return; try { await remove({ data: { id: selected.id } }); toast.success("Group deleted"); setSelectedId(""); await refresh(); } catch (e) { toast.error("Group could not be deleted", { description: e instanceof Error ? e.message : "Try again." }); } };
