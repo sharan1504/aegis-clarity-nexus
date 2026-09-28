@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Activity, BarChart3, Bot, History, Plug, SearchCheck, Settings, ShieldAlert, ShieldCheck, Sparkles, Users, Workflow, Wrench } from "lucide-react";
+import { Activity, BarChart3, Bot, ChevronRight, History, Plug, SearchCheck, Settings, ShieldAlert, ShieldCheck, Sparkles, Users, Workflow, Wrench } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar";
@@ -40,9 +40,9 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const path = useRouterState({ select: (r) => r.location.pathname });
   const { tenantName, primaryDomain } = useTenantContext();
-  const [openHighCritical, setOpenHighCritical] = useState(0);
+  const [openHighCritical, setOpenHighCritical] = useState(0);\n  const [organizationOpen, setOrganizationOpen] = useState(() => window.localStorage.getItem("cenops:organization-settings-open") !== "false");
   const loadIssues = useServerFn(listOperationalIssues);
-  const workspaceName = tenantName ?? "Workspace";
+  const workspaceName = tenantName ?? "Workspace";\n  const organizationActive = path === "/settings" || path === "/users";\n  const toggleOrganization = () => setOrganizationOpen((current) => { const next = !current; window.localStorage.setItem("cenops:organization-settings-open", String(next)); return next; });
   const isActive = (url: string) => url === "/" ? path === "/" : (url === "/agentic-studio" || url === "/settings" ? path === url : path.startsWith(url));
 
   useEffect(() => {
