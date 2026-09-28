@@ -173,7 +173,7 @@ export const updatePrivacySettings = createServerFn({ method: "POST" }).middlewa
   const { data: current, error: readError } = await db.from("tenants").select("analytics_settings").eq("id", tenantId).single();
   if (readError) throw new Error(readError.message);
   const currentSettings = current?.analytics_settings && typeof current.analytics_settings === "object" ? current.analytics_settings : {};
-  const next = { ...currentSettings, privacy: data };
+  const next = { ...currentSettings, dataMasking: data.maskPii, privacy: data };
   const { error } = await db.from("tenants").update({ analytics_settings: next }).eq("id", tenantId);
   if (error) throw new Error(error.message);
   return { privacy: data };
