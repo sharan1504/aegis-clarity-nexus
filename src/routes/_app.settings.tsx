@@ -90,6 +90,13 @@ function SettingsPage() {
   useEffect(() => {
     let cancelled = false;
     const initialize = async () => {
+      // Child Organization Settings pages own their data loading. Do not initialize
+      // workspace webhooks/legacy department admin on those routes; those unrelated
+      // server calls can make a child page fail before it renders.
+      if (section === "divisions" || section === "groups" || section === "privacy") {
+        setLoading(false);
+        return;
+      }
       try {
         const [settings] = await Promise.all([load(), refreshWebhooks()]);
         if (cancelled) return;
@@ -113,7 +120,7 @@ function SettingsPage() {
     };
     void initialize();
     return () => { cancelled = true; };
-  }, [load, loadWebhooks]);
+  }, [load, loadWebhooks, section]);
 
   const submit = async () => {
     if (!org.trim()) { toast.error("Organization name is required"); return; }
