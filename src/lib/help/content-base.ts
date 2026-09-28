@@ -355,8 +355,6 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
     relatedRoutes: [{label:"Integrations",to:"/integrations"},{label:"Operational Console",to:"/operational-console"},{label:"Audit",to:"/audit"},{label:"Settings",to:"/settings"}],
   },
-];
-
   {
     id: "organization-settings",
     title: "Organization Settings",
@@ -374,6 +372,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     ],
     relatedRoutes: [{label:"Workspace Settings",to:"/settings"},{label:"Users",to:"/users"},{label:"Divisions",to:"/settings?section=divisions"},{label:"Groups",to:"/settings?section=groups"},{label:"Data Privacy",to:"/settings?section=privacy"}],
   },
+];
 
 export const HELP_GROUPS = ["Getting started", "Core control plane", "Configuration deep-dives", "Operations"] as const;
 
