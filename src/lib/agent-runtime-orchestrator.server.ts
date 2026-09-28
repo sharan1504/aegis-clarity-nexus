@@ -29,7 +29,14 @@ export async function orchestrateSecurityRun(supabase: UserClient, userId: strin
   const results = Object.entries(routed.policies).map(([integrationId, entry]) => analyzeSecurityFindings(routed.records.filter((finding) => finding.integrationId === integrationId), entry.policy, entry.revision, now));
   const dynamicWarnings: string[] = [];
   const dynamicEvidence: unknown[] = [];
-  const authorization = getRequest()?.headers.get("authorization");
+  // Unit tests and non-request callers do not have TanStack Start request context.
+  // Treat the absent request as an unavailable bearer token rather than throwing.
+  let authorization: string | null = null;
+  try {
+    authorization = getRequest()?.headers.get("authorization") ?? null;
+  } catch {
+    authorization = null;
+  }
   const token = authorization?.startsWith("Bearer ") ? authorization.slice("Bearer ".length).trim() : null;
   if (token) {
     try {
