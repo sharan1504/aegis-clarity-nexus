@@ -357,6 +357,24 @@ export const HELP_TOPICS: HelpTopic[] = [
   },
 ];
 
+  {
+    id: "organization-settings",
+    title: "Organization Settings",
+    group: "Configuration deep-dives",
+    summary: "Organization Settings is the central administration surface for workspace identity, users, divisions, groups and data privacy.",
+    sections: [
+      s("What it is", "Organization Settings centralizes workspace-level administration instead of splitting organization configuration across unrelated screens."),
+      s("Workspace Settings", "Configure organization name, primary domain, default timezone, default language, week start and existing workspace security/governance controls."),
+      s("Users", "Manage workspace members, roles and invitations. New invitations can be assigned to a division during creation, and existing users can be assigned to one or more divisions later."),
+      s("Divisions", "Divisions are the primary organizational access boundary. Create top-level divisions such as Home, Sales or Operations, create subdivisions beneath them, assign users and division roles, and control which AI agents and integration instances are available to the division."),
+      s("Groups", "Groups are collaboration units inside a division. Add existing workspace users to a group after they belong to the group's division. Group membership does not expand platform access beyond the division."),
+      s("Data Privacy", "Manage PII masking, whether connected provider data may be supplied to AI analysis, secret redaction preferences and AI activity retention. Privacy controls are tenant-scoped."),
+      s("Access model", "Workspace role controls administrative authority. Division membership narrows organizational access to agents and connected evidence. Group membership is subordinate to division membership."),
+      s("Common mistakes / integrity notes", "Do not use groups as a replacement for divisions. Do not assign users to a group before assigning them to the group's division. Removing division membership removes the division-scoped AI and provider access associated with that membership."),
+    ],
+    relatedRoutes: [{label:"Workspace Settings",to:"/settings"},{label:"Users",to:"/users"},{label:"Divisions",to:"/settings?section=divisions"},{label:"Groups",to:"/settings?section=groups"},{label:"Data Privacy",to:"/settings?section=privacy"}],
+  },
+
 export const HELP_GROUPS = ["Getting started", "Core control plane", "Configuration deep-dives", "Operations"] as const;
 
 export const HELP_TOPIC_BY_ID = Object.fromEntries(HELP_TOPICS.map((topic) => [topic.id, topic])) as Record<string, HelpTopic>;
