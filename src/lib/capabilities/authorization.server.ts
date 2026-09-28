@@ -27,7 +27,7 @@ export type DenialReason =
   | "integration_not_found"
   | "tenant_mismatch"
   | "capability_not_supported_by_provider"
-  | "integration_unhealthy";
+  | "integration_unhealthy"\n  | "provider_data_disabled";
 
 export const DENIAL_MESSAGES: Record<DenialReason, string> = {
   no_tenant: "Your account is not attached to a workspace yet.",
@@ -41,7 +41,7 @@ export const DENIAL_MESSAGES: Record<DenialReason, string> = {
   tenant_mismatch: "That integration belongs to another workspace.",
   capability_not_supported_by_provider:
     "This provider does not currently support this capability.",
-  integration_unhealthy: "The connection requires attention before it can be read.",
+  integration_unhealthy: "The connection requires attention before it can be read.",\n  provider_data_disabled: "Connected provider data is disabled for AI analysis by workspace privacy settings.",
 };
 
 /** One integration an agent is authorized to read for one capability. */
