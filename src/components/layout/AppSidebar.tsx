@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Activity, BarChart3, Bot, ChevronRight, History, Plug, SearchCheck, Settings, ShieldAlert, ShieldCheck, Sparkles, Users, Workflow, Wrench } from "lucide-react";
+import { Activity, BarChart3, Bot, ChevronRight, History, Plug, SearchCheck, Settings, ShieldAlert, ShieldCheck, Sparkles, Workflow, Wrench } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar";
@@ -36,12 +36,16 @@ const nav = [
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const path = useRouterState({ select: (r) => r.location.pathname });\n  const searchStr = useRouterState({ select: (r) => r.location.searchStr });
+  const path = useRouterState({ select: (r) => r.location.pathname });
+  const searchStr = useRouterState({ select: (r) => r.location.searchStr });
   const { tenantName, primaryDomain } = useTenantContext();
   const [openHighCritical, setOpenHighCritical] = useState(0);
   const [organizationOpen, setOrganizationOpen] = useState(() => window.localStorage.getItem("cenops:organization-settings-open") !== "false");
   const loadIssues = useServerFn(listOperationalIssues);
-  const workspaceName = tenantName ?? "Workspace";\n  const organizationActive = path === "/settings" || path === "/users";\n  const organizationSection = new URLSearchParams(searchStr).get("section") ?? "workspace";\n  const toggleOrganization = () => setOrganizationOpen((current) => { const next = !current; window.localStorage.setItem("cenops:organization-settings-open", String(next)); return next; });
+  const workspaceName = tenantName ?? "Workspace";
+  const organizationActive = path === "/settings" || path === "/users";
+  const organizationSection = new URLSearchParams(searchStr).get("section") ?? "workspace";
+  const toggleOrganization = () => setOrganizationOpen((current) => { const next = !current; window.localStorage.setItem("cenops:organization-settings-open", String(next)); return next; });
   const isActive = (url: string) => url === "/" ? path === "/" : (url === "/agentic-studio" || url === "/settings" ? path === url : path.startsWith(url));
 
   useEffect(() => {
