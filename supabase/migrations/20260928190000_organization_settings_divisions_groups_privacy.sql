@@ -55,8 +55,21 @@ CREATE UNIQUE INDEX IF NOT EXISTS departments_tenant_key_idx ON public.departmen
 CREATE INDEX IF NOT EXISTS departments_tenant_parent_idx ON public.departments(tenant_id, parent_department_id);
 
 ALTER TABLE public.user_department_memberships
-  ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'member',
-  ADD CONSTRAINT user_department_memberships_role_check CHECK (role IN ('owner','admin','manager','member','viewer'));
+  ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'member';
+
+DO $
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conrelid = 'public.user_department_memberships'::regclass
+      AND conname = 'user_department_memberships_role_check'
+  ) THEN
+    ALTER TABLE public.user_department_memberships
+      ADD CONSTRAINT user_department_memberships_role_check
+      CHECK (role IN ('owner','admin','manager','member','viewer'));
+  END IF;
+END $;
 CREATE INDEX IF NOT EXISTS user_department_memberships_department_idx
   ON public.user_department_memberships(tenant_id, department_id, user_id);
 
@@ -157,3 +170,6 @@ CREATE POLICY "tenant admins manage group members" ON public.workspace_group_mem
 
 COMMENT ON TABLE public.departments IS 'Tenant-scoped organizational divisions. Legacy runtime code may still call these departments.';
 COMMENT ON TABLE public.workspace_groups IS 'Collaboration groups scoped to a tenant and division; groups do not bypass division access controls.';
+
+-- Ensure PostgREST sees the newly created control-plane tables immediately after migration.
+NOTIFY pgrst, 'reload schema';
