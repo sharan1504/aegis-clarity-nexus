@@ -96,6 +96,8 @@ function SettingsPage() {
         setOrg(settings.organizationName);
         setDomain(settings.primaryDomain);
         setTimezone(settings.timezone || "UTC");
+        setDefaultLanguage(settings.workspacePreferences?.defaultLanguage || "en");
+        setWeekStartsOn(settings.workspacePreferences?.weekStartsOn === "sunday" ? "sunday" : "monday");
         setTimezones(settings.timezones?.length ? settings.timezones : DEFAULT_TIMEZONES);
         const analytics = settings.analyticsSettings as AnalyticsSettings;
         const security = settings.securitySettings as SecuritySettings;
@@ -122,6 +124,8 @@ function SettingsPage() {
       setOrg(saved.organizationName);
       setDomain(saved.primaryDomain);
       setTimezone(saved.timezone || "UTC");
+      setDefaultLanguage(saved.workspacePreferences?.defaultLanguage || "en");
+      setWeekStartsOn(saved.workspacePreferences?.weekStartsOn === "sunday" ? "sunday" : "monday");
       setTimezones(saved.timezones?.length ? saved.timezones : DEFAULT_TIMEZONES);
       await refreshTenant();
       toast.success("Workspace settings saved");
