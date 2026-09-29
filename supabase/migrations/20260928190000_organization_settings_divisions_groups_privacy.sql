@@ -108,7 +108,7 @@ SET analytics_settings = jsonb_set(
   jsonb_set(
     COALESCE(analytics_settings, '{}'::jsonb),
     '{privacy}',
-    COALESCE(analytics_settings->'privacy', '{"maskPii":true,"allowAiProviderData":true,"redactSecrets":true,"aiActivityRetentionDays":90}'::jsonb),
+    COALESCE(analytics_settings->'privacy', '{"maskPii":true,"allowAiProviderData":true,"redactSecrets":true,"aiActivityRetentionDays":90,"retainExecutionEvidence":true,"executionEvidenceRetentionDays":90}'::jsonb),
     true
   ),
   '{workspace}',
