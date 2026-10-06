@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sanitizeOutput } from "@/lib/guardrails/sanitize";
 
@@ -97,6 +98,57 @@ export async function recordInvestigationStep(
   if (error) throw new Error(`Could not record investigation step: ${error.message}`);
 }
 
+function hashValue(value: unknown): string {
+  let serialized: string;
+  try {
+    serialized = JSON.stringify(value ?? null);
+  } catch {
+    serialized = String(value);
+  }
+  return createHash("sha256").update(serialized).digest("hex");
+}
+
+function argumentField(argumentsValue: unknown, field: string): unknown {
+  if (!argumentsValue || typeof argumentsValue !== "object" || Array.isArray(argumentsValue)) return undefined;
+  return (argumentsValue as Record<string, unknown>)[field];
+}
+
+async function recordToolAudit(
+  db: SupabaseClient,
+  context: ToolContext,
+  tool: ToolDescriptor,
+  invocationId: string,
+  hashes: { inputHash: string; outputHash: string | null; promptHash: string | null; evidenceHash: string | null },
+) {
+  try {
+    await (db as any).from("audit_log").insert({
+      tenant_id: context.tenantId,
+      actor_id: context.userId ?? null,
+      action: "agent.tool_call",
+      entity_type: "investigation",
+      entity_id: context.investigationId ?? null,
+      detail: `${tool.provider ?? "unknown"} / ${tool.serverName ?? "unknown"} / ${tool.toolName}`,
+      payload: {
+        investigationId: context.investigationId ?? null,
+        conversationId: context.conversationId ?? null,
+        toolInvocationId: invocationId,
+        provider: tool.provider ?? null,
+        serverName: tool.serverName ?? null,
+        toolName: tool.toolName,
+        inputHash: hashes.inputHash,
+        promptHash: hashes.promptHash,
+        evidenceHash: hashes.evidenceHash,
+        outputHash: hashes.outputHash,
+        inputSource: "tool_invocations.arguments",
+        evidenceSource: "tool_invocations.arguments.evidence",
+        outputSource: "tool_invocations.result",
+      },
+    });
+  } catch (error) {
+    console.error("[customer-investigation] failed to record tool audit seal", error);
+  }
+}
+
 export async function recordToolInvocation(
   db: SupabaseClient,
   context: ToolContext,
@@ -113,8 +165,12 @@ export async function recordToolInvocation(
     provider: tool.provider ?? null,
     server_name: tool.serverName ?? null,
     tool_name: tool.toolName,
-    arguments: jsonSafe(tool.arguments),
+    arguments: jsonSafe(tool.arguments, 100000),
     result: tool.result === undefined ? null : jsonSafe(tool.result),
+    input_hash: hashValue(tool.arguments),
+    output_hash: tool.result === undefined ? null : hashValue(tool.result),
+    prompt_hash: argumentField(tool.arguments, "prompt") === undefined ? null : hashValue(argumentField(tool.arguments, "prompt")),
+    evidence_hash: argumentField(tool.arguments, "evidence") === undefined ? null : hashValue(argumentField(tool.arguments, "evidence")),
     status: tool.status,
     started_at: new Date(tool.startedAt).toISOString(),
     completed_at: new Date(completedAt).toISOString(),
@@ -123,7 +179,7 @@ export async function recordToolInvocation(
     authorization: { tenantScoped: true, userId: context.userId ?? null },
   }).select("id").single();
   if (error) throw new Error(`Could not record tool invocation: ${error.message}`);
-  return data.id as string;
+  return { id: data.id as string, inputHash: hashValue(tool.arguments), outputHash: tool.result === undefined ? null : hashValue(tool.result), promptHash: argumentField(tool.arguments, "prompt") === undefined ? null : hashValue(argumentField(tool.arguments, "prompt")), evidenceHash: argumentField(tool.arguments, "evidence") === undefined ? null : hashValue(argumentField(tool.arguments, "evidence")) };
 }
 
 /** Executes a tool and records both successful and failed calls without changing the tool's return value. */
@@ -136,11 +192,13 @@ export async function runRecordedTool<T>(
   const startedAt = Date.now();
   try {
     const result = await operation();
-    await recordToolInvocation(db, context, { ...tool, result, status: "success", startedAt });
+    const invocation = await recordToolInvocation(db, context, { ...tool, result, status: "success", startedAt });
+    await recordToolAudit(db, context, tool, invocation.id, { inputHash: invocation.inputHash, outputHash: invocation.outputHash, promptHash: invocation.promptHash, evidenceHash: invocation.evidenceHash });
     return result;
   } catch (error) {
     try {
-      await recordToolInvocation(db, context, { ...tool, status: "failed", startedAt, errorMessage: error instanceof Error ? error.message : String(error) });
+      const invocation = await recordToolInvocation(db, context, { ...tool, status: "failed", startedAt, errorMessage: error instanceof Error ? error.message : String(error) });
+      await recordToolAudit(db, context, tool, invocation.id, { inputHash: invocation.inputHash, outputHash: invocation.outputHash, promptHash: invocation.promptHash, evidenceHash: invocation.evidenceHash });
     } catch (recordingError) {
       console.error("[customer-investigation] failed to record tool error", recordingError);
     }

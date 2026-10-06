@@ -50,3 +50,13 @@ Status meanings:
 The repository has substantially more **authentication implementations** than **contract-complete providers**. The production contract must therefore grow from verified connector implementations, not from `PROVIDER_REGISTRY` membership or auth-module presence alone.
 
 Phase 1 of the provider expansion makes contract admission capability-driven and keeps all providers without verified health+sync evidence out of `connected` state. Phase 2 promotes providers only after real health, sync and stale reconciliation are wired and tested.
+
+
+## Real sync coverage status
+
+The verified persisted sync contract currently covers Genesys Cloud, GitHub, Jira, Slack, Salesforce, ServiceNow, and Microsoft 365. The remaining registry providers are not silently treated as synced: they remain catalog/auth implementations until a provider-specific sync contract is implemented and verified. No fabricated fallback evidence is generated for providers without a verified sync path.
+
+
+## Sync circuit breaker
+
+Provider sync failures are counted from the tenant-scoped `provider_sync_runs` history for each connection. Three consecutive failures set connection health to `degraded`. The scheduled worker keeps the connection retryable but backs its sync interval off to 6 hours until a successful sync clears the degraded state. Integrations exposes the degraded state and Operational Console receives a deduplicated sync issue for the connection. Credential/configuration failures are not treated as successful syncs.

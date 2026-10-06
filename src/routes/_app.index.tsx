@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Activity, AlertTriangle, Bot, CheckCircle2, ChevronDown, CircleDot, Download, Gauge, MoreHorizontal, Plus, RefreshCw, ShieldAlert, ShieldCheck, Sparkles, Star, Trash2, Zap, type LucideIcon } from "lucide-react";
+import { Activity, AlertTriangle, Bot, CheckCircle2, ChevronDown, CircleDot, Download, Gauge, MoreHorizontal, Plus, RefreshCw, ShieldAlert, ShieldCheck, Sparkles, Star, Trash2, Zap, XCircle, type LucideIcon } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { EmptyIntegrationsState } from "@/components/EmptyIntegrationsState";
@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { getCommandCenterData, type CommandCenterData } from "@/lib/command-center.functions";
 import { getOnboardingStatus } from "@/lib/onboarding.functions";
 import { createCustomDashboard, deleteCustomDashboard, listCustomDashboards, toggleCustomDashboardStar, type DashboardConfig } from "@/lib/custom-dashboards.functions";
+import { listActiveAgentRuns, stopAgentRun } from "@/lib/agent-runtime.functions";
 import { pageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/_app/")({ head: () => pageHead({ path: "/", title: "Command Center — CenOps", description: "Evidence-first operational control plane for enterprise AI." }), component: DashboardPage });
@@ -19,6 +20,15 @@ type Finding = { id: string; name: string; status: "Active" | "Attention" | "Clo
 const DEFAULT_WIDGETS = ["kpis", "trends", "attention", "posture", "changes", "signals"];
 const WIDGET_OPTIONS = [{ id: "kpis", label: "KPI strip" }, { id: "trends", label: "7-day trends" }, { id: "attention", label: "Attention summary" }, { id: "posture", label: "Operational posture" }, { id: "changes", label: "Recent changes" }, { id: "signals", label: "Audit signals" }];
 
+function formatRunElapsed(startedAt: string | null, updatedAt: string) {
+  const start = startedAt ? new Date(startedAt).getTime() : new Date(updatedAt).getTime();
+  const elapsed = Math.max(0, Date.now() - start);
+  const minutes = Math.floor(elapsed / 60000);
+  const seconds = Math.floor((elapsed % 60000) / 1000);
+  if (minutes >= 60) return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+  return `${minutes}m ${seconds}s`;
+}
+
 function DashboardPage() {
   const load = useServerFn(getCommandCenterData);
   const loadOnboarding = useServerFn(getOnboardingStatus);
@@ -26,6 +36,8 @@ function DashboardPage() {
   const createDashboard = useServerFn(createCustomDashboard);
   const starDashboard = useServerFn(toggleCustomDashboardStar);
   const removeDashboard = useServerFn(deleteCustomDashboard);
+  const loadActiveAgentRuns = useServerFn(listActiveAgentRuns);
+  const stopActiveAgentRun = useServerFn(stopAgentRun);
   const [data, setData] = useState<CommandCenterData | null>(null);
   const [setup, setSetup] = useState<{ providerCount: number; deployedAgentCount: number; guardrailCount: number } | null>(null);
   const [dashboards, setDashboards] = useState<Dashboard[]>([]);
@@ -35,12 +47,28 @@ function DashboardPage() {
   const [name, setName] = useState("");
   const [widgets, setWidgets] = useState(DEFAULT_WIDGETS);
   const [busy, setBusy] = useState(false);
+  const [activeRuns, setActiveRuns] = useState<any[]>([]);
+
+  const handleStopRun = async (runId: string) => {
+    if (!window.confirm("Stop this agent run? The current tool call, if already in flight, may finish; no further runtime steps will be allowed.")) return;
+    try {
+      const result = await stopActiveAgentRun({ data: { runId } });
+      if (result.ok) {
+        toast.success(result.alreadyStopped ? "Run already stopped" : "Agent run terminated");
+        await refresh();
+      } else {
+        toast.error("Could not stop agent run");
+      }
+    } catch (error) {
+      toast.error("Could not stop agent run", { description: error instanceof Error ? error.message : "Try again." });
+    }
+  };
 
   const refresh = async () => {
     setLoading(true);
     try {
-      const [command, onboarding, saved] = await Promise.all([load(), loadOnboarding(), loadDashboards()]);
-      setData(command); setSetup(onboarding); setDashboards(saved.dashboards as Dashboard[]);
+      const [command, onboarding, saved, active] = await Promise.all([load(), loadOnboarding(), loadDashboards(), loadActiveAgentRuns()]);
+      setData(command); setSetup(onboarding); setDashboards(saved.dashboards as Dashboard[]); setActiveRuns(active.runs);
     } catch (error) { toast.error("Command Center unavailable", { description: error instanceof Error ? error.message : "Try again." }); }
     finally { setLoading(false); }
   };
@@ -92,7 +120,31 @@ function DashboardPage() {
         <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-500/15 text-violet-300"><Sparkles className="h-4 w-4" /></div><div><div className="text-sm font-semibold text-white">CenOps Copilot</div><div className="mt-0.5 text-xs text-slate-400">Ask questions across your authorized operational evidence, recommendations and investigations.</div></div></div><Button size="sm" asChild className="bg-violet-500 text-white hover:bg-violet-400"><Link to="/chat">Open Copilot</Link></Button></div>
       </section>
 
-      {activeWidgets.includes("kpis") && data && <section className="mt-4 grid grid-cols-2 gap-px border-b border-white/10 bg-white/10 sm:grid-cols-4 lg:grid-cols-8"><KpiTile label="Connected systems" value={data.kpis.integrationsConnected} detail={`${data.kpis.integrationsTotal} total`} href="/integrations" tone="green" /><KpiTile label="Needs attention" value={data.kpis.integrationsDegraded} detail="provider posture" href="/integrations" tone="amber" /><KpiTile label="Pending approvals" value={data.kpis.pendingApprovals} detail="Team / Risk Review" href="/approvals" tone="violet" /><KpiTile label="Proposed changes" value={data.kpis.proposedChanges} detail="awaiting review" href="/approvals" tone="cyan" /><KpiTile label="Open high / critical" value={data.kpis.openHighChanges} detail="open changes" href="/approvals" tone="red" /><KpiTile label="Guardrail blocks 24h" value={data.kpis.guardrailBlocks24h} detail="blocking decisions" href="/governance" tone="red" /><KpiTile label="Sync failures 24h" value={data.kpis.syncFailures24h} detail="failed runs" href="/integrations" tone="amber" /><KpiTile label="Unread notifications" value={data.kpis.unreadNotifications} detail="tenant notifications" tone="cyan" /></section>}
+      {activeWidgets.includes("kpis") && data && <section className="mt-4 grid grid-cols-2 gap-px border-b border-white/10 bg-white/10 sm:grid-cols-4 lg:grid-cols-8"><KpiTile label="Connected systems" value={data.kpis.integrationsConnected} detail={`${data.kpis.integrationsTotal} total`} href="/integrations" tone="green" /><KpiTile label="Needs attention" value={data.kpis.integrationsDegraded} detail="provider posture" href="/integrations" tone="amber" /><KpiTile label="Pending approvals" value={data.kpis.pendingApprovals} detail="Team / Risk Review" href="/approvals" tone="violet" /><KpiTile label="Proposed changes" value={data.kpis.proposedChanges} detail="awaiting review" href="/approvals" tone="cyan" /><KpiTile label="Open high / critical" value={data.kpis.openHighChanges} detail="open changes" href="/approvals" tone="red" /><KpiTile label="Guardrail blocks 24h" value={data.kpis.guardrailBlocks24h} detail="blocking decisions" href="/governance" tone="red" /><KpiTile label="Sync failures 24h" value={data.kpis.syncFailures24h} detail="failed runs" href="/integrations" tone="amber" /><KpiTile label="Unread notifications" value={data.kpis.unreadNotifications} detail="tenant notifications" tone="cyan" /></section>
+
+      {activeRuns.length > 0 && <section className="mx-5 mt-4 rounded-xl border border-violet-400/15 bg-[#0b192b]/80 p-4 shadow-[0_12px_35px_rgba(0,0,0,0.16)] lg:mx-7">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div><div className="flex items-center gap-2 text-sm font-semibold text-white"><Bot className="h-4 w-4 text-violet-300" />Active agent runs</div><p className="mt-0.5 text-xs text-slate-500">Live runs using the same durable budget counters as the execution controller.</p></div>
+          <Badge variant="outline" className="border-violet-300/20 bg-violet-400/[0.06] text-violet-200">{activeRuns.length} active</Badge>
+        </div>
+        <div className="grid gap-2 lg:grid-cols-2">
+          {activeRuns.map((run) => (
+            <div key={run.id} className="rounded-lg border border-white/10 bg-white/[0.025] p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0"><div className="truncate text-sm font-semibold text-white">{run.agent_key}</div><div className="mt-1 text-xs text-slate-500">{run.triggeringUser?.full_name || run.triggeringUser?.email || "System"} · {run.current_step} · {formatRunElapsed(run.started_at, run.updated_at)}</div></div>
+                <div className="flex shrink-0 items-center gap-2"><Badge variant="outline" className="text-[10px]">{String(run.status).replace("_", " ")}</Badge>{run.canStop && <Button size="sm" variant="destructive" className="h-7 px-2 text-[10px]" onClick={() => void handleStopRun(run.id)}><XCircle className="mr-1 h-3 w-3" />Stop run</Button>}</div>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] text-slate-500 sm:grid-cols-4">
+                <span>Cost <strong className="text-slate-300">{run.budget.costPct.toFixed(0)}%</strong></span>
+                <span>Input <strong className="text-slate-300">{run.budget.inputPct.toFixed(0)}%</strong></span>
+                <span>Output <strong className="text-slate-300">{run.budget.outputPct.toFixed(0)}%</strong></span>
+                <span>Tools <strong className="text-slate-300">{run.tool_call_count}/{run.max_tool_calls}</strong></span>
+              </div>
+              <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/5"><div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-cyan-400" style={{ width: `${Math.max(2, run.budget.costPct)}%` }} /></div>
+            </div>
+          ))}
+        </div>
+      </section>}
 
       {showSetup && <div className="mx-5 mt-5 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.06] px-4 py-3 lg:mx-7"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="text-sm font-semibold text-white">Bring the control plane to life</div><div className="mt-0.5 text-xs text-slate-400">Connect a provider, deploy an agent and configure governance to populate live evidence.</div></div><Button size="sm" asChild className="bg-cyan-400 text-slate-950 hover:bg-cyan-300"><Link to="/integrations">Connect integration</Link></Button></div></div>}
 
