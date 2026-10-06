@@ -40,13 +40,23 @@ Deno.serve(async (req) => {
     .select('connection_id,status,started_at,finished_at')
     .order('started_at', { ascending: false }).limit(500);
   if (recentRunsError) return Response.json({ ok: false, error: recentRunsError.message }, { status: 500 });
+  const runsByConnection = new Map<string, Array<{ status: string; finished_at: string | null }>>();
+  for (const run of recentRuns ?? []) {
+    if (!run.connection_id) continue;
+    const rows = runsByConnection.get(run.connection_id) ?? [];
+    rows.push(run);
+    runsByConnection.set(run.connection_id, rows);
+  }
   const failureStreakByConnection = new Map<string, number>();
   const latestFailureByConnection = new Map<string, string>();
-  for (const run of recentRuns ?? []) {
-    if (!run.connection_id || failureStreakByConnection.has(run.connection_id)) continue;
-    if (run.status !== 'failed') continue;
-    failureStreakByConnection.set(run.connection_id, (failureStreakByConnection.get(run.connection_id) ?? 0) + 1);
-    if (!latestFailureByConnection.has(run.connection_id) && run.finished_at) latestFailureByConnection.set(run.connection_id, run.finished_at);
+  for (const [connectionId, rows] of runsByConnection) {
+    let streak = 0;
+    for (const run of rows) {
+      if (run.status !== 'failed') break;
+      streak += 1;
+      if (!latestFailureByConnection.has(connectionId) && run.finished_at) latestFailureByConnection.set(connectionId, run.finished_at);
+    }
+    failureStreakByConnection.set(connectionId, streak);
   }
   const { data: githubConnections, error: githubError } = await supabase
     .from('provider_connections')
