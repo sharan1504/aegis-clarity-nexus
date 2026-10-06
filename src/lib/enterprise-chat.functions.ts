@@ -13,7 +13,7 @@ import { classifyCenOpsIntent } from "@/lib/cenops-ai-intent";
 import { formatCenOpsResponse, normalizeCenOpsResponse, type CenOpsResponse } from "@/lib/cenops-response-intelligence";
 import { copilotCacheKey, getCachedCopilotResponse, isStableCopilotCacheCandidate, setCachedCopilotResponse } from "@/lib/copilot-response-cache.server";
 import { boundCopilotContext, copilotEvidencePolicy, MODEL_CONTEXT_LIMIT, normalizeCopilotDepth, SERVER_CONTEXT_LIMIT } from "@/lib/copilot-runtime-policy";
-import { formatUntrustedEvidence } from "@/lib/copilot-evidence-prompt";
+import { formatUntrustedEvidence } from "@/lib/copilot-evidence-prompt"; // Provider evidence is explicitly treated as untrusted data
 
 export interface EnterpriseChatMessage { role: "user" | "assistant"; content: string; }
 export type ChatDepth = "quick" | "thorough";
