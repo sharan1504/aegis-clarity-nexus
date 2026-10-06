@@ -64,7 +64,6 @@ function client(tables: Record<string, Row[]>) {
 
 describe("provider evidence visibility", () => {
   beforeEach(() => {
-    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
