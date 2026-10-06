@@ -121,6 +121,7 @@ export async function syncProviderConnection(request: ProviderSyncRequest) {
         sync_error: null,
         last_error: null,
       });
+      await resolveOperationalIssue(supabaseAdmin as any, tenantId, "sync", connectionId, "Provider sync recovered successfully.");
       clearEvidenceCache();
       return { ok: true as const, provider, connectionId, records: result.recordsUpserted, finishedAt: result.lastSuccessfulAt };
     }
@@ -184,6 +185,7 @@ export async function syncProviderConnection(request: ProviderSyncRequest) {
       sync_error: null,
       last_error: null,
     });
+    await resolveOperationalIssue(supabaseAdmin as any, tenantId, "sync", connectionId, "Provider sync recovered successfully.");
     clearEvidenceCache();
     return { ok: true as const, provider, connectionId, records: rows.length, stale: staleCount, finishedAt };
   } catch (error) {
@@ -230,9 +232,6 @@ export async function syncProviderConnection(request: ProviderSyncRequest) {
       relatedId: failureState.degraded ? connectionId : runId,
       fingerprint: failureState.degraded ? `provider-sync-degraded:${connectionId}` : undefined,
     });
-    if (!failureState.degraded) {
-      await resolveOperationalIssue(supabaseAdmin as any, tenantId, "sync", connectionId, "Provider sync failure streak cleared by a successful sync.");
-    }
     throw new Error(message);
   }
 }
