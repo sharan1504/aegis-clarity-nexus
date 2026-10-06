@@ -40,7 +40,7 @@ function AICoreVisual() {
   ];
 
   return (
-    <div aria-hidden="true" className="relative mx-auto h-44 w-full max-w-3xl sm:h-52 lg:h-56">
+    <div aria-hidden="true" className="relative mx-auto h-[250px] w-full max-w-[620px] sm:h-[290px] lg:h-[320px]">
       <div className="absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/20 blur-3xl" />
       <div className="absolute left-1/2 top-1/2 h-56 w-56 -translate-x-1/2 -translate-y-1/2 rounded-full border border-violet-300/10" />
       <div className="absolute left-1/2 top-1/2 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full border border-blue-300/10" />
@@ -151,90 +151,103 @@ function AuthPage() {
           </div>
         </header>
 
-        <main className="mx-auto grid min-h-0 flex-1 w-full max-w-[1500px] items-center gap-5 py-3 lg:grid-cols-[minmax(0,1fr)_minmax(400px,500px)] lg:gap-8 xl:gap-12">
-          <section className="min-w-0">
-            <div className="max-w-2xl">
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-violet-300/15 bg-violet-400/[0.07] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-200/80">
-                <Activity className="h-3.5 w-3.5" />
-                Enterprise AI Operations
-              </div>
-              <h1 className="max-w-3xl text-5xl font-semibold leading-[1.02] tracking-[-0.045em] sm:text-6xl xl:whitespace-nowrap xl:text-[4.15rem]">
-                From insight to action —
-                <span className="bg-gradient-to-r from-violet-300 via-fuchsia-300 to-blue-300 bg-clip-text text-transparent">
-                  {" "}with AI.
-                </span>
-              </h1>
-              <p className="mt-4 max-w-2xl text-lg font-medium leading-8 text-white/70 sm:text-xl">
-                See what is happening. Understand why. Decide with confidence. Act with control.
-              </p>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-white/40 sm:text-base">
-                Specialized AI agents turn live operational signals into governed decisions, approved actions, and verifiable outcomes.
-              </p>
-
-              <div className="mt-5 flex max-w-3xl flex-wrap items-center gap-2.5">
-                {[
-                  { label: "CONNECT", icon: Network },
-                  { label: "REASON", icon: BrainCircuit },
-                  { label: "GOVERN", icon: ShieldCheck },
-                  { label: "ACT", icon: Workflow },
-                  { label: "VERIFY", icon: CheckCircle2 },
-                ].map(({ label, icon: Icon }, index, items) => (
-                  <div key={label} className="flex items-center gap-2">
-                    <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-3 py-1.5 text-[10px] font-semibold tracking-[0.14em] text-white/65 shadow-lg shadow-black/10">
-                      <Icon className="h-3.5 w-3.5 text-violet-300" />
-                      {label}
-                    </div>
-                    {index < items.length - 1 && <span className="text-violet-300/40">→</span>}
+        <main className="mx-auto grid min-h-0 flex-1 w-full max-w-[1500px] grid-cols-1 gap-4 py-3 lg:grid-cols-[minmax(0,1fr)_minmax(390px,500px)] lg:gap-8 xl:gap-10">
+          <div className="grid min-h-0 min-w-0 grid-rows-[auto_auto_auto] gap-3 lg:pr-1">
+            <div className="grid min-h-0 grid-cols-1 items-center gap-3 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+              <section className="min-w-0">
+                <div className="max-w-[620px]">
+                  <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-violet-300/15 bg-violet-400/[0.07] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-200/80">
+                    <Activity className="h-3.5 w-3.5" />
+                    Enterprise AI Operations
                   </div>
-                ))}
-              </div>
+                  <h1 className="text-5xl font-semibold leading-[0.98] tracking-[-0.05em] sm:text-6xl xl:text-[4rem]">
+                    From insight to action —
+                    <span className="bg-gradient-to-r from-violet-300 via-fuchsia-300 to-blue-300 bg-clip-text text-transparent">
+                      {" "}with AI.
+                    </span>
+                  </h1>
+                  <p className="mt-4 max-w-xl text-lg font-medium leading-7 text-white/70">
+                    See what is happening. Understand why. Decide with confidence. Act with control.
+                  </p>
+                  <div className="mt-3 h-1 w-14 rounded-full bg-gradient-to-r from-violet-400 to-blue-400" />
+                  <p className="mt-4 max-w-xl text-sm leading-6 text-white/45 sm:text-base">
+                    Specialized AI agents turn live operational signals into governed decisions, approved actions, and verifiable outcomes.
+                  </p>
+                </div>
+              </section>
+
+              <section className="min-w-0">
+                <AICoreVisual />
+              </section>
             </div>
 
-            <div className="mt-1"><AICoreVisual /></div>
+            <div className="grid grid-cols-5 items-center gap-2">
+              {[
+                { label: "CONNECT", icon: Network },
+                { label: "REASON", icon: BrainCircuit },
+                { label: "GOVERN", icon: ShieldCheck },
+                { label: "ACT", icon: Workflow },
+                { label: "VERIFY", icon: CheckCircle2 },
+              ].map(({ label, icon: Icon }, index, items) => (
+                <div key={label} className="flex min-w-0 items-center gap-2">
+                  <div className="flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.045] px-2 text-[10px] font-semibold tracking-[0.12em] text-white/70 shadow-lg shadow-black/10 backdrop-blur-md sm:h-14 sm:text-[11px]">
+                    <Icon className="h-4 w-4 shrink-0 text-violet-300" />
+                    <span className="truncate">{label}</span>
+                  </div>
+                  {index < items.length - 1 && <span className="hidden text-lg text-cyan-300/55 sm:block">→</span>}
+                </div>
+              ))}
+            </div>
 
-            <div className="hidden max-w-4xl grid-cols-2 gap-2 sm:grid sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
               {[
                 { icon: Network, title: "Integrate Systems", text: "Connect enterprise systems securely" },
                 { icon: Bot, title: "AI Agents", text: "Specialized operational automation" },
                 { icon: ShieldCheck, title: "Governance", text: "Human approval and guardrails" },
                 { icon: CheckCircle2, title: "Audit", text: "Traceable actions and evidence" },
               ].map(({ icon: Icon, title, text }) => (
-                <div key={title} className="rounded-xl border border-white/10 bg-[#0b1028]/55 p-2.5 shadow-lg shadow-black/10 backdrop-blur-md">
-                  <Icon className="h-4 w-4 text-violet-300" />
-                  <p className="mt-2 text-xs font-semibold text-white/85">{title}</p>
-                  <p className="mt-1 text-[10px] leading-4 text-white/35">{text}</p>
+                <div key={title} className="min-w-0 rounded-xl border border-white/10 bg-[#0b1028]/65 px-3 py-3 shadow-lg shadow-black/10 backdrop-blur-md sm:px-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-violet-300/15 bg-violet-500/10">
+                      <Icon className="h-4 w-4 text-violet-300" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-semibold text-white/90 sm:text-sm">{title}</p>
+                      <p className="mt-1 text-[10px] leading-4 text-white/40">{text}</p>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
-          </section>
+          </div>
 
-          <section className="relative flex items-center justify-center lg:justify-end">
+          <section className="relative flex min-h-0 items-center justify-center lg:justify-end">
             <Card className="w-full max-w-[500px] border-white/15 bg-[#0b1028]/95 text-white shadow-[0_30px_100px_rgba(0,0,0,0.45)] backdrop-blur-xl">
-              <CardHeader className="space-y-1.5 px-6 pb-4 pt-5 sm:px-7 sm:pt-6">
+              <CardHeader className="space-y-2 px-7 pb-5 pt-7 sm:px-9 sm:pt-9">
                 <div className="mb-1 flex h-11 w-11 items-center justify-center rounded-xl border border-violet-300/15 bg-violet-500/15 text-violet-200">
                   <ShieldCheck className="h-5 w-5" />
                 </div>
-                <CardTitle className="text-2xl tracking-tight text-white">{mode === "signin" ? "Sign in" : "Create your account"}</CardTitle>
+                <CardTitle className="text-3xl tracking-tight text-white">{mode === "signin" ? "Sign in" : "Create your account"}</CardTitle>
                 <CardDescription className="text-white/50">
                   {mode === "signin" ? "Welcome back to CenOps." : "Set up your CenOps enterprise workspace."}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="px-6 pb-5 sm:px-7 sm:pb-6">
-                <form onSubmit={submit} className="space-y-3">
+              <CardContent className="px-7 pb-7 sm:px-9 sm:pb-9">
+                <form onSubmit={submit} className="space-y-4">
                   <div className="grid gap-2">
                     <Label htmlFor="email" className="text-white/80">Work email</Label>
-                    <Input id="email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" className="h-11 border-white/10 bg-[#070b1c] text-white placeholder:text-white/25 focus-visible:ring-violet-500/50" />
+                    <Input id="email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" className="h-12 border-white/10 bg-[#070b1c] text-white placeholder:text-white/25 focus-visible:ring-violet-500/50" />
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="password" className="text-white/80">Password</Label>
                     <div className="relative">
-                      <Input id="password" type="password" required minLength={8} autoComplete={mode === "signin" ? "current-password" : "new-password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" className="h-11 border-white/10 bg-[#070b1c] pr-11 text-white placeholder:text-white/25 focus-visible:ring-violet-500/50" />
+                      <Input id="password" type="password" required minLength={8} autoComplete={mode === "signin" ? "current-password" : "new-password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" className="h-12 border-white/10 bg-[#070b1c] pr-11 text-white placeholder:text-white/25 focus-visible:ring-violet-500/50" />
                       <Eye className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/25" />
                     </div>
                   </div>
 
-                  <Button type="submit" className="h-11 w-full bg-gradient-to-r from-violet-600 to-blue-500 text-white shadow-lg shadow-violet-600/20 hover:from-violet-500 hover:to-blue-400" disabled={loading}>
-                    {loading ? (mode === "signin" ? "Signing in…" : "Creating account…") : mode === "signin" ? "Sign in" : "Create account"}
+                  <Button type="submit" className="h-12 w-full bg-gradient-to-r from-violet-600 to-blue-500 text-white shadow-lg shadow-violet-600/20 hover:from-violet-500 hover:to-blue-400" disabled={loading}>
+                    {loading ? (mode === "signin" ? "Signing in…" : "Creating account…") : mode === "signin" ? "Sign in →" : "Create account"}
                   </Button>
 
                   <div className="relative py-1.5">
@@ -242,7 +255,7 @@ function AuthPage() {
                     <div className="relative flex justify-center"><span className="bg-[#0b1028] px-3 text-[10px] uppercase tracking-widest text-white/30">or continue with</span></div>
                   </div>
 
-                  <Button type="button" variant="outline" className="h-11 w-full border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08] hover:text-white" disabled={loading} onClick={google}>
+                  <Button type="button" variant="outline" className="h-12 w-full border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08] hover:text-white" disabled={loading} onClick={google}>
                     <GoogleMark />
                     Continue with Google
                   </Button>
