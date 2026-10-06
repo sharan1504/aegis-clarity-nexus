@@ -5,6 +5,8 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
 );
 
+const SCHEDULED_GENERIC_PROVIDERS = ['m365', 'jira', 'slack'] as const;
+
 function jobKey(tenantId: string, integrationId: string, slot: string) {
   return `provider-sync:${tenantId}:${integrationId}:${slot}`;
 }
@@ -27,6 +29,7 @@ Deno.serve(async (req) => {
   const { data: due, error } = await supabase.from('integrations')
     .select('id,tenant_id,provider,sync_interval_minutes,last_sync_attempted_at')
     .eq('status', 'connected').eq('is_mock', false)
+    .in('provider', [...SCHEDULED_GENERIC_PROVIDERS])
     .or('last_sync_attempted_at.is.null,last_sync_attempted_at.lt.now()').limit(100);
   if (error) return Response.json({ ok: false, error: error.message }, { status: 500 });
 
@@ -43,37 +46,56 @@ Deno.serve(async (req) => {
 
   const slot = new Date(Math.floor(Date.now() / 900000) * 900000).toISOString();
   const results: Array<Record<string, unknown>> = [];
-  const enqueueSync = async (tenantId: string, integrationId: string, provider: string, syncIntervalMinutes: number | null = null) => {
-    const idempotencyKey = jobKey(tenantId, integrationId, slot);
+  const enqueueSync = async (input: { tenantId: string; connectionId: string; integrationId?: string | null; provider: string; syncIntervalMinutes?: number | null }) => {
+    const idempotencyKey = `provider-sync:${input.tenantId}:${input.connectionId}:${slot}`;
     const started = new Date().toISOString();
-    const { data: run, error: runError } = await supabase.from('provider_sync_runs').insert({ tenant_id: tenantId, provider, connection_id: integrationId, idempotency_key: idempotencyKey, status: 'running', started_at: started }).select('id').maybeSingle();
+    const { data: run, error: runError } = await supabase.from('provider_sync_runs').insert({
+      tenant_id: input.tenantId, provider: input.provider, connection_id: input.connectionId,
+      idempotency_key: idempotencyKey, status: 'running', started_at: started,
+    }).select('id').maybeSingle();
     if (runError) {
-      if (String(runError.message).toLowerCase().includes('duplicate')) { results.push({ integrationId, status: 'already-enqueued', idempotencyKey }); return; }
-      results.push({ integrationId, status: 'failed', error: runError.message }); return;
+      if (String(runError.message).toLowerCase().includes('duplicate')) {
+        results.push({ connectionId: input.connectionId, provider: input.provider, status: 'already-enqueued', idempotencyKey }); return;
+      }
+      results.push({ connectionId: input.connectionId, provider: input.provider, status: 'failed', error: runError.message }); return;
     }
     try {
-      if (provider === 'github') {
-        const queued = await enqueue({ queue: 'aegis.provider-sync', idempotencyKey, tenantId, payload: { integrationId, tenantId, provider, syncRunId: run?.id ?? null, entityScope: 'all' } });
-        results.push({ integrationId, provider, status: 'queued', jobId: queued.jobId ?? null, idempotencyKey });
-      } else {
-        await supabase.from('integrations').update({ last_sync_attempted_at: started }).eq('id', integrationId).eq('tenant_id', tenantId);
-        const queued = await enqueue({ queue: 'aegis.provider-sync', idempotencyKey, tenantId, payload: { integrationId, tenantId, provider, syncRunId: run?.id ?? null } });
-        results.push({ integrationId, provider, status: 'queued', jobId: queued.jobId ?? null, idempotencyKey });
-      }
+      if (input.integrationId) await supabase.from('integrations').update({ last_sync_attempted_at: started }).eq('id', input.integrationId).eq('tenant_id', input.tenantId);
+      const queued = await enqueue({
+        queue: 'aegis.provider-sync', idempotencyKey, tenantId: input.tenantId,
+        payload: {
+          connectionId: input.connectionId, integrationId: input.integrationId ?? null, tenantId: input.tenantId,
+          provider: input.provider, syncRunId: run?.id ?? null,
+          entityScope: input.provider === 'github' ? 'all' : undefined, idempotencyKey,
+        },
+      });
+      results.push({ connectionId: input.connectionId, integrationId: input.integrationId ?? null, provider: input.provider, status: 'queued', jobId: queued.jobId ?? null, idempotencyKey });
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
-      if (run?.id) await supabase.from('provider_sync_runs').update({ status: 'failed', finished_at: new Date().toISOString(), error_message: message.slice(0, 2000) }).eq('id', run.id).eq('tenant_id', tenantId);
-      results.push({ integrationId, provider, status: 'failed', error: message, syncIntervalMinutes });
+      if (run?.id) await supabase.from('provider_sync_runs').update({ status: 'failed', finished_at: new Date().toISOString(), error_message: message.slice(0, 2000) }).eq('id', run.id).eq('tenant_id', input.tenantId);
+      results.push({ connectionId: input.connectionId, provider: input.provider, status: 'failed', error: message, syncIntervalMinutes: input.syncIntervalMinutes });
     }
   };
 
-  for (const integration of due ?? []) await enqueueSync(integration.tenant_id, integration.id, integration.provider, integration.sync_interval_minutes);
+  for (const integration of due ?? []) {
+    const { data: connection, error: connectionError } = await supabase.from('provider_connections')
+      .select('id,tenant_id,provider,status').eq('tenant_id', integration.tenant_id).eq('integration_id', integration.id)
+      .eq('provider', integration.provider).eq('status', 'connected').maybeSingle();
+    if (connectionError) {
+      results.push({ integrationId: integration.id, provider: integration.provider, status: 'failed', error: connectionError.message }); continue;
+    }
+    if (!connection) {
+      results.push({ integrationId: integration.id, provider: integration.provider, status: 'not-connected', reason: 'No provider connection is linked to this integration instance.' }); continue;
+    }
+    await enqueueSync({ tenantId: integration.tenant_id, connectionId: connection.id, integrationId: integration.id, provider: integration.provider, syncIntervalMinutes: integration.sync_interval_minutes });
+  }
+
   const githubStatusByConnection = new Map((githubStatuses ?? []).map((status) => [status.connection_id, status]));
   const githubCutoff = Date.now() - 15 * 60 * 1000;
   for (const connection of githubConnections ?? []) {
     const lastAttempted = githubStatusByConnection.get(connection.id)?.last_attempted_at;
     if (lastAttempted && new Date(lastAttempted).getTime() > githubCutoff) continue;
-    await enqueueSync(connection.tenant_id, connection.id, 'github');
+    await enqueueSync({ tenantId: connection.tenant_id, connectionId: connection.id, provider: 'github' });
   }
 
   return Response.json({ ok: true, results });
