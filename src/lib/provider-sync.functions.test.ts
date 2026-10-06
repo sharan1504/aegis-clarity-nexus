@@ -132,4 +132,56 @@ describe("provider evidence visibility", () => {
       expect.objectContaining({ provider: "github", entity_key: "r-1", entity_type: "repository" }),
     ]));
   });
+
+  it("correlates a non-GitHub provider pair only when both entities expose source event timestamps", async () => {
+    const { deriveCorrelatedSignals } = await import("./provider-sync.functions");
+    const signals = deriveCorrelatedSignals([
+      {
+        provider: "jira",
+        entity_type: "issue",
+        entity_key: "OPS-42",
+        payload: { key: "OPS-42", summary: "Production latency", updated: "2026-10-06T10:00:00Z" },
+        observed_at: "2026-10-06T10:05:00Z",
+      },
+      {
+        provider: "m365",
+        entity_type: "user",
+        entity_key: "m365-user-1",
+        payload: { name: "Graph user", updatedAt: "2026-10-06T09:30:00Z" },
+        observed_at: "2026-10-06T10:05:00Z",
+      },
+      {
+        provider: "m365",
+        entity_type: "license",
+        entity_key: "m365-license-1",
+        payload: { name: "Microsoft 365 E3" },
+        observed_at: "2026-10-06T10:05:00Z",
+      },
+    ]);
+
+    expect(signals).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        providers: expect.arrayContaining(["jira", "m365"]),
+        detail: expect.stringContaining("CenOps does not infer causation"),
+      }),
+    ]));
+
+    expect(deriveCorrelatedSignals([
+      {
+        provider: "jira",
+        entity_type: "issue",
+        entity_key: "OPS-43",
+        payload: { key: "OPS-43", summary: "No source timestamp" },
+        observed_at: "2026-10-06T10:00:00Z",
+      },
+      {
+        provider: "m365",
+        entity_type: "user",
+        entity_key: "m365-user-2",
+        payload: { name: "No source timestamp" },
+        observed_at: "2026-10-06T10:00:00Z",
+      },
+    ])).toHaveLength(0);
+  });
+
 });
