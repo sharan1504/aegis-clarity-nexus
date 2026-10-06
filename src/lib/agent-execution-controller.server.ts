@@ -123,3 +123,16 @@ export async function assertAgentRunOperator(
   const elevated = (roles ?? []).some((row: { role?: string }) => row.role === "admin" || row.role === "manager");
   if (!elevated && run.created_by !== userId) throw new Error("Only the run creator or a workspace admin/manager may control this agent run.");
 }
+
+
+export async function assertAgentRunNotCancelled(supabase: UserClient, tenantId: string, runId: string): Promise<void> {
+  const { data, error } = await (supabase as any).from("agent_runs").select("status,cancel_requested").eq("id", runId).eq("tenant_id", tenantId).single();
+  if (error || !data) throw new Error("Agent run was not found.");
+  if (data.cancel_requested || data.status === "cancelled") throw new Error("Agent run was manually terminated.");
+}
+
+export async function assertAgentRunAdmin(supabase: UserClient, tenantId: string, userId: string): Promise<void> {
+  const { data: roles, error } = await (supabase as any).from("user_roles").select("role").eq("user_id", userId).eq("tenant_id", tenantId);
+  if (error) throw new Error("Unable to resolve agent run administrator permissions.");
+  if (!(roles ?? []).some((row: { role?: string }) => row.role === "admin")) throw new Error("Workspace administrator access is required to stop an agent run.");
+}

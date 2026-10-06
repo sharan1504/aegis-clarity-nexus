@@ -7,7 +7,7 @@ import { getAgentMcpToolAvailability } from "@/lib/mcp/agent-tool-availability.s
 import { invokeDynamicMcpTool } from "@/lib/mcp/dynamic-invoker.server";
 import { runGovernedWithToken } from "@/lib/execution/gateway.server";
 import { getAgentPlaybook } from "@/lib/agents/playbooks";
-import { requireAgentBudget, withAgentRetry } from "@/lib/agent-execution-controller.server";
+import { assertAgentRunNotCancelled, requireAgentBudget, withAgentRetry } from "@/lib/agent-execution-controller.server";
 
 function requestToken(): string {
   const header = getRequest()?.headers.get("authorization");
@@ -55,6 +55,8 @@ export async function orchestrateGenericReadOnlyRun(supabase: any, userId: strin
     next = transitionAgentRun(next, { type: "start" });
   }
 
+  await assertAgentRunNotCancelled(supabase, run.tenantId, runId);
+  await assertAgentRunNotCancelled(supabase, run.tenantId, runId);
   await requireAgentBudget(supabase, run.tenantId, runId, "step");
   next = transitionAgentRun(next, {
     type: "complete_step",
@@ -77,6 +79,7 @@ export async function orchestrateGenericReadOnlyRun(supabase: any, userId: strin
   });
 
   for (const item of selected) {
+    await assertAgentRunNotCancelled(supabase, run.tenantId, runId);
     await requireAgentBudget(supabase, run.tenantId, runId, "tool");
     try {
       const invoke = async () => {

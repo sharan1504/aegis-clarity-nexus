@@ -7,7 +7,7 @@ import { executeApprovedAgentRun } from "@/lib/execution/agent-execution-handoff
 import { executeApprovedAction } from "@/lib/integrations/github-governed-action.server";
 import { recordOperationalIssueSafely } from "@/lib/operational-issues.server";
 import { recordAgentLearningOutcome } from "@/lib/agent-learning.functions";
-import { assertAgentRunOperator, checkpointAgentRun, requireAgentBudget, sanitizeTracePayload } from "@/lib/agent-execution-controller.server";
+import { assertAgentRunOperator, assertAgentRunAdmin, checkpointAgentRun, requireAgentBudget, sanitizeTracePayload } from "@/lib/agent-execution-controller.server";
 import { orchestrateSecurityRun } from "./agent-runtime-orchestrator.server";
 import { orchestrateGenericReadOnlyRun } from "./agent-runtime-generic-orchestrator.server";
 import { createAgentRunState, transitionAgentRun, type AgentRunState, type AgentRunStep } from "@/lib/agent-runtime";
@@ -62,3 +62,28 @@ export const advanceAgentRun = createServerFn({ method: "POST" }).middleware([re
       if (step === "approval" && data.transition.value && typeof data.transition.value === "object" && String((data.transition.value as any).status ?? "") === "approved") throw new Error("Approval completion is authoritative only when recorded by Change Control Center."); if (!["plan", "investigate", "policy", "approval", "execute", "verify"].includes(step)) throw new Error("Invalid agent run step."); transition = { type: "complete_step", step, value: data.transition.value }; break; } default: throw new Error("Unsupported agent runtime transition."); } if (transition.type === "complete_step") await requireAgentBudget(context.supabase, tenant.tenantId, data.runId, "step");
       const updated = transitionAgentRun(run, transition);
       await checkpointAgentRun(context.supabase, tenant.tenantId, data.runId, { currentStep: updated.currentStep, status: updated.status, step: transition.type === "complete_step" ? transition.step : null }); await persistRun(context.supabase, tenant.tenantId, updated); const eventType = transition.type === "start" ? "stage_started" : transition.type === "await_approval" ? "approval_requested" : transition.type === "complete_step" ? "stage_completed" : transition.type === "fail" ? "run_failed" : transition.type === "cancel" ? "run_cancelled" : "approval_resolved"; await appendEvent(context.supabase, { runId: data.runId, tenantId: tenant.tenantId, actorId: context.userId, eventType, step: transition.type === "complete_step" ? transition.step : updated.currentStep, outcome: updated.status, payload: transition.type === "fail" ? { error: updated.error } : transition.type === "complete_step" ? transition.value : transition.type === "await_approval" ? transition.approval : {} }); if (updated.status === "failed") await recordOperationalIssueSafely(context.supabase, { tenantId: tenant.tenantId, source: "agent_run", severity: "high", title: `${run.agentKey} run failed`, detail: updated.error ?? "The agent run failed without an error detail.", relatedId: data.runId }); return { ok: true as const, run: updated, events: await loadEvents(context.supabase, tenant.tenantId, data.runId) }; } catch (error) { return runtimeError(error); } });
+
+export const stopAgentRun = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { runId: string }) => ({ runId: String(input.runId ?? "").trim() })).handler(async ({ data, context }) => {
+  try {
+    if (!data.runId) throw new Error("A run id is required.");
+    const tenant = await resolveTenantContext(context.supabase, context.userId);
+    await assertAgentRunAdmin(context.supabase, tenant.tenantId, context.userId);
+    const { data: run, error } = await context.supabase.from("agent_runs").select("id,status").eq("id", data.runId).eq("tenant_id", tenant.tenantId).single();
+    if (error || !run) throw new Error("Agent run was not found.");
+    if (!["planned","running","waiting_approval","paused"].includes(String(run.status))) throw new Error("Only an in-progress agent run can be stopped.");
+    const { error: updateError } = await context.supabase.from("agent_runs").update({
+      cancel_requested: true,
+      status: "cancelled",
+      error: "Manually terminated by a workspace administrator.",
+      checkpoint: { termination: "manual", terminatedBy: context.userId, terminatedAt: new Date().toISOString() },
+    }).eq("id", data.runId).eq("tenant_id", tenant.tenantId);
+    if (updateError) throw new Error(updateError.message);
+    await appendEvent(context.supabase, { runId: data.runId, tenantId: tenant.tenantId, actorId: context.userId, eventType: "run_cancelled", step: null, outcome: "manually_terminated", payload: { termination: "manual", terminatedBy: context.userId } });
+    await (context.supabase as any).from("audit_log").insert({
+      tenant_id: tenant.tenantId, action: "agent.run_manually_terminated", entity_type: "agent_run", entity_id: data.runId,
+      detail: "Agent run was manually terminated by a workspace administrator.",
+      payload: { runId: data.runId, terminatedBy: context.userId, termination: "manual" },
+    });
+    return { ok: true as const, runId: data.runId, status: "cancelled" as const };
+  } catch (error) { return runtimeError(error); }
+});
