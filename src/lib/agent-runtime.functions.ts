@@ -21,6 +21,45 @@ async function appendEvent(supabase: any, event: { runId: string; tenantId: stri
 async function persistRun(supabase: any, tenantId: string, run: AgentRunState) { const persisted = toPersistedRun(run); const { error } = await supabase.from("agent_runs").update({ status: persisted.status, current_step: persisted.current_step, plan: persisted.plan, policy_verdict: persisted.policy_verdict, approval: persisted.approval, execution: persisted.execution, verification: persisted.verification, error: persisted.error }).eq("id", persisted.id).eq("tenant_id", tenantId); if (error) throw new Error(error.message); }
 
 export const createAgentRun = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { agentKey: string; input: string }) => ({ agentKey: String(input.agentKey ?? "").trim(), input: String(input.input ?? "").trim().slice(0, 6000) })).handler(async ({ data, context }) => { try { if (!data.agentKey) throw new Error("An agent key is required."); if (!data.input) throw new Error("A run input is required."); const tenant = await resolveTenantContext(context.supabase, context.userId); const run = createAgentRunState({ tenantId: tenant.tenantId, agentKey: data.agentKey, input: data.input }); const persisted = toPersistedRun(run); const { data: created, error } = await (context.supabase as any).from("agent_runs").insert({ tenant_id: persisted.tenant_id, agent_key: persisted.agent_key, status: persisted.status, current_step: persisted.current_step, input: persisted.input, plan: persisted.plan, policy_verdict: persisted.policy_verdict, approval: persisted.approval, execution: persisted.execution, verification: persisted.verification, error: persisted.error, created_by: context.userId, deadline_at: new Date(Date.now() + 15 * 60 * 1000).toISOString() }).select("id, created_at, updated_at").single(); if (error || !created) throw new Error(error?.message ?? "Agent run could not be created."); await appendEvent(context.supabase, { runId: created.id, tenantId: tenant.tenantId, actorId: context.userId, eventType: "run_created", step: "plan", outcome: "planned", payload: { agentKey: run.agentKey, input: run.input } }); return { ok: true as const, runId: created.id, status: run.status, currentStep: run.currentStep }; } catch (error) { return runtimeError(error); } });
+export const listActiveAgentRuns = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
+  const tenant = await resolveTenantContext(context.supabase, context.userId);
+  const { data: roles, error: roleError } = await (context.supabase as any)
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", context.userId)
+    .eq("tenant_id", tenant.tenantId);
+  if (roleError) throw new Error(roleError.message);
+  const canStop = (roles ?? []).some((row: { role?: string }) => row.role === "admin");
+  const { data: runs, error } = await (context.supabase as any)
+    .from("agent_runs")
+    .select("id,agent_key,status,current_step,created_by,created_at,started_at,updated_at,deadline_at,cost_usd,max_cost_usd,input_tokens,max_input_tokens,output_tokens,max_output_tokens,step_count,max_steps,tool_call_count,max_tool_calls")
+    .eq("tenant_id", tenant.tenantId)
+    .in("status", ["planned", "running", "waiting_approval", "paused"])
+    .order("updated_at", { ascending: false })
+    .limit(100);
+  if (error) throw new Error(error.message);
+  const creatorIds = [...new Set((runs ?? []).map((run: any) => run.created_by).filter(Boolean))];
+  const { data: profiles, error: profileError } = creatorIds.length
+    ? await (context.supabase as any).from("profiles").select("id,email,full_name").eq("tenant_id", tenant.tenantId).in("id", creatorIds)
+    : { data: [], error: null };
+  if (profileError) throw new Error(profileError.message);
+  const profileById = new Map((profiles ?? []).map((profile: any) => [profile.id, profile]));
+  return {
+    ok: true as const,
+    runs: (runs ?? []).map((run: any) => ({
+      ...run,
+      triggeringUser: profileById.get(run.created_by) ?? null,
+      budget: {
+        costPct: run.max_cost_usd > 0 ? Math.min(100, (Number(run.cost_usd ?? 0) / Number(run.max_cost_usd)) * 100) : 0,
+        inputPct: run.max_input_tokens > 0 ? Math.min(100, (Number(run.input_tokens ?? 0) / Number(run.max_input_tokens)) * 100) : 0,
+        outputPct: run.max_output_tokens > 0 ? Math.min(100, (Number(run.output_tokens ?? 0) / Number(run.max_output_tokens)) * 100) : 0,
+        stepsPct: run.max_steps > 0 ? Math.min(100, (Number(run.step_count ?? 0) / Number(run.max_steps)) * 100) : 0,
+        toolsPct: run.max_tool_calls > 0 ? Math.min(100, (Number(run.tool_call_count ?? 0) / Number(run.max_tool_calls)) * 100) : 0,
+      },
+      canStop,
+    })),
+  };
+});
 export const getAgentRun = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { runId: string }) => ({ runId: String(input.runId ?? "").trim() })).handler(async ({ data, context }) => { try { if (!data.runId) throw new Error("A run id is required."); const tenant = await resolveTenantContext(context.supabase, context.userId); const run = await loadRun(context.supabase, tenant.tenantId, data.runId); return { ok: true as const, run, events: await loadEvents(context.supabase, tenant.tenantId, data.runId) }; } catch (error) { return runtimeError(error); } });
 export const orchestrateAgentRun = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { runId: string }) => ({ runId: String(input.runId ?? "").trim() })).handler(async ({ data, context }) => { try { if (!data.runId) throw new Error("A run id is required."); const tenant = await resolveTenantContext(context.supabase, context.userId); const run = await loadRun(context.supabase, tenant.tenantId, data.runId); await requireAgentBudget(context.supabase, tenant.tenantId, data.runId, "step");
       const result = run.agentKey === "agent-security"
