@@ -66,3 +66,17 @@ describe("provider evidence regression", () => {
     expect(result.entities).toEqual(expect.arrayContaining([expect.objectContaining({ provider: "github", entity_key: "repo-1" })]));
   });
 });
+
+describe("generic cross-provider correlation", () => {
+  it("correlates Microsoft 365 and Jira by timestamp only", async () => {
+    const { deriveCorrelatedSignals } = await import("./provider-sync.functions");
+    const signals = deriveCorrelatedSignals([
+      { provider: "m365", entity_type: "user", entity_key: "user-1", payload: { updatedAt: "2026-10-06T10:00:00Z" }, observed_at: "2026-10-06T10:00:00Z" },
+      { provider: "jira", entity_type: "issue", entity_key: "JRA-42", payload: { updated: "2026-10-06T11:00:00Z" }, observed_at: "2026-10-06T11:00:00Z" },
+    ]);
+    expect(signals).toHaveLength(1);
+    expect(signals[0].providers).toEqual(["m365", "jira"]);
+    expect(signals[0].detail).toContain("temporal correlation only");
+    expect(signals[0].detail).toContain("does not infer causation");
+  });
+});

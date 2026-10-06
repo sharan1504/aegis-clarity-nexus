@@ -251,4 +251,46 @@ export async function loadProviderReportData(supabase: any, userId: string, depa
 }
 
 export interface CorrelatedSignal { title: string; detail: string; providers: string[]; timestamp: string; evidence: Array<{ provider: string; entityType: string; entityKey: string; observedAt: string }>; }
-export function deriveCorrelatedSignals(entities: any[]): CorrelatedSignal[] { const github = entities.filter((e) => e.provider === "github" && e.entity_type === "repository" && e.payload?.pushedAt); const jira = entities.filter((e) => e.provider === "jira" && e.entity_type === "issue" && (e.payload?.updated || e.payload?.created)); const signals: CorrelatedSignal[] = []; for (const repo of github) for (const issue of jira) { const repoAt = new Date(repo.payload.pushedAt).getTime(); const issueAt = new Date(issue.payload.updated ?? issue.payload.created).getTime(); if (!Number.isFinite(repoAt) || !Number.isFinite(issueAt) || Math.abs(repoAt - issueAt) > 24 * 60 * 60 * 1000) continue; signals.push({ title: `GitHub activity aligns temporally with Jira issue ${issue.payload.key}`, detail: `${repo.payload.name} was pushed near the time Jira issue ${issue.payload.key} was updated. This is a temporal correlation only; CenOps does not infer causation.`, providers: ["GitHub", "Jira"], timestamp: new Date(Math.max(repoAt, issueAt)).toISOString(), evidence: [{ provider: "GitHub", entityType: repo.entity_type, entityKey: repo.entity_key, observedAt: repo.observed_at }, { provider: "Jira", entityType: issue.entity_type, entityKey: issue.entity_key, observedAt: issue.observed_at }] }); if (signals.length >= 10) return signals; } return signals; }
+function entityTimestamp(entity: any): number | null {
+  const candidates = [entity.payload?.pushedAt, entity.payload?.updatedAt, entity.payload?.updated, entity.payload?.createdAt, entity.payload?.created, entity.payload?.syncedAt, entity.observed_at];
+  for (const candidate of candidates) {
+    const time = new Date(candidate ?? "").getTime();
+    if (Number.isFinite(time)) return time;
+  }
+  return null;
+}
+function entityLabel(entity: any): string {
+  return String(entity.payload?.name ?? entity.payload?.fullName ?? entity.payload?.key ?? entity.payload?.summary ?? entity.entity_key);
+}
+export function deriveCorrelatedSignals(entities: any[]): CorrelatedSignal[] {
+  const signals: CorrelatedSignal[] = [];
+  const providers = [...new Set(entities.map((entity) => String(entity.provider)).filter(Boolean))];
+  for (let leftIndex = 0; leftIndex < providers.length; leftIndex += 1) {
+    for (let rightIndex = leftIndex + 1; rightIndex < providers.length; rightIndex += 1) {
+      const leftProvider = providers[leftIndex];
+      const rightProvider = providers[rightIndex];
+      const leftEntities = entities.filter((entity) => entity.provider === leftProvider);
+      const rightEntities = entities.filter((entity) => entity.provider === rightProvider);
+      for (const left of leftEntities) {
+        const leftAt = entityTimestamp(left);
+        if (leftAt === null) continue;
+        for (const right of rightEntities) {
+          const rightAt = entityTimestamp(right);
+          if (rightAt === null || Math.abs(leftAt - rightAt) > 24 * 60 * 60 * 1000) continue;
+          signals.push({
+            title: `${leftProvider} activity aligns temporally with ${rightProvider} activity`,
+            detail: `${entityLabel(left)} (${leftProvider}) occurred near ${entityLabel(right)} (${rightProvider}). This is a temporal correlation only; CenOps does not infer causation.`,
+            providers: [leftProvider, rightProvider],
+            timestamp: new Date(Math.max(leftAt, rightAt)).toISOString(),
+            evidence: [
+              { provider: leftProvider, entityType: left.entity_type, entityKey: left.entity_key, observedAt: left.observed_at },
+              { provider: rightProvider, entityType: right.entity_type, entityKey: right.entity_key, observedAt: right.observed_at },
+            ],
+          });
+          if (signals.length >= 10) return signals;
+        }
+      }
+    }
+  }
+  return signals;
+}
