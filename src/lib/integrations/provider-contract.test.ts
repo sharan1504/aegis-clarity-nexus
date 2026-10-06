@@ -14,3 +14,8 @@ describe("provider contract integrity", () => {
     expect(deriveConnectorStatus({ provider: "m365", configuredStatus: "connected", credentialPresent: true, health: { status: "healthy", checkedAt: new Date().toISOString(), error: null }, sync: { status: "success", lastAttemptedAt: new Date().toISOString(), lastSuccessfulAt: new Date().toISOString(), recordCount: 1, error: null } })).toBe("connected");
   });
 });
+
+
+  it("surfaces a degraded connection separately from a hard failure", () => {
+    expect(deriveConnectorStatus({ provider: "m365", configuredStatus: "failed", credentialPresent: true, health: { status: "degraded", checkedAt: new Date().toISOString(), error: "repeated sync failures" }, sync: { status: "failed", lastAttemptedAt: new Date().toISOString(), lastSuccessfulAt: null, recordCount: 0, error: "timeout" } })).toBe("degraded");
+  });

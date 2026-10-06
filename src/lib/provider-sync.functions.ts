@@ -3,7 +3,8 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveTenant } from "@/lib/genesys/store.server";
 import { resolveDepartmentContext, getDepartmentProviders } from "@/lib/department-access.server";
 import { clearEvidenceCache, withEvidenceCache } from "@/lib/evidence-cache.server";
-import { recordOperationalIssueSafely } from "@/lib/operational-issues.server";
+import { recordOperationalIssueSafely, resolveOperationalIssue } from "@/lib/operational-issues.server";
+import { getSyncFailureState } from "@/lib/provider-sync-circuit-breaker";
 import { decryptCredentials } from "@/lib/integrations/credential-vault.server";
 import { syncGitHub } from "@/lib/integrations/github-connector.server";
 import { ensureJiraAccessToken } from "@/lib/integrations/oauth-jira.server";
@@ -198,9 +199,18 @@ export async function syncProviderConnection(request: ProviderSyncRequest) {
         .eq("id", runId)
         .eq("tenant_id", tenantId);
     }
+    const { data: recentRuns } = await supabaseAdmin
+      .from("provider_sync_runs")
+      .select("status")
+      .eq("tenant_id", tenantId)
+      .eq("connection_id", connectionId)
+      .order("started_at", { ascending: false })
+      .limit(3);
+    const failureState = getSyncFailureState(recentRuns ?? []);
+    const healthStatus = failureState.degraded ? "degraded" : "unhealthy";
     await updateConnectionEvidence(supabaseAdmin, tenantId, connectionId, {
       status: "failed",
-      health_status: "unhealthy",
+      health_status: healthStatus,
       health_checked_at: new Date().toISOString(),
       health_error: message.slice(0, 2000),
       last_sync_status: "failed",
@@ -210,11 +220,19 @@ export async function syncProviderConnection(request: ProviderSyncRequest) {
     await recordOperationalIssueSafely(supabaseAdmin as any, {
       tenantId,
       source: "sync",
-      severity: "high",
-      title: `${provider} provider sync failed`,
-      detail: `Provider synchronization failed for connection ${connectionId}. ${message}`,
-      relatedId: runId,
+      severity: failureState.degraded ? "warning" : "high",
+      title: failureState.degraded
+        ? `${provider} sync is degraded after ${failureState.failureStreak} consecutive failures`
+        : `${provider} provider sync failed`,
+      detail: failureState.degraded
+        ? `Provider synchronization has failed ${failureState.failureStreak} consecutive times for connection ${connectionId}. Scheduled retries are backed off until a successful sync.`
+        : `Provider synchronization failed for connection ${connectionId}. ${message}`,
+      relatedId: failureState.degraded ? connectionId : runId,
+      fingerprint: failureState.degraded ? `provider-sync-degraded:${connectionId}` : undefined,
     });
+    if (!failureState.degraded) {
+      await resolveOperationalIssue(supabaseAdmin as any, tenantId, "sync", connectionId, "Provider sync failure streak cleared by a successful sync.");
+    }
     throw new Error(message);
   }
 }
