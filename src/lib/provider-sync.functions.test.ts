@@ -116,6 +116,7 @@ describe("provider evidence visibility", () => {
       provider_connections: [{ tenant_id: tenant, id: "github-connection", provider: "github", status: "connected", display_name: "GitHub", last_sync_at: "2026-10-06T10:00:00Z" }],
       provider_sync_entities: [],
       github_synced_entities: [{
+        tenant_id: tenant,
         connection_id: "github-connection",
         entity_type: "repository",
         entity_key: "r-1",
