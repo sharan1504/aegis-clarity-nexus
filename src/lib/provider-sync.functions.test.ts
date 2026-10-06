@@ -65,6 +65,7 @@ function client(tables: Record<string, Row[]>) {
 describe("provider evidence visibility", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it("persists a real Jira sync result and makes it visible to Copilot evidence loading alongside M365", async () => {
