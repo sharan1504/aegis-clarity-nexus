@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Activity, AlertTriangle, Bot, CheckCircle2, ChevronDown, CircleDot, Download, Gauge, MoreHorizontal, Plus, RefreshCw, ShieldAlert, ShieldCheck, Sparkles, Star, Trash2, Zap, type LucideIcon } from "lucide-react";
+import { Activity, AlertTriangle, Bot, CheckCircle2, ChevronDown, CircleDot, Download, Gauge, MoreHorizontal, Plus, RefreshCw, ShieldAlert, ShieldCheck, Sparkles, Star, Trash2, Zap, XCircle, type LucideIcon } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { EmptyIntegrationsState } from "@/components/EmptyIntegrationsState";
@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { getCommandCenterData, type CommandCenterData } from "@/lib/command-center.functions";
 import { getOnboardingStatus } from "@/lib/onboarding.functions";
 import { createCustomDashboard, deleteCustomDashboard, listCustomDashboards, toggleCustomDashboardStar, type DashboardConfig } from "@/lib/custom-dashboards.functions";
-import { listActiveAgentRuns } from "@/lib/agent-runtime.functions";
+import { listActiveAgentRuns, stopAgentRun } from "@/lib/agent-runtime.functions";
 import { pageHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/_app/")({ head: () => pageHead({ path: "/", title: "Command Center — CenOps", description: "Evidence-first operational control plane for enterprise AI." }), component: DashboardPage });
@@ -37,6 +37,7 @@ function DashboardPage() {
   const starDashboard = useServerFn(toggleCustomDashboardStar);
   const removeDashboard = useServerFn(deleteCustomDashboard);
   const loadActiveAgentRuns = useServerFn(listActiveAgentRuns);
+  const stopActiveAgentRun = useServerFn(stopAgentRun);
   const [data, setData] = useState<CommandCenterData | null>(null);
   const [setup, setSetup] = useState<{ providerCount: number; deployedAgentCount: number; guardrailCount: number } | null>(null);
   const [dashboards, setDashboards] = useState<Dashboard[]>([]);
@@ -47,6 +48,21 @@ function DashboardPage() {
   const [widgets, setWidgets] = useState(DEFAULT_WIDGETS);
   const [busy, setBusy] = useState(false);
   const [activeRuns, setActiveRuns] = useState<any[]>([]);
+
+  const handleStopRun = async (runId: string) => {
+    if (!window.confirm("Stop this agent run? The current tool call, if already in flight, may finish; no further runtime steps will be allowed.")) return;
+    try {
+      const result = await stopActiveAgentRun({ data: { runId } });
+      if (result.ok) {
+        toast.success(result.alreadyStopped ? "Run already stopped" : "Agent run terminated");
+        await refresh();
+      } else {
+        toast.error("Could not stop agent run");
+      }
+    } catch (error) {
+      toast.error("Could not stop agent run", { description: error instanceof Error ? error.message : "Try again." });
+    }
+  };
 
   const refresh = async () => {
     setLoading(true);
@@ -116,7 +132,7 @@ function DashboardPage() {
             <div key={run.id} className="rounded-lg border border-white/10 bg-white/[0.025] p-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0"><div className="truncate text-sm font-semibold text-white">{run.agent_key}</div><div className="mt-1 text-xs text-slate-500">{run.triggeringUser?.full_name || run.triggeringUser?.email || "System"} · {run.current_step} · {formatRunElapsed(run.started_at, run.updated_at)}</div></div>
-                <Badge variant="outline" className="shrink-0 text-[10px]">{String(run.status).replace("_", " ")}</Badge>
+                <div className="flex shrink-0 items-center gap-2"><Badge variant="outline" className="text-[10px]">{String(run.status).replace("_", " ")}</Badge>{run.canStop && <Button size="sm" variant="destructive" className="h-7 px-2 text-[10px]" onClick={() => void handleStopRun(run.id)}><XCircle className="mr-1 h-3 w-3" />Stop run</Button>}</div>
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] text-slate-500 sm:grid-cols-4">
                 <span>Cost <strong className="text-slate-300">{run.budget.costPct.toFixed(0)}%</strong></span>
@@ -128,7 +144,7 @@ function DashboardPage() {
             </div>
           ))}
         </div>
-      </section>}}
+      </section>}
 
       {showSetup && <div className="mx-5 mt-5 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.06] px-4 py-3 lg:mx-7"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="text-sm font-semibold text-white">Bring the control plane to life</div><div className="mt-0.5 text-xs text-slate-400">Connect a provider, deploy an agent and configure governance to populate live evidence.</div></div><Button size="sm" asChild className="bg-cyan-400 text-slate-950 hover:bg-cyan-300"><Link to="/integrations">Connect integration</Link></Button></div></div>}
 

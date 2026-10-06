@@ -18,7 +18,7 @@ function toPersistedRun(run: AgentRunState) { return { id: run.runId.replace(/^r
 async function loadRun(supabase: any, tenantId: string, runId: string): Promise<AgentRunState> { const { data, error } = await supabase.from("agent_runs").select("id, tenant_id, agent_key, status, current_step, input, plan, policy_verdict, approval, execution, verification, error, created_at, updated_at").eq("id", runId).eq("tenant_id", tenantId).single(); if (error || !data) throw new Error(error?.message ?? "Agent run was not found."); const { data: evidenceRows, error: evidenceError } = await supabase.from("agent_run_evidence").select("evidence").eq("run_id", runId).eq("tenant_id", tenantId).order("created_at", { ascending: true }); if (evidenceError) throw new Error(evidenceError.message); return { runId: `run-${data.id}`, tenantId: data.tenant_id, agentKey: data.agent_key, status: data.status, currentStep: data.current_step, input: data.input, plan: data.plan, evidence: (evidenceRows ?? []).map((row: { evidence: unknown }) => row.evidence), policyVerdict: data.policy_verdict, approval: data.approval, execution: data.execution, verification: data.verification, error: data.error, createdAt: data.created_at, updatedAt: data.updated_at }; }
 async function loadEvents(supabase: any, tenantId: string, runId: string): Promise<AgentRunEvent[]> { const { data, error } = await supabase.from("agent_run_events").select("id, run_id, tenant_id, sequence, event_type, step, actor_id, provider, capability_key, outcome, payload, occurred_at").eq("run_id", runId).eq("tenant_id", tenantId).order("sequence", { ascending: true }); if (error) throw new Error(error.message); return (data ?? []).map((row: any) => ({ id: row.id, runId: row.run_id, tenantId: row.tenant_id, sequence: row.sequence, eventType: row.event_type, step: row.step, actorId: row.actor_id, provider: row.provider, capabilityKey: row.capability_key, outcome: row.outcome, payload: row.payload ?? {}, occurredAt: row.occurred_at })) as AgentRunEvent[]; }
 async function appendEvent(supabase: any, event: { runId: string; tenantId: string; actorId: string | null; eventType: AgentRunEvent["eventType"]; step?: AgentRunStep | null; provider?: string | null; capabilityKey?: string | null; outcome?: string | null; payload?: unknown }) { const { data: runMeta } = await supabase.from("agent_runs").select("trace_id").eq("id", event.runId).eq("tenant_id", event.tenantId).maybeSingle(); const { error } = await (supabase as any).rpc("append_agent_run_event", { p_run_id: event.runId, p_tenant_id: event.tenantId, p_actor_id: event.actorId, p_event_type: event.eventType, p_step: event.step ?? null, p_provider: event.provider ?? null, p_capability_key: event.capabilityKey ?? null, p_outcome: event.outcome ?? null, p_payload: sanitizeTracePayload(event.payload ?? {}), p_trace_id: runMeta?.trace_id ?? null }); if (error) throw new Error(error.message); }
-async function persistRun(supabase: any, tenantId: string, run: AgentRunState) { const persisted = toPersistedRun(run); const { error } = await supabase.from("agent_runs").update({ status: persisted.status, current_step: persisted.current_step, plan: persisted.plan, policy_verdict: persisted.policy_verdict, approval: persisted.approval, execution: persisted.execution, verification: persisted.verification, error: persisted.error }).eq("id", persisted.id).eq("tenant_id", tenantId); if (error) throw new Error(error.message); }
+async function persistRun(supabase: any, tenantId: string, run: AgentRunState) { const persisted = toPersistedRun(run); const { data, error } = await supabase.from("agent_runs").update({ status: persisted.status, current_step: persisted.current_step, plan: persisted.plan, policy_verdict: persisted.policy_verdict, approval: persisted.approval, execution: persisted.execution, verification: persisted.verification, error: persisted.error }).eq("id", persisted.id).eq("tenant_id", tenantId).eq("cancel_requested", false).select("id").maybeSingle(); if (error) throw new Error(error.message); if (!data) throw new Error("Agent run was cancelled before the next runtime checkpoint."); }
 
 export const createAgentRun = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { agentKey: string; input: string }) => ({ agentKey: String(input.agentKey ?? "").trim(), input: String(input.input ?? "").trim().slice(0, 6000) })).handler(async ({ data, context }) => { try { if (!data.agentKey) throw new Error("An agent key is required."); if (!data.input) throw new Error("A run input is required."); const tenant = await resolveTenantContext(context.supabase, context.userId); const run = createAgentRunState({ tenantId: tenant.tenantId, agentKey: data.agentKey, input: data.input }); const persisted = toPersistedRun(run); const { data: created, error } = await (context.supabase as any).from("agent_runs").insert({ tenant_id: persisted.tenant_id, agent_key: persisted.agent_key, status: persisted.status, current_step: persisted.current_step, input: persisted.input, plan: persisted.plan, policy_verdict: persisted.policy_verdict, approval: persisted.approval, execution: persisted.execution, verification: persisted.verification, error: persisted.error, created_by: context.userId, deadline_at: new Date(Date.now() + 15 * 60 * 1000).toISOString() }).select("id, created_at, updated_at").single(); if (error || !created) throw new Error(error?.message ?? "Agent run could not be created."); await appendEvent(context.supabase, { runId: created.id, tenantId: tenant.tenantId, actorId: context.userId, eventType: "run_created", step: "plan", outcome: "planned", payload: { agentKey: run.agentKey, input: run.input } }); return { ok: true as const, runId: created.id, status: run.status, currentStep: run.currentStep }; } catch (error) { return runtimeError(error); } });
 export const listActiveAgentRuns = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
@@ -84,6 +84,68 @@ export const orchestrateAgentRun = createServerFn({ method: "POST" }).middleware
       console.error("[agent-runtime] learning outcome ledger write failed", learningError);
     }
     if (result.run.evidence.length > run.evidence.length) await appendEvent(context.supabase, { runId: data.runId, tenantId: tenant.tenantId, actorId: context.userId, eventType: "stage_completed", step: "investigate", outcome: "completed", payload: result.run.evidence[result.run.evidence.length - 1] }); if (result.run.policyVerdict !== null && run.policyVerdict === null) await appendEvent(context.supabase, { runId: data.runId, tenantId: tenant.tenantId, actorId: context.userId, eventType: "stage_completed", step: "policy", outcome: "evaluated", payload: result.run.policyVerdict }); if (result.run.status === "waiting_approval" && run.status !== "waiting_approval") await appendEvent(context.supabase, { runId: data.runId, tenantId: tenant.tenantId, actorId: context.userId, eventType: "approval_requested", step: "approval", outcome: "pending", payload: result.run.approval }); if (result.run.status === "failed" && run.status !== "failed") { await appendEvent(context.supabase, { runId: data.runId, tenantId: tenant.tenantId, actorId: context.userId, eventType: "run_failed", step: run.currentStep, outcome: "failed", payload: { error: result.run.error } }); await recordOperationalIssueSafely(context.supabase, { tenantId: tenant.tenantId, source: "agent_run", severity: "high", title: `${run.agentKey} run failed`, detail: result.run.error ?? "The agent run failed without an error detail.", relatedId: data.runId }); } return { ok: true as const, ...result, events: await loadEvents(context.supabase, tenant.tenantId, data.runId) }; } catch (error) { return runtimeError(error); } });
+export const stopAgentRun = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { runId: string }) => ({ runId: String(input.runId ?? "").trim() })).handler(async ({ data, context }) => {
+  try {
+    if (!data.runId) throw new Error("A run id is required.");
+    const tenant = await resolveTenantContext(context.supabase, context.userId);
+    const { data: roles, error: roleError } = await (context.supabase as any)
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", context.userId)
+      .eq("tenant_id", tenant.tenantId);
+    if (roleError) throw new Error(roleError.message);
+    if (!(roles ?? []).some((row: { role?: string }) => row.role === "admin")) {
+      throw new Error("Only workspace admins can manually terminate agent runs.");
+    }
+    const { data: run, error: runError } = await (context.supabase as any)
+      .from("agent_runs")
+      .select("id,agent_key,status,current_step")
+      .eq("id", data.runId)
+      .eq("tenant_id", tenant.tenantId)
+      .single();
+    if (runError || !run) throw new Error("Agent run was not found.");
+    if (!["planned", "running", "waiting_approval", "paused"].includes(run.status)) {
+      return { ok: true as const, alreadyStopped: true, run };
+    }
+    const now = new Date().toISOString();
+    const { data: updated, error: updateError } = await (context.supabase as any)
+      .from("agent_runs")
+      .update({
+        cancel_requested: true,
+        status: "cancelled",
+        error: "Manually terminated by a workspace administrator.",
+        updated_at: now,
+      })
+      .eq("id", data.runId)
+      .eq("tenant_id", tenant.tenantId)
+      .in("status", ["planned", "running", "waiting_approval", "paused"])
+      .select("id,agent_key,status,current_step,updated_at")
+      .maybeSingle();
+    if (updateError) throw new Error(updateError.message);
+    if (!updated) return { ok: true as const, alreadyStopped: true, run };
+    await appendEvent(context.supabase, {
+      runId: data.runId,
+      tenantId: tenant.tenantId,
+      actorId: context.userId,
+      eventType: "run_cancelled",
+      step: run.current_step,
+      outcome: "cancelled",
+      payload: { reason: "manual_termination", actor: "workspace_admin" },
+    });
+    await (context.supabase as any).from("audit_log").insert({
+      tenant_id: tenant.tenantId,
+      actor_id: context.userId,
+      action: "agent.run_cancelled",
+      entity_type: "agent_run",
+      entity_id: data.runId,
+      detail: `${run.agent_key} run manually terminated by workspace administrator`,
+      payload: { runId: data.runId, agentKey: run.agent_key, previousStatus: run.status, step: run.current_step },
+    });
+    return { ok: true as const, alreadyStopped: false, run: updated };
+  } catch (error) {
+    return runtimeError(error);
+  }
+});
 export const executeAgentRun = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { runId: string; changeRecordId: string }) => ({ runId: String(input.runId ?? "").trim(), changeRecordId: String(input.changeRecordId ?? "").trim() })).handler(async ({ data, context }) => { try { if (!data.runId || !data.changeRecordId) throw new Error("A run id and approved change record id are required."); const tenant = await resolveTenantContext(context.supabase, context.userId); await assertAgentRunOperator(context.supabase, tenant.tenantId, context.userId, data.runId); const actor = await resolveActor(context.supabase, context.userId); const outcome = await executeApprovedAgentRun(context.supabase, actor, data, async ({ supabase, actor: executionActor, change }) => {
       if (change.provider !== "github") throw new Error(`Provider mutation is not implemented for ${change.provider ?? "this provider"}; execution was denied rather than simulated.`);
       const result = await executeApprovedAction(supabase, executionActor, change.rowId);
