@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { decryptCredentials } from "@/lib/integrations/credential-vault.server";
 import { recordOperationalIssueSafely } from "@/lib/operational-issues.server";
-import { fetchProvider, persistProviderSyncRows, type Provider } from "@/lib/provider-sync.functions";
+import { fetchProvider, persistProviderSyncRows, type Credentials, type Provider } from "@/lib/provider-sync.functions";
 import { syncGitHub, type GitHubEntityScope } from "@/lib/integrations/github-connector.server";
 
 const GENERIC_SCHEDULED_PROVIDERS = new Set<Provider>(["m365", "jira", "slack"]);
@@ -62,7 +62,7 @@ export const Route = createFileRoute("/api/internal/provider-sync")({
           }
 
           const credentials = decryptCredentials<Record<string, unknown>>(connection.encrypted_credentials);
-          const rows = await fetchProvider(body.provider, credentials as never, body.connectionId, body.tenantId);
+          const rows = await fetchProvider(body.provider, credentials as Credentials, body.connectionId, body.tenantId);
           const observedAt = new Date().toISOString();
           const staleCount = await persistProviderSyncRows(supabaseAdmin, body.tenantId, body.provider, body.connectionId, body.syncRunId, rows, observedAt);
           const finishedAt = new Date().toISOString();
