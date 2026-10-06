@@ -158,5 +158,88 @@ export async function loadProviderReportData(supabase: any, userId: string, depa
   });
 }
 
-export interface CorrelatedSignal { title: string; detail: string; providers: string[]; timestamp: string; evidence: Array<{ provider: string; entityType: string; entityKey: string; observedAt: string }>; }
-export function deriveCorrelatedSignals(entities: any[]): CorrelatedSignal[] { const github = entities.filter((e) => e.provider === "github" && e.entity_type === "repository" && e.payload?.pushedAt); const jira = entities.filter((e) => e.provider === "jira" && e.entity_type === "issue" && (e.payload?.updated || e.payload?.created)); const signals: CorrelatedSignal[] = []; for (const repo of github) for (const issue of jira) { const repoAt = new Date(repo.payload.pushedAt).getTime(); const issueAt = new Date(issue.payload.updated ?? issue.payload.created).getTime(); if (!Number.isFinite(repoAt) || !Number.isFinite(issueAt) || Math.abs(repoAt - issueAt) > 24 * 60 * 60 * 1000) continue; signals.push({ title: `GitHub activity aligns temporally with Jira issue ${issue.payload.key}`, detail: `${repo.payload.name} was pushed near the time Jira issue ${issue.payload.key} was updated. This is a temporal correlation only; CenOps does not infer causation.`, providers: ["GitHub", "Jira"], timestamp: new Date(Math.max(repoAt, issueAt)).toISOString(), evidence: [{ provider: "GitHub", entityType: repo.entity_type, entityKey: repo.entity_key, observedAt: repo.observed_at }, { provider: "Jira", entityType: issue.entity_type, entityKey: issue.entity_key, observedAt: issue.observed_at }] }); if (signals.length >= 10) return signals; } return signals; }
+export interface CorrelatedSignal {
+  title: string;
+  detail: string;
+  providers: string[];
+  timestamp: string;
+  evidence: Array<{ provider: string; entityType: string; entityKey: string; observedAt: string }>;
+}
+
+const EVENT_TIMESTAMP_KEYS = [
+  "pushedAt",
+  "updated",
+  "updatedAt",
+  "created",
+  "createdAt",
+  "runStartedAt",
+  "lastActivityAt",
+  "timestamp",
+  "occurredAt",
+  "eventAt",
+  "providerUpdatedAt",
+] as const;
+
+function entityEventTimestamp(entity: any): number | null {
+  const payload = entity?.payload;
+  if (!payload || typeof payload !== "object") return null;
+  for (const key of EVENT_TIMESTAMP_KEYS) {
+    const value = payload[key];
+    if (typeof value !== "string" && typeof value !== "number") continue;
+    const timestamp = new Date(value).getTime();
+    if (Number.isFinite(timestamp)) return timestamp;
+  }
+  return null;
+}
+
+function displayProvider(provider: string): string {
+  return provider
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function displayEntity(entity: any): string {
+  const payload = entity?.payload ?? {};
+  return String(payload.name ?? payload.fullName ?? payload.key ?? payload.summary ?? payload.title ?? entity.entity_key);
+}
+
+export function deriveCorrelatedSignals(entities: any[]): CorrelatedSignal[] {
+  const candidates = entities
+    .map((entity) => ({ entity, timestamp: entityEventTimestamp(entity) }))
+    .filter((candidate): candidate is { entity: any; timestamp: number } => candidate.timestamp !== null);
+
+  const signals: CorrelatedSignal[] = [];
+  const windowMs = 24 * 60 * 60 * 1000;
+
+  for (let leftIndex = 0; leftIndex < candidates.length; leftIndex += 1) {
+    for (let rightIndex = leftIndex + 1; rightIndex < candidates.length; rightIndex += 1) {
+      const left = candidates[leftIndex];
+      const right = candidates[rightIndex];
+      if (left.entity.provider === right.entity.provider) continue;
+      if (Math.abs(left.timestamp - right.timestamp) > windowMs) continue;
+
+      const leftProvider = displayProvider(String(left.entity.provider));
+      const rightProvider = displayProvider(String(right.entity.provider));
+      const leftName = displayEntity(left.entity);
+      const rightName = displayEntity(right.entity);
+      const timestamp = new Date(Math.max(left.timestamp, right.timestamp)).toISOString();
+
+      signals.push({
+        title: `${leftProvider} activity aligns temporally with ${rightProvider} evidence`,
+        detail: `${leftName} (${leftProvider}) was observed near ${rightName} (${rightProvider}) in time. This is a temporal correlation only; CenOps does not infer causation.`,
+        providers: [String(left.entity.provider), String(right.entity.provider)],
+        timestamp,
+        evidence: [
+          { provider: String(left.entity.provider), entityType: String(left.entity.entity_type), entityKey: String(left.entity.entity_key), observedAt: String(left.entity.observed_at) },
+          { provider: String(right.entity.provider), entityType: String(right.entity.entity_type), entityKey: String(right.entity.entity_key), observedAt: String(right.entity.observed_at) },
+        ],
+      });
+
+      if (signals.length >= 10) return signals;
+    }
+  }
+
+  return signals;
+}
