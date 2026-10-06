@@ -55,6 +55,33 @@ async function reconcileProviderEntities(supabaseAdmin: any, tenantId: string, p
   return staleRows.length;
 }
 async function updateConnectionEvidence(supabaseAdmin: any, tenantId: string, connectionId: string, values: Record<string, unknown>) { const { error } = await supabaseAdmin.from("provider_connections").update({ ...values, updated_at: new Date().toISOString() }).eq("id", connectionId).eq("tenant_id", tenantId); if (error) throw error; }
+export async function persistProviderSyncRows(
+  supabaseAdmin: any,
+  tenantId: string,
+  provider: Provider,
+  connectionId: string,
+  runId: string,
+  rows: Array<{ entityType: string; entityKey: string; payload: unknown }>,
+  observedAt: string,
+) {
+  const staleCount = await reconcileProviderEntities(supabaseAdmin, tenantId, provider, connectionId, rows, observedAt);
+  for (const row of rows) {
+    const { error } = await supabaseAdmin.from("provider_sync_entities").upsert({
+      tenant_id: tenantId,
+      provider,
+      connection_id: connectionId,
+      entity_type: row.entityType,
+      entity_key: row.entityKey,
+      payload: row.payload,
+      observed_at: observedAt,
+      sync_run_id: runId,
+      stale: false,
+    }, { onConflict: "tenant_id,provider,connection_id,entity_type,entity_key" });
+    if (error) throw error;
+  }
+  return staleCount;
+}
+
 
 export const syncReportProvider = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { provider: Provider; connectionId?: string }) => ({ provider: input.provider, connectionId: input.connectionId ? String(input.connectionId).trim() : null })).handler(async ({ data, context }) => {
   const { tenantId, roles } = await resolveTenant(context.supabase, context.userId); if (!roles.some((r) => ["admin", "manager", "analyst"].includes(r))) throw new Error("Analyst access is required to synchronize provider report data."); const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -62,8 +89,7 @@ export const syncReportProvider = createServerFn({ method: "POST" }).middleware(
   const connection = connections[0]; if (!connection.encrypted_credentials) throw new Error(`${data.provider} has no stored credentials.`); const runStarted = new Date().toISOString(); const { data: run, error: runError } = await supabaseAdmin.from("provider_sync_runs").insert({ tenant_id: tenantId, provider: data.provider, connection_id: connection.id, status: "running", started_at: runStarted }).select("id").single(); if (runError || !run) throw runError ?? new Error("Could not create sync run."); await updateConnectionEvidence(supabaseAdmin, tenantId, connection.id, { last_sync_status: "running", last_sync_attempted_at: runStarted, sync_error: null });
   try {
     if (data.provider === "github") { const result = await syncGitHub(tenantId, connection.id, "all", run.id); await updateConnectionEvidence(supabaseAdmin, tenantId, connection.id, { status: "connected", health_status: "healthy", health_checked_at: result.lastSuccessfulAt, health_error: null, last_sync_at: result.lastSuccessfulAt, last_sync_status: "success", last_sync_successful_at: result.lastSuccessfulAt, sync_record_count: result.recordsUpserted, sync_error: null, last_error: null, connected_at: connection.status === "connected" ? undefined : result.lastSuccessfulAt }); clearEvidenceCache(); return { ok: true as const, provider: data.provider, connectionId: connection.id, records: result.recordsUpserted, finishedAt: result.lastSuccessfulAt }; }
-    const credentials = decryptCredentials<Credentials>(connection.encrypted_credentials); const rows = await fetchProvider(data.provider, credentials, connection.id, tenantId); const observedAt = new Date().toISOString(); const staleCount = await reconcileProviderEntities(supabaseAdmin, tenantId, data.provider, connection.id, rows, observedAt);
-    for (const row of rows) { const { error } = await supabaseAdmin.from("provider_sync_entities").upsert({ tenant_id: tenantId, provider: data.provider, connection_id: connection.id, entity_type: row.entityType, entity_key: row.entityKey, payload: row.payload, observed_at: observedAt, sync_run_id: run.id, stale: false }, { onConflict: "tenant_id,provider,connection_id,entity_type,entity_key" }); if (error) throw error; }
+    const credentials = decryptCredentials<Credentials>(connection.encrypted_credentials); const rows = await fetchProvider(data.provider, credentials, connection.id, tenantId); const observedAt = new Date().toISOString(); const staleCount = await persistProviderSyncRows(supabaseAdmin, tenantId, data.provider, connection.id, run.id, rows, observedAt);
     const finished = new Date().toISOString(); await supabaseAdmin.from("provider_sync_runs").update({ status: "success", finished_at: finished, records_seen: rows.length, records_upserted: rows.length, records_staled: staleCount }).eq("id", run.id).eq("tenant_id", tenantId); await updateConnectionEvidence(supabaseAdmin, tenantId, connection.id, { status: "connected", health_status: "healthy", health_checked_at: finished, health_error: null, last_sync_at: finished, last_sync_status: "success", last_sync_successful_at: finished, sync_record_count: rows.length, sync_error: null, last_error: null, connected_at: connection.status === "connected" ? undefined : finished }); clearEvidenceCache(); return { ok: true as const, provider: data.provider, connectionId: connection.id, records: rows.length, stale: staleCount, finishedAt: finished };
   } catch (error) { const message = error instanceof Error ? error.message : String(error); await supabaseAdmin.from("provider_sync_runs").update({ status: "failed", finished_at: new Date().toISOString(), error_message: message.slice(0, 2000) }).eq("id", run.id).eq("tenant_id", tenantId); await updateConnectionEvidence(supabaseAdmin, tenantId, connection.id, { status: "failed", health_status: "unhealthy", health_checked_at: new Date().toISOString(), health_error: message.slice(0, 2000), last_sync_status: "failed", sync_error: message.slice(0, 2000), last_error: message.slice(0, 2000) }); await recordOperationalIssueSafely(supabaseAdmin as any, { tenantId, source: "sync", severity: "high", title: `${data.provider} provider sync failed`, detail: `Provider synchronization failed for connection ${connection.id}. ${message}`, relatedId: run.id }); throw new Error(message); }
 });
