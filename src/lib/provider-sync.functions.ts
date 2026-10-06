@@ -13,7 +13,7 @@ import { ensureSlackAccessToken } from "@/lib/integrations/oauth-slack.server";
 import { Microsoft365LicenseConnector } from "@/lib/microsoft365/connector.server";
 
 export type Provider = "github" | "slack" | "jira" | "salesforce" | "servicenow" | "m365";
-interface Credentials { accessToken?: string; cloudId?: string; instanceUrl?: string; tenant?: string; clientId?: string; clientSecret?: string; }
+export interface Credentials { accessToken?: string; cloudId?: string; instanceUrl?: string; tenant?: string; clientId?: string; clientSecret?: string; }
 
 async function json(url: string, token: string, init: RequestInit = {}) {
   const response = await fetch(url, { ...init, headers: { accept: "application/json", authorization: `Bearer ${token}`, ...(init.headers ?? {}) } });
