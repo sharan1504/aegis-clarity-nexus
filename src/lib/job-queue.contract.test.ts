@@ -23,6 +23,7 @@ describe("durable job queue contract", () => {
 
   it("moves scheduler side effects behind the durable queue", () => {
     expect(scheduledSource).not.toContain("PROVIDER_SYNC_INTERNAL_URL");
+    expect(scheduledSource).toContain("'github', 'jira', 'slack', 'm365'");
     expect(webhookSource).not.toContain("fetch(webhook.target_url");
     expect(webhookSource).toContain("aegis.webhook-delivery");
   });

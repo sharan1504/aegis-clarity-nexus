@@ -18,7 +18,7 @@ The generic provider connector contract requires a real provider health check an
 
 `CONTRACT_IMPLEMENTED_PROVIDERS` is the authoritative runtime allow-list and currently contains exactly `genesys`, `github`, `jira`, `slack`, `salesforce`, `servicenow`, and `m365`.
 
-Microsoft 365 uses the server-side Microsoft Graph connector with tenant ID, client ID and client secret stored encrypted in `provider_connections`. Sync reads users, subscribed SKUs and user-to-SKU assignments, persists them as provider entities, and marks entities absent from a successful snapshot as stale. Manual Sync Now invokes the same provider-backed server path and does not require the durable worker.
+Microsoft 365 uses the server-side Microsoft Graph connector with tenant ID, client ID and client secret stored encrypted in `provider_connections`. Sync reads users, subscribed SKUs and user-to-SKU assignments, persists them as provider entities, and marks entities absent from a successful snapshot as stale. Manual Sync Now and the scheduled provider-sync worker invoke the same provider-backed server path. Chat evidence reads the persisted snapshot; it does not perform a live Microsoft Graph read on every chat turn.
 
 GitHub uses the GitHub App installation flow. The server stores encrypted installation identity and mints short-lived installation tokens on demand.
 
@@ -85,3 +85,8 @@ Manual `Sync Now` remains the supported operational path for contract-backed pro
 - Writes only through approved change records and server-side authorization.
 - Unsupported provider capabilities remain explicitly unsupported.
 - Demo fixtures are valid only in explicit demo mode and must never be presented as live tenant evidence.
+
+
+## Phase 1 evidence-sync status
+
+The investigation evidence layer reads `provider_sync_entities` for generic providers and also unions the existing GitHub connector store `github_synced_entities` for authorized GitHub connections. Jira, Slack, and Microsoft 365 use the generic tenant-scoped sync path and durable provider-sync queue. Providers outside the contract-backed set remain catalog-only / coming soon and do not fabricate fallback evidence; before their first successful sync the UI must report that evidence is not synced yet.

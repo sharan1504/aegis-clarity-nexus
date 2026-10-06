@@ -52,8 +52,7 @@ Deno.serve(async (req) => {
       results.push({ integrationId, status: 'failed', error: runError.message }); return;
     }
     try {
-      if (provider === 'github') {
-        const queued = await enqueue({ queue: 'aegis.provider-sync', idempotencyKey, tenantId, payload: { integrationId, tenantId, provider, syncRunId: run?.id ?? null, entityScope: 'all' } });
+      if ([ 'github', 'jira', 'slack', 'm365' ].includes(provider)) { const queued = await enqueue({ queue: 'aegis.provider-sync', idempotencyKey, tenantId, payload: { integrationId, tenantId, provider, syncRunId: run?.id ?? null } });
         results.push({ integrationId, provider, status: 'queued', jobId: queued.jobId ?? null, idempotencyKey });
       } else {
         await supabase.from('integrations').update({ last_sync_attempted_at: started }).eq('id', integrationId).eq('tenant_id', tenantId);
@@ -67,7 +66,12 @@ Deno.serve(async (req) => {
     }
   };
 
-  for (const integration of due ?? []) await enqueueSync(integration.tenant_id, integration.id, integration.provider, integration.sync_interval_minutes);
+  const implementedProviders = new Set(['github', 'jira', 'slack', 'm365', 'microsoft365']);
+  for (const integration of due ?? []) {
+    if (!implementedProviders.has(integration.provider)) continue;
+    const provider = integration.provider === 'microsoft365' ? 'm365' : integration.provider;
+    await enqueueSync(integration.tenant_id, integration.id, provider, integration.sync_interval_minutes);
+  }
   const githubStatusByConnection = new Map((githubStatuses ?? []).map((status) => [status.connection_id, status]));
   const githubCutoff = Date.now() - 15 * 60 * 1000;
   for (const connection of githubConnections ?? []) {
