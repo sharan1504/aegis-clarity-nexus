@@ -40,7 +40,7 @@ function AICoreVisual() {
   ];
 
   return (
-    <div aria-hidden="true" className="relative mx-auto h-64 w-full max-w-3xl">
+    <div aria-hidden="true" className="relative mx-auto h-44 w-full max-w-3xl sm:h-52 lg:h-56">
       <div className="absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/20 blur-3xl" />
       <div className="absolute left-1/2 top-1/2 h-56 w-56 -translate-x-1/2 -translate-y-1/2 rounded-full border border-violet-300/10" />
       <div className="absolute left-1/2 top-1/2 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full border border-blue-300/10" />
@@ -131,7 +131,7 @@ function AuthPage() {
       <div className="absolute -bottom-64 right-[-8%] h-[38rem] w-[55rem] rounded-[50%] border border-blue-400/15 bg-[radial-gradient(ellipse_at_center,rgba(37,99,235,0.12),transparent_62%)] shadow-[0_-20px_100px_rgba(37,99,235,0.12)]" />
       <div className="absolute -bottom-80 right-[-2%] h-[34rem] w-[48rem] rounded-[50%] border border-violet-400/10" />
 
-      <div className="relative z-10 min-h-screen px-6 py-7 sm:px-10 lg:px-14">
+      <div className="relative z-10 flex min-h-[100dvh] flex-col overflow-hidden px-5 py-4 sm:px-8 sm:py-5 lg:px-10 lg:py-4 xl:px-14">
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-violet-300/20 bg-violet-500/15 shadow-[0_0_28px_rgba(139,92,246,0.2)]">
@@ -151,10 +151,10 @@ function AuthPage() {
           </div>
         </header>
 
-        <main className="mx-auto grid min-h-[calc(100vh-104px)] max-w-[1500px] items-center gap-10 py-8 lg:grid-cols-[minmax(0,1fr)_minmax(400px,500px)] lg:gap-12 xl:gap-20">
+        <main className="mx-auto grid min-h-0 flex-1 w-full max-w-[1500px] items-center gap-5 py-3 lg:grid-cols-[minmax(0,1fr)_minmax(400px,500px)] lg:gap-8 xl:gap-12">
           <section className="min-w-0">
             <div className="max-w-2xl">
-              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-violet-300/15 bg-violet-400/[0.07] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-200/80">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-violet-300/15 bg-violet-400/[0.07] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-200/80">
                 <Activity className="h-3.5 w-3.5" />
                 Enterprise AI Operations
               </div>
@@ -164,14 +164,14 @@ function AuthPage() {
                   {" "}with AI.
                 </span>
               </h1>
-              <p className="mt-6 max-w-2xl text-lg font-medium leading-8 text-white/70 sm:text-xl">
+              <p className="mt-4 max-w-2xl text-lg font-medium leading-8 text-white/70 sm:text-xl">
                 See what is happening. Understand why. Decide with confidence. Act with control.
               </p>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-white/40 sm:text-base">
                 Specialized AI agents turn live operational signals into governed decisions, approved actions, and verifiable outcomes.
               </p>
 
-              <div className="mt-7 flex max-w-3xl flex-wrap items-center gap-2.5">
+              <div className="mt-5 flex max-w-3xl flex-wrap items-center gap-2.5">
                 {[
                   { label: "CONNECT", icon: Network },
                   { label: "REASON", icon: BrainCircuit },
@@ -190,18 +190,18 @@ function AuthPage() {
               </div>
             </div>
 
-            <div className="mt-3"><AICoreVisual /></div>
+            <div className="mt-1"><AICoreVisual /></div>
 
-            <div className="grid max-w-4xl grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="hidden max-w-4xl grid-cols-2 gap-2 sm:grid sm:grid-cols-4">
               {[
                 { icon: Network, title: "Integrate Systems", text: "Connect enterprise systems securely" },
                 { icon: Bot, title: "AI Agents", text: "Specialized operational automation" },
                 { icon: ShieldCheck, title: "Governance", text: "Human approval and guardrails" },
                 { icon: CheckCircle2, title: "Audit", text: "Traceable actions and evidence" },
               ].map(({ icon: Icon, title, text }) => (
-                <div key={title} className="rounded-xl border border-white/10 bg-[#0b1028]/55 p-3.5 shadow-lg shadow-black/10 backdrop-blur-md">
+                <div key={title} className="rounded-xl border border-white/10 bg-[#0b1028]/55 p-2.5 shadow-lg shadow-black/10 backdrop-blur-md">
                   <Icon className="h-4 w-4 text-violet-300" />
-                  <p className="mt-3 text-xs font-semibold text-white/85">{title}</p>
+                  <p className="mt-2 text-xs font-semibold text-white/85">{title}</p>
                   <p className="mt-1 text-[10px] leading-4 text-white/35">{text}</p>
                 </div>
               ))}
@@ -210,30 +210,30 @@ function AuthPage() {
 
           <section className="relative flex items-center justify-center lg:justify-end">
             <Card className="w-full max-w-[500px] border-white/15 bg-[#0b1028]/95 text-white shadow-[0_30px_100px_rgba(0,0,0,0.45)] backdrop-blur-xl">
-              <CardHeader className="space-y-2 px-7 pb-5 pt-7 sm:px-9 sm:pt-9">
+              <CardHeader className="space-y-1.5 px-6 pb-4 pt-5 sm:px-7 sm:pt-6">
                 <div className="mb-1 flex h-11 w-11 items-center justify-center rounded-xl border border-violet-300/15 bg-violet-500/15 text-violet-200">
                   <ShieldCheck className="h-5 w-5" />
                 </div>
-                <CardTitle className="text-3xl tracking-tight text-white">{mode === "signin" ? "Sign in" : "Create your account"}</CardTitle>
+                <CardTitle className="text-2xl tracking-tight text-white">{mode === "signin" ? "Sign in" : "Create your account"}</CardTitle>
                 <CardDescription className="text-white/50">
                   {mode === "signin" ? "Welcome back to CenOps." : "Set up your CenOps enterprise workspace."}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="px-7 pb-7 sm:px-9 sm:pb-9">
-                <form onSubmit={submit} className="space-y-4">
+              <CardContent className="px-6 pb-5 sm:px-7 sm:pb-6">
+                <form onSubmit={submit} className="space-y-3">
                   <div className="grid gap-2">
                     <Label htmlFor="email" className="text-white/80">Work email</Label>
-                    <Input id="email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" className="h-12 border-white/10 bg-[#070b1c] text-white placeholder:text-white/25 focus-visible:ring-violet-500/50" />
+                    <Input id="email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" className="h-11 border-white/10 bg-[#070b1c] text-white placeholder:text-white/25 focus-visible:ring-violet-500/50" />
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="password" className="text-white/80">Password</Label>
                     <div className="relative">
-                      <Input id="password" type="password" required minLength={8} autoComplete={mode === "signin" ? "current-password" : "new-password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" className="h-12 border-white/10 bg-[#070b1c] pr-11 text-white placeholder:text-white/25 focus-visible:ring-violet-500/50" />
+                      <Input id="password" type="password" required minLength={8} autoComplete={mode === "signin" ? "current-password" : "new-password"} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" className="h-11 border-white/10 bg-[#070b1c] pr-11 text-white placeholder:text-white/25 focus-visible:ring-violet-500/50" />
                       <Eye className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/25" />
                     </div>
                   </div>
 
-                  <Button type="submit" className="h-12 w-full bg-gradient-to-r from-violet-600 to-blue-500 text-white shadow-lg shadow-violet-600/20 hover:from-violet-500 hover:to-blue-400" disabled={loading}>
+                  <Button type="submit" className="h-11 w-full bg-gradient-to-r from-violet-600 to-blue-500 text-white shadow-lg shadow-violet-600/20 hover:from-violet-500 hover:to-blue-400" disabled={loading}>
                     {loading ? (mode === "signin" ? "Signing in…" : "Creating account…") : mode === "signin" ? "Sign in" : "Create account"}
                   </Button>
 
@@ -242,7 +242,7 @@ function AuthPage() {
                     <div className="relative flex justify-center"><span className="bg-[#0b1028] px-3 text-[10px] uppercase tracking-widest text-white/30">or continue with</span></div>
                   </div>
 
-                  <Button type="button" variant="outline" className="h-12 w-full border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08] hover:text-white" disabled={loading} onClick={google}>
+                  <Button type="button" variant="outline" className="h-11 w-full border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08] hover:text-white" disabled={loading} onClick={google}>
                     <GoogleMark />
                     Continue with Google
                   </Button>
@@ -259,7 +259,7 @@ function AuthPage() {
           </section>
         </main>
 
-        <footer className="flex items-center justify-between border-t border-white/5 pt-4 text-[10px] text-white/25">
+        <footer className="flex shrink-0 items-center justify-between border-t border-white/5 pt-2 text-[10px] text-white/25">
           <span>© {new Date().getFullYear()} CenOps</span>
           <span className="hidden sm:inline">Secure • Governed • Enterprise Ready</span>
         </footer>
