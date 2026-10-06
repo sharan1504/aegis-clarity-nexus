@@ -145,20 +145,39 @@ function AuthPage() {
                 <Activity className="h-3.5 w-3.5" />
                 Enterprise AI Operations
               </div>
-              <h1 className="max-w-xl text-5xl font-semibold leading-[1.02] tracking-[-0.045em] sm:text-6xl xl:text-7xl">
-                From insight
-                <br />
-                to action —
-                <span className="block bg-gradient-to-r from-violet-300 via-fuchsia-300 to-blue-300 bg-clip-text text-transparent">
-                  with AI.
+              <h1 className="max-w-3xl text-5xl font-semibold leading-[1.02] tracking-[-0.045em] sm:text-6xl xl:whitespace-nowrap xl:text-[4.15rem]">
+                From insight to action —
+                <span className="bg-gradient-to-r from-violet-300 via-fuchsia-300 to-blue-300 bg-clip-text text-transparent">
+                  {" "}with AI.
                 </span>
               </h1>
-              <p className="mt-6 max-w-xl text-base leading-7 text-white/55 sm:text-lg">
-                Monitor, analyze and automate enterprise operations with specialized AI agents, under human control.
+              <p className="mt-6 max-w-2xl text-lg font-medium leading-8 text-white/70 sm:text-xl">
+                See what is happening. Understand why. Decide with confidence. Act with control.
               </p>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-white/40 sm:text-base">
+                Specialized AI agents turn live operational signals into governed decisions, approved actions, and verifiable outcomes.
+              </p>
+
+              <div className="mt-7 flex max-w-3xl flex-wrap items-center gap-2.5">
+                {[
+                  { label: "CONNECT", icon: Network },
+                  { label: "REASON", icon: BrainCircuit },
+                  { label: "GOVERN", icon: ShieldCheck },
+                  { label: "ACT", icon: Workflow },
+                  { label: "VERIFY", icon: CheckCircle2 },
+                ].map(({ label, icon: Icon }, index, items) => (
+                  <div key={label} className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.045] px-3 py-1.5 text-[10px] font-semibold tracking-[0.14em] text-white/65 shadow-lg shadow-black/10">
+                      <Icon className="h-3.5 w-3.5 text-violet-300" />
+                      {label}
+                    </div>
+                    {index < items.length - 1 && <span className="text-violet-300/40">→</span>}
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <AICoreVisual />
+            <div className="mt-3"><AICoreVisual /></div>
 
             <div className="grid max-w-4xl grid-cols-2 gap-3 sm:grid-cols-4">
               {[
