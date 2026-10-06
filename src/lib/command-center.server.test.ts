@@ -9,7 +9,7 @@ function makeDemoClient() {
     from(table: string) {
       queriedTables.push(table);
       const chain = {
-        select() { return chain; }, eq() { return chain; }, or() { return chain; }, gte() { return chain; }, order() { return chain; }, limit() { return chain; },
+        select() { return chain; }, eq() { return chain; }, or() { return chain; }, gte() { return chain; }, order() { return chain; }, in() { return chain; }, limit() { return chain; },
         async maybeSingle() { if (table === "profiles") return { data: { tenant_id: "tenant-demo" }, error: null }; throw new Error(`Unexpected maybeSingle query: ${table}`); },
         async single() { if (table === "tenants") return { data: { environment_mode: "demo" }, error: null }; throw new Error(`Unexpected single query: ${table}`); },
         then(resolve: (value: unknown) => unknown) { if (table === "user_roles") return Promise.resolve(resolve({ data: [{ role: "admin" }], error: null })); throw new Error(`Unexpected list query: ${table}`); },
@@ -26,7 +26,7 @@ function makeEmptyLiveClient() {
     from(table: string) {
       queriedTables.push(table);
       const chain = {
-        select() { return chain; }, eq() { return chain; }, order() { return chain; },
+        select() { return chain; }, eq() { return chain; }, order() { return chain; }, in() { return chain; },
         async maybeSingle() { if (table === "profiles") return { data: { tenant_id: "tenant-live" }, error: null }; throw new Error(`Unexpected maybeSingle query: ${table}`); },
         async single() { if (table === "tenants") return { data: { environment_mode: "live" }, error: null }; throw new Error(`Unexpected single query: ${table}`); },
         then(resolve: (value: unknown) => unknown) { if (table === "user_roles") return Promise.resolve(resolve({ data: [{ role: "admin" }], error: null })); if (table === "integrations") return Promise.resolve(resolve({ data: [], error: null })); throw new Error(`Unexpected list query after empty integration state: ${table}`); },
@@ -55,7 +55,7 @@ function makeLiveFixtureClient() {
     from(table: string) {
       queriedTables.push(table);
       const chain = {
-        select() { return chain; }, eq() { return chain; }, or() { return chain; }, gte() { return chain; }, order() { return chain; }, limit() { return chain; },
+        select() { return chain; }, eq() { return chain; }, or() { return chain; }, gte() { return chain; }, order() { return chain; }, in() { return chain; }, limit() { return chain; },
         async maybeSingle() { if (table === "profiles") return { data: { tenant_id: "tenant-live-fixture" }, error: null }; throw new Error(`Unexpected maybeSingle query: ${table}`); },
         async single() { if (table === "tenants") return { data: { environment_mode: "live" }, error: null }; throw new Error(`Unexpected single query: ${table}`); },
         then(resolve: (value: unknown) => unknown) {
