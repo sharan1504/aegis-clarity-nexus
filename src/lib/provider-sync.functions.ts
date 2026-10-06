@@ -94,7 +94,69 @@ export const syncReportProvider = createServerFn({ method: "POST" }).middleware(
   } catch (error) { const message = error instanceof Error ? error.message : String(error); await supabaseAdmin.from("provider_sync_runs").update({ status: "failed", finished_at: new Date().toISOString(), error_message: message.slice(0, 2000) }).eq("id", run.id).eq("tenant_id", tenantId); await updateConnectionEvidence(supabaseAdmin, tenantId, connection.id, { status: "failed", health_status: "unhealthy", health_checked_at: new Date().toISOString(), health_error: message.slice(0, 2000), last_sync_status: "failed", sync_error: message.slice(0, 2000), last_error: message.slice(0, 2000) }); await recordOperationalIssueSafely(supabaseAdmin as any, { tenantId, source: "sync", severity: "high", title: `${data.provider} provider sync failed`, detail: `Provider synchronization failed for connection ${connection.id}. ${message}`, relatedId: run.id }); throw new Error(message); }
 });
 
-export async function loadProviderReportData(supabase: any, userId: string, departmentKey?: string | null) { const { tenantId } = await resolveTenant(supabase, userId); const department = await resolveDepartmentContext(supabase, userId, departmentKey); const scope = `${userId}:${departmentKey ?? "default"}`; return withEvidenceCache(tenantId, "provider-report", scope, async () => { const [{ data: connections }, allowedProviders] = await Promise.all([supabase.from("provider_connections").select("id,provider,status,display_name,last_sync_at").eq("tenant_id", tenantId), getDepartmentProviders(supabase, department)]); const connected = (connections ?? []).filter((c: any) => c.status === "connected"); const scoped = allowedProviders === null ? connected : connected.filter((c: any) => allowedProviders.includes(c.provider)); const providerNames = [...new Set(scoped.map((c: any) => c.provider))]; const { data: entityData } = providerNames.length ? await supabase.from("provider_sync_entities").select("provider,connection_id,entity_type,entity_key,payload,observed_at").eq("tenant_id", tenantId).eq("stale", false).in("provider", providerNames) : { data: [] }; const { data: runData } = providerNames.length ? await supabase.from("provider_sync_runs").select("provider,connection_id,status,started_at,finished_at,records_seen,error_message").eq("tenant_id", tenantId).in("provider", providerNames).order("started_at", { ascending: false }).limit(100) : { data: [] }; return { connectedProviders: scoped, entities: entityData ?? [], runs: runData ?? [], department: { key: department.departmentKey, name: department.departmentName, unrestricted: department.unrestricted } }; }); }
+export async function loadProviderReportData(supabase: any, userId: string, departmentKey?: string | null) {
+  const { tenantId } = await resolveTenant(supabase, userId);
+  const department = await resolveDepartmentContext(supabase, userId, departmentKey);
+  const scope = `${userId}:${departmentKey ?? "default"}`;
+  return withEvidenceCache(tenantId, "provider-report", scope, async () => {
+    const [{ data: connections }, allowedProviders] = await Promise.all([
+      supabase.from("provider_connections").select("id,provider,status,display_name,last_sync_at").eq("tenant_id", tenantId),
+      getDepartmentProviders(supabase, department),
+    ]);
+    const connected = (connections ?? []).filter((row: any) => row.status === "connected");
+    const scoped = allowedProviders === null ? connected : connected.filter((row: any) => allowedProviders.includes(row.provider));
+    const providerNames = [...new Set(scoped.map((row: any) => row.provider))];
+    const githubConnectionIds = scoped.filter((row: any) => row.provider === "github").map((row: any) => row.id);
+
+    const [{ data: genericEntities }, { data: githubEntities }] = await Promise.all([
+      providerNames.length
+        ? supabase.from("provider_sync_entities")
+            .select("provider,connection_id,entity_type,entity_key,payload,observed_at")
+            .eq("tenant_id", tenantId)
+            .eq("stale", false)
+            .in("provider", providerNames)
+        : Promise.resolve({ data: [] }),
+      githubConnectionIds.length
+        ? supabase.from("github_synced_entities")
+            .select("connection_id,entity_type,entity_key,payload,synced_at")
+            .eq("tenant_id", tenantId)
+            .eq("stale", false)
+            .in("connection_id", githubConnectionIds)
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    const entityMap = new Map<string, any>();
+    for (const row of genericEntities ?? []) {
+      entityMap.set(`${row.provider}:${row.connection_id}:${row.entity_type}:${row.entity_key}`, row);
+    }
+    for (const row of githubEntities ?? []) {
+      entityMap.set(`github:${row.connection_id}:${row.entity_type}:${row.entity_key}`, {
+        provider: "github",
+        connection_id: row.connection_id,
+        entity_type: row.entity_type,
+        entity_key: row.entity_key,
+        payload: row.payload,
+        observed_at: row.synced_at,
+      });
+    }
+
+    const { data: runData } = providerNames.length
+      ? await supabase.from("provider_sync_runs")
+          .select("provider,connection_id,status,started_at,finished_at,records_seen,error_message")
+          .eq("tenant_id", tenantId)
+          .in("provider", providerNames)
+          .order("started_at", { ascending: false })
+          .limit(100)
+      : { data: [] };
+
+    return {
+      connectedProviders: scoped,
+      entities: [...entityMap.values()],
+      runs: runData ?? [],
+      department: { key: department.departmentKey, name: department.departmentName, unrestricted: department.unrestricted },
+    };
+  });
+}
 
 export interface CorrelatedSignal { title: string; detail: string; providers: string[]; timestamp: string; evidence: Array<{ provider: string; entityType: string; entityKey: string; observedAt: string }>; }
 export function deriveCorrelatedSignals(entities: any[]): CorrelatedSignal[] { const github = entities.filter((e) => e.provider === "github" && e.entity_type === "repository" && e.payload?.pushedAt); const jira = entities.filter((e) => e.provider === "jira" && e.entity_type === "issue" && (e.payload?.updated || e.payload?.created)); const signals: CorrelatedSignal[] = []; for (const repo of github) for (const issue of jira) { const repoAt = new Date(repo.payload.pushedAt).getTime(); const issueAt = new Date(issue.payload.updated ?? issue.payload.created).getTime(); if (!Number.isFinite(repoAt) || !Number.isFinite(issueAt) || Math.abs(repoAt - issueAt) > 24 * 60 * 60 * 1000) continue; signals.push({ title: `GitHub activity aligns temporally with Jira issue ${issue.payload.key}`, detail: `${repo.payload.name} was pushed near the time Jira issue ${issue.payload.key} was updated. This is a temporal correlation only; CenOps does not infer causation.`, providers: ["GitHub", "Jira"], timestamp: new Date(Math.max(repoAt, issueAt)).toISOString(), evidence: [{ provider: "GitHub", entityType: repo.entity_type, entityKey: repo.entity_key, observedAt: repo.observed_at }, { provider: "Jira", entityType: issue.entity_type, entityKey: issue.entity_key, observedAt: issue.observed_at }] }); if (signals.length >= 10) return signals; } return signals; }
