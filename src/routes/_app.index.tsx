@@ -16,8 +16,8 @@ import { pageHead } from "@/lib/seo";
 export const Route = createFileRoute("/_app/")({ head: () => pageHead({ path: "/", title: "Command Center — CenOps", description: "Evidence-first operational control plane for enterprise AI." }), component: DashboardPage });
 type Dashboard = { id: string; name: string; starred: boolean; config: DashboardConfig };
 type Finding = { id: string; name: string; status: "Active" | "Attention" | "Closed"; category: string; impact: string; severity: "Critical" | "High" | "Medium" | "Low"; affected: number; started: string; href: string };
-const DEFAULT_WIDGETS = ["kpis", "trends", "attention", "posture", "changes", "signals"];
-const WIDGET_OPTIONS = [{ id: "kpis", label: "KPI strip" }, { id: "trends", label: "7-day trends" }, { id: "attention", label: "Attention summary" }, { id: "posture", label: "Operational posture" }, { id: "changes", label: "Recent changes" }, { id: "signals", label: "Audit signals" }];
+const DEFAULT_WIDGETS = ["kpis", "trends", "attention", "active-runs", "posture", "changes", "signals"];
+const WIDGET_OPTIONS = [{ id: "kpis", label: "KPI strip" }, { id: "trends", label: "7-day trends" }, { id: "attention", label: "Attention summary" }, { id: "active-runs", label: "Active agent runs" }, { id: "posture", label: "Operational posture" }, { id: "changes", label: "Recent changes" }, { id: "signals", label: "Audit signals" }];
 
 function DashboardPage() {
   const load = useServerFn(getCommandCenterData);
