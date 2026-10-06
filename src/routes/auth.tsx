@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Activity, Bot, BrainCircuit, CheckCircle2, Eye, LockKeyhole, Network, ShieldCheck, Sparkles, Workflow } from "lucide-react";
+import { Activity, Bot, BrainCircuit, CheckCircle2, Cloud, Database, Eye, LockKeyhole, Network, Server, ShieldCheck, Sparkles, Workflow, Zap } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,29 +32,42 @@ function GoogleMark() {
 }
 
 function AICoreVisual() {
+  const nodes = [
+    { icon: Cloud, label: "Cloud", position: "left-[7%] top-[18%]", tone: "text-blue-300" },
+    { icon: Database, label: "Data", position: "left-[16%] bottom-[10%]", tone: "text-cyan-300" },
+    { icon: Bot, label: "Agents", position: "right-[9%] top-[16%]", tone: "text-fuchsia-300" },
+    { icon: Server, label: "Systems", position: "right-[14%] bottom-[12%]", tone: "text-violet-300" },
+  ];
+
   return (
-    <div aria-hidden="true" className="relative mx-auto h-56 w-full max-w-2xl">
-      <div className="absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/20 blur-3xl" />
-      <div className="absolute left-1/2 top-1/2 h-28 w-28 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-2xl border border-violet-300/30 bg-gradient-to-br from-violet-500/25 to-blue-500/15 shadow-[0_0_80px_rgba(99,102,241,0.35)] backdrop-blur-xl">
-        <div className="-rotate-45 flex h-full items-center justify-center">
-          <BrainCircuit className="h-12 w-12 text-violet-100" />
+    <div aria-hidden="true" className="relative mx-auto h-64 w-full max-w-3xl">
+      <div className="absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/20 blur-3xl" />
+      <div className="absolute left-1/2 top-1/2 h-56 w-56 -translate-x-1/2 -translate-y-1/2 rounded-full border border-violet-300/10" />
+      <div className="absolute left-1/2 top-1/2 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full border border-blue-300/10" />
+
+      <div className="absolute left-1/2 top-1/2 h-28 w-28 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-2xl border border-violet-300/35 bg-gradient-to-br from-violet-500/30 via-indigo-500/20 to-blue-500/20 shadow-[0_0_90px_rgba(99,102,241,0.42)] backdrop-blur-xl">
+        <div className="-rotate-45 flex h-full flex-col items-center justify-center">
+          <BrainCircuit className="h-10 w-10 text-violet-100" />
+          <span className="mt-1 text-[9px] font-bold uppercase tracking-[0.18em] text-white/60">AI Core</span>
         </div>
       </div>
-      <div className="absolute left-1/2 top-1/2 h-44 w-44 -translate-x-1/2 -translate-y-1/2 rounded-full border border-violet-300/15" />
-      <div className="absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full border border-blue-300/10" />
-      {[
-        { icon: Network, label: "Integrate", position: "left-0 top-1/2 -translate-y-1/2" },
-        { icon: Bot, label: "AI Agents", position: "right-0 top-1/2 -translate-y-1/2" },
-        { icon: ShieldCheck, label: "Govern", position: "left-1/2 top-0 -translate-x-1/2" },
-        { icon: Workflow, label: "Automate", position: "left-1/2 bottom-0 -translate-x-1/2" },
-      ].map(({ icon: Icon, label, position }) => (
-        <div key={label} className={`absolute ${position} flex items-center gap-2 rounded-xl border border-white/10 bg-[#0b1028]/85 px-3.5 py-2.5 text-[11px] font-medium text-white/80 shadow-lg shadow-black/20 backdrop-blur-md`}>
-          <Icon className="h-3.5 w-3.5 text-violet-300" />
-          {label}
+
+      {nodes.map(({ icon: Icon, label, position, tone }) => (
+        <div key={label} className={`absolute ${position} flex items-center gap-2 rounded-xl border border-white/10 bg-[#0b1028]/90 px-3 py-2 shadow-xl shadow-black/20 backdrop-blur-md`}>
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-white/[0.05]">
+            <Icon className={`h-3.5 w-3.5 ${tone}`} />
+          </span>
+          <span className="text-[10px] font-semibold tracking-wide text-white/65">{label}</span>
         </div>
       ))}
-      <div className="absolute inset-x-16 top-1/2 h-px bg-gradient-to-r from-transparent via-violet-300/30 to-transparent" />
-      <div className="absolute left-1/2 inset-y-10 w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-violet-300/25 to-transparent" />
+
+      <div className="absolute left-[16%] right-[16%] top-1/2 h-px bg-gradient-to-r from-transparent via-violet-300/25 to-transparent" />
+      <div className="absolute bottom-[18%] left-1/2 top-[18%] w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-blue-300/20 to-transparent" />
+
+      <div className="absolute left-1/2 top-2 -translate-x-1/2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-white/45 backdrop-blur-md">
+        <Zap className="mr-1.5 inline-block h-3 w-3 text-amber-300" />
+        Sense → Reason → Govern → Act
+      </div>
     </div>
   );
 }
