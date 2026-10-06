@@ -11,6 +11,7 @@ import { ensureSalesforceAccessToken, withSalesforceAccessToken } from "@/lib/in
 import { ensureServiceNowAccessToken } from "@/lib/integrations/oauth-servicenow.server";
 import { ensureSlackAccessToken } from "@/lib/integrations/oauth-slack.server";
 import { Microsoft365LicenseConnector } from "@/lib/microsoft365/connector.server";
+import { normalizeProviderReportEntities } from "@/lib/provider-evidence";
 
 export type Provider = "github" | "slack" | "jira" | "salesforce" | "servicenow" | "m365";
 interface Credentials { accessToken?: string; cloudId?: string; instanceUrl?: string; tenant?: string; clientId?: string; clientSecret?: string; }
@@ -31,9 +32,9 @@ async function fetchProvider(provider: Exclude<Provider, "github">, credentials:
     if (!health.ok) throw new Error(health.message);
     const result = await connector.sync();
     return [
-      ...result.users.map((user) => ({ entityType: "user", entityKey: user.externalId, payload: user })),
-      ...result.licenses.map((license) => ({ entityType: "license", entityKey: license.externalId, payload: license })),
-      ...result.assignments.map((assignment) => ({ entityType: "license_assignment", entityKey: `${assignment.userExternalId}:${assignment.licenseExternalId}`, payload: assignment })),
+      ...result.users.map((user) => ({ entityType: "user", entityKey: user.externalId, payload: { ...user, snapshotAt: result.snapshot.syncedAt } })),
+      ...result.licenses.map((license) => ({ entityType: "license", entityKey: license.externalId, payload: { ...license, snapshotAt: result.snapshot.syncedAt } })),
+      ...result.assignments.map((assignment) => ({ entityType: "license_assignment", entityKey: `${assignment.userExternalId}:${assignment.licenseExternalId}`, payload: { ...assignment, snapshotAt: result.snapshot.syncedAt } })),
     ];
   }
   let token = credentials.accessToken;
@@ -56,19 +57,214 @@ async function reconcileProviderEntities(supabaseAdmin: any, tenantId: string, p
 }
 async function updateConnectionEvidence(supabaseAdmin: any, tenantId: string, connectionId: string, values: Record<string, unknown>) { const { error } = await supabaseAdmin.from("provider_connections").update({ ...values, updated_at: new Date().toISOString() }).eq("id", connectionId).eq("tenant_id", tenantId); if (error) throw error; }
 
-export const syncReportProvider = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { provider: Provider; connectionId?: string }) => ({ provider: input.provider, connectionId: input.connectionId ? String(input.connectionId).trim() : null })).handler(async ({ data, context }) => {
-  const { tenantId, roles } = await resolveTenant(context.supabase, context.userId); if (!roles.some((r) => ["admin", "manager", "analyst"].includes(r))) throw new Error("Analyst access is required to synchronize provider report data."); const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  let query = supabaseAdmin.from("provider_connections").select("id,status,encrypted_credentials").eq("tenant_id", tenantId).eq("provider", data.provider).neq("status", "disconnected"); if (data.connectionId) query = query.eq("id", data.connectionId); const { data: connections, error } = await query.order("updated_at", { ascending: false }).limit(data.connectionId ? 1 : 2); if (error) throw error; if (!connections?.length) throw new Error(`${data.provider} is not connected.`); if (!data.connectionId && connections.length > 1) throw new Error(`Multiple ${data.provider} integration instances are configured. Select a specific instance before syncing.`);
-  const connection = connections[0]; if (!connection.encrypted_credentials) throw new Error(`${data.provider} has no stored credentials.`); const runStarted = new Date().toISOString(); const { data: run, error: runError } = await supabaseAdmin.from("provider_sync_runs").insert({ tenant_id: tenantId, provider: data.provider, connection_id: connection.id, status: "running", started_at: runStarted }).select("id").single(); if (runError || !run) throw runError ?? new Error("Could not create sync run."); await updateConnectionEvidence(supabaseAdmin, tenantId, connection.id, { last_sync_status: "running", last_sync_attempted_at: runStarted, sync_error: null });
+export interface ProviderSyncRequest {
+  tenantId: string;
+  provider: Provider;
+  connectionId: string;
+  syncRunId?: string | null;
+  idempotencyKey?: string | null;
+}
+
+export async function syncProviderConnection(request: ProviderSyncRequest) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { tenantId, provider, connectionId } = request;
+  const { data: connection, error: connectionError } = await supabaseAdmin
+    .from("provider_connections")
+    .select("id,status,encrypted_credentials")
+    .eq("tenant_id", tenantId)
+    .eq("provider", provider)
+    .eq("id", connectionId)
+    .maybeSingle();
+  if (connectionError) throw connectionError;
+  if (!connection) throw new Error(`${provider} connection is not configured for this tenant.`);
+  if (connection.status !== "connected") throw new Error(`${provider} connection is ${connection.status}.`);
+  if (!connection.encrypted_credentials) throw new Error(`${provider} has no stored credentials.`);
+
+  const startedAt = new Date().toISOString();
+  let runId = request.syncRunId ?? null;
+  if (!runId) {
+    const { data: run, error: runError } = await supabaseAdmin
+      .from("provider_sync_runs")
+      .insert({
+        tenant_id: tenantId,
+        provider,
+        connection_id: connectionId,
+        idempotency_key: request.idempotencyKey ?? null,
+        status: "running",
+        started_at: startedAt,
+      })
+      .select("id")
+      .single();
+    if (runError || !run) throw runError ?? new Error("Could not create sync run.");
+    runId = run.id;
+  }
+
+  await updateConnectionEvidence(supabaseAdmin, tenantId, connectionId, {
+    last_sync_status: "running",
+    last_sync_attempted_at: startedAt,
+    sync_error: null,
+  });
+
   try {
-    if (data.provider === "github") { const result = await syncGitHub(tenantId, connection.id, "all", run.id); await updateConnectionEvidence(supabaseAdmin, tenantId, connection.id, { status: "connected", health_status: "healthy", health_checked_at: result.lastSuccessfulAt, health_error: null, last_sync_at: result.lastSuccessfulAt, last_sync_status: "success", last_sync_successful_at: result.lastSuccessfulAt, sync_record_count: result.recordsUpserted, sync_error: null, last_error: null, connected_at: connection.status === "connected" ? undefined : result.lastSuccessfulAt }); clearEvidenceCache(); return { ok: true as const, provider: data.provider, connectionId: connection.id, records: result.recordsUpserted, finishedAt: result.lastSuccessfulAt }; }
-    const credentials = decryptCredentials<Credentials>(connection.encrypted_credentials); const rows = await fetchProvider(data.provider, credentials, connection.id, tenantId); const observedAt = new Date().toISOString(); const staleCount = await reconcileProviderEntities(supabaseAdmin, tenantId, data.provider, connection.id, rows, observedAt);
-    for (const row of rows) { const { error } = await supabaseAdmin.from("provider_sync_entities").upsert({ tenant_id: tenantId, provider: data.provider, connection_id: connection.id, entity_type: row.entityType, entity_key: row.entityKey, payload: row.payload, observed_at: observedAt, sync_run_id: run.id, stale: false }, { onConflict: "tenant_id,provider,connection_id,entity_type,entity_key" }); if (error) throw error; }
-    const finished = new Date().toISOString(); await supabaseAdmin.from("provider_sync_runs").update({ status: "success", finished_at: finished, records_seen: rows.length, records_upserted: rows.length, records_staled: staleCount }).eq("id", run.id).eq("tenant_id", tenantId); await updateConnectionEvidence(supabaseAdmin, tenantId, connection.id, { status: "connected", health_status: "healthy", health_checked_at: finished, health_error: null, last_sync_at: finished, last_sync_status: "success", last_sync_successful_at: finished, sync_record_count: rows.length, sync_error: null, last_error: null, connected_at: connection.status === "connected" ? undefined : finished }); clearEvidenceCache(); return { ok: true as const, provider: data.provider, connectionId: connection.id, records: rows.length, stale: staleCount, finishedAt: finished };
-  } catch (error) { const message = error instanceof Error ? error.message : String(error); await supabaseAdmin.from("provider_sync_runs").update({ status: "failed", finished_at: new Date().toISOString(), error_message: message.slice(0, 2000) }).eq("id", run.id).eq("tenant_id", tenantId); await updateConnectionEvidence(supabaseAdmin, tenantId, connection.id, { status: "failed", health_status: "unhealthy", health_checked_at: new Date().toISOString(), health_error: message.slice(0, 2000), last_sync_status: "failed", sync_error: message.slice(0, 2000), last_error: message.slice(0, 2000) }); await recordOperationalIssueSafely(supabaseAdmin as any, { tenantId, source: "sync", severity: "high", title: `${data.provider} provider sync failed`, detail: `Provider synchronization failed for connection ${connection.id}. ${message}`, relatedId: run.id }); throw new Error(message); }
+    if (provider === "github") {
+      const result = await syncGitHub(tenantId, connectionId, "all", runId ?? undefined, request.idempotencyKey ?? undefined);
+      await updateConnectionEvidence(supabaseAdmin, tenantId, connectionId, {
+        status: "connected",
+        health_status: "healthy",
+        health_checked_at: result.lastSuccessfulAt,
+        health_error: null,
+        last_sync_at: result.lastSuccessfulAt,
+        last_sync_status: "success",
+        last_sync_successful_at: result.lastSuccessfulAt,
+        sync_record_count: result.recordsUpserted,
+        sync_error: null,
+        last_error: null,
+      });
+      clearEvidenceCache();
+      return { ok: true as const, provider, connectionId, records: result.recordsUpserted, finishedAt: result.lastSuccessfulAt };
+    }
+
+    const credentials = decryptCredentials<Credentials>(connection.encrypted_credentials);
+    const rows = await fetchProvider(provider, credentials, connectionId, tenantId);
+    const observedAt = new Date().toISOString();
+    const staleCount = await reconcileProviderEntities(
+      supabaseAdmin,
+      tenantId,
+      provider,
+      connectionId,
+      rows,
+      observedAt,
+    );
+
+    for (const row of rows) {
+      const { error } = await supabaseAdmin
+        .from("provider_sync_entities")
+        .upsert(
+          {
+            tenant_id: tenantId,
+            provider,
+            connection_id: connectionId,
+            entity_type: row.entityType,
+            entity_key: row.entityKey,
+            payload: row.payload,
+            observed_at: observedAt,
+            sync_run_id: runId,
+            stale: false,
+          },
+          { onConflict: "tenant_id,provider,connection_id,entity_type,entity_key" },
+        );
+      if (error) throw error;
+    }
+
+    const finishedAt = new Date().toISOString();
+    const { error: runUpdateError } = await supabaseAdmin
+      .from("provider_sync_runs")
+      .update({
+        status: "success",
+        finished_at: finishedAt,
+        records_seen: rows.length,
+        records_upserted: rows.length,
+        records_staled: staleCount,
+        error_message: null,
+      })
+      .eq("id", runId)
+      .eq("tenant_id", tenantId);
+    if (runUpdateError) throw runUpdateError;
+
+    await updateConnectionEvidence(supabaseAdmin, tenantId, connectionId, {
+      status: "connected",
+      health_status: "healthy",
+      health_checked_at: finishedAt,
+      health_error: null,
+      last_sync_at: finishedAt,
+      last_sync_status: "success",
+      last_sync_successful_at: finishedAt,
+      sync_record_count: rows.length,
+      sync_error: null,
+      last_error: null,
+    });
+    clearEvidenceCache();
+    return { ok: true as const, provider, connectionId, records: rows.length, stale: staleCount, finishedAt };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (runId) {
+      await supabaseAdmin
+        .from("provider_sync_runs")
+        .update({
+          status: "failed",
+          finished_at: new Date().toISOString(),
+          error_message: message.slice(0, 2000),
+        })
+        .eq("id", runId)
+        .eq("tenant_id", tenantId);
+    }
+    await updateConnectionEvidence(supabaseAdmin, tenantId, connectionId, {
+      status: "failed",
+      health_status: "unhealthy",
+      health_checked_at: new Date().toISOString(),
+      health_error: message.slice(0, 2000),
+      last_sync_status: "failed",
+      sync_error: message.slice(0, 2000),
+      last_error: message.slice(0, 2000),
+    });
+    await recordOperationalIssueSafely(supabaseAdmin as any, {
+      tenantId,
+      source: "sync",
+      severity: "high",
+      title: `${provider} provider sync failed`,
+      detail: `Provider synchronization failed for connection ${connectionId}. ${message}`,
+      relatedId: runId,
+    });
+    throw new Error(message);
+  }
+}
+
+export const syncReportProvider = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { provider: Provider; connectionId?: string }) => ({ provider: input.provider, connectionId: input.connectionId ? String(input.connectionId).trim() : null })).handler(async ({ data, context }) => {
+  const { tenantId, roles } = await resolveTenant(context.supabase, context.userId);
+  if (!roles.some((r) => ["admin", "manager", "analyst"].includes(r))) throw new Error("Analyst access is required to synchronize provider report data.");
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  let query = supabaseAdmin.from("provider_connections").select("id,status,encrypted_credentials").eq("tenant_id", tenantId).eq("provider", data.provider).neq("status", "disconnected");
+  if (data.connectionId) query = query.eq("id", data.connectionId);
+  const { data: connections, error } = await query.order("updated_at", { ascending: false }).limit(data.connectionId ? 1 : 2);
+  if (error) throw error;
+  if (!connections?.length) throw new Error(`${data.provider} is not connected.`);
+  if (!data.connectionId && connections.length > 1) throw new Error(`Multiple ${data.provider} integration instances are configured. Select a specific instance before syncing.`);
+  const connection = connections[0];
+  return syncProviderConnection({ tenantId, provider: data.provider, connectionId: connection.id });
 });
 
-export async function loadProviderReportData(supabase: any, userId: string, departmentKey?: string | null) { const { tenantId } = await resolveTenant(supabase, userId); const department = await resolveDepartmentContext(supabase, userId, departmentKey); const scope = `${userId}:${departmentKey ?? "default"}`; return withEvidenceCache(tenantId, "provider-report", scope, async () => { const [{ data: connections }, allowedProviders] = await Promise.all([supabase.from("provider_connections").select("id,provider,status,display_name,last_sync_at").eq("tenant_id", tenantId), getDepartmentProviders(supabase, department)]); const connected = (connections ?? []).filter((c: any) => c.status === "connected"); const scoped = allowedProviders === null ? connected : connected.filter((c: any) => allowedProviders.includes(c.provider)); const providerNames = [...new Set(scoped.map((c: any) => c.provider))]; const { data: entityData } = providerNames.length ? await supabase.from("provider_sync_entities").select("provider,connection_id,entity_type,entity_key,payload,observed_at").eq("tenant_id", tenantId).eq("stale", false).in("provider", providerNames) : { data: [] }; const { data: runData } = providerNames.length ? await supabase.from("provider_sync_runs").select("provider,connection_id,status,started_at,finished_at,records_seen,error_message").eq("tenant_id", tenantId).in("provider", providerNames).order("started_at", { ascending: false }).limit(100) : { data: [] }; return { connectedProviders: scoped, entities: entityData ?? [], runs: runData ?? [], department: { key: department.departmentKey, name: department.departmentName, unrestricted: department.unrestricted } }; }); }
+export async function loadProviderReportData(supabase: any, userId: string, departmentKey?: string | null) {
+  const { tenantId } = await resolveTenant(supabase, userId);
+  const department = await resolveDepartmentContext(supabase, userId, departmentKey);
+  const scope = `${userId}:${departmentKey ?? "default"}`;
+  return withEvidenceCache(tenantId, "provider-report", scope, async () => {
+    const [{ data: connections }, allowedProviders] = await Promise.all([
+      supabase.from("provider_connections").select("id,provider,status,display_name,last_sync_at").eq("tenant_id", tenantId),
+      getDepartmentProviders(supabase, department),
+    ]);
+    const connected = (connections ?? []).filter((c: any) => c.status === "connected");
+    const scoped = allowedProviders === null ? connected : connected.filter((c: any) => allowedProviders.includes(c.provider));
+    const providerNames = [...new Set(scoped.map((c: any) => c.provider))];
+    const connectionIds = scoped.map((c: any) => c.id);
 
-export interface CorrelatedSignal { title: string; detail: string; providers: string[]; timestamp: string; evidence: Array<{ provider: string; entityType: string; entityKey: string; observedAt: string }>; }
-export function deriveCorrelatedSignals(entities: any[]): CorrelatedSignal[] { const github = entities.filter((e) => e.provider === "github" && e.entity_type === "repository" && e.payload?.pushedAt); const jira = entities.filter((e) => e.provider === "jira" && e.entity_type === "issue" && (e.payload?.updated || e.payload?.created)); const signals: CorrelatedSignal[] = []; for (const repo of github) for (const issue of jira) { const repoAt = new Date(repo.payload.pushedAt).getTime(); const issueAt = new Date(issue.payload.updated ?? issue.payload.created).getTime(); if (!Number.isFinite(repoAt) || !Number.isFinite(issueAt) || Math.abs(repoAt - issueAt) > 24 * 60 * 60 * 1000) continue; signals.push({ title: `GitHub activity aligns temporally with Jira issue ${issue.payload.key}`, detail: `${repo.payload.name} was pushed near the time Jira issue ${issue.payload.key} was updated. This is a temporal correlation only; CenOps does not infer causation.`, providers: ["GitHub", "Jira"], timestamp: new Date(Math.max(repoAt, issueAt)).toISOString(), evidence: [{ provider: "GitHub", entityType: repo.entity_type, entityKey: repo.entity_key, observedAt: repo.observed_at }, { provider: "Jira", entityType: issue.entity_type, entityKey: issue.entity_key, observedAt: issue.observed_at }] }); if (signals.length >= 10) return signals; } return signals; }
+    const [{ data: genericEntities }, { data: githubEntities }, { data: runData }] = await Promise.all([
+      providerNames.length
+        ? supabase.from("provider_sync_entities").select("provider,connection_id,entity_type,entity_key,payload,observed_at").eq("tenant_id", tenantId).eq("stale", false).in("provider", providerNames).in("connection_id", connectionIds)
+        : Promise.resolve({ data: [] }),
+      providerNames.includes("github")
+        ? supabase.from("github_synced_entities").select("connection_id,entity_type,entity_key,payload,synced_at").eq("tenant_id", tenantId).eq("stale", false).in("connection_id", connectionIds)
+        : Promise.resolve({ data: [] }),
+      providerNames.length
+        ? supabase.from("provider_sync_runs").select("provider,connection_id,status,started_at,finished_at,records_seen,error_message").eq("tenant_id", tenantId).in("provider", providerNames).in("connection_id", connectionIds).order("started_at", { ascending: false }).limit(100)
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    return {
+      connectedProviders: scoped,
+      entities: normalizeProviderReportEntities(genericEntities ?? [], githubEntities ?? []),
+      runs: runData ?? [],
+      department: { key: department.departmentKey, name: department.departmentName, unrestricted: department.unrestricted },
+    };
+  });
+}
+

@@ -1,7 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { loadLiveWorkspaceData } from "@/lib/live-workspace.functions";
-import { deriveCorrelatedSignals, loadProviderReportData } from "@/lib/provider-sync.functions";
+import { loadProviderReportData } from "@/lib/provider-sync.functions";
+import { deriveCorrelatedSignals } from "@/lib/provider-evidence";
 import { resolveTenant } from "@/lib/genesys/store.server";
 import { resolveDepartmentContext } from "@/lib/department-access.server";
 import { completeCustomerInvestigation, recordInvestigationStep, runRecordedTool, startCustomerInvestigation } from "@/lib/customer-investigation.server";
