@@ -23,7 +23,7 @@ async function json(url: string, token: string, init: RequestInit = {}) {
   return body;
 }
 
-async function fetchProvider(provider: Exclude<Provider, "github">, credentials: Credentials, connectionId: string, tenantId: string) {
+export async function fetchProvider(provider: Exclude<Provider, "github">, credentials: Credentials, connectionId: string, tenantId: string) {
   if (provider === "m365") {
     if (!credentials.tenant || !credentials.clientId || !credentials.clientSecret) throw new Error("Microsoft 365 connection is missing tenant/client credentials. Reconnect required.");
     const connector = new Microsoft365LicenseConnector({ tenantId: credentials.tenant, clientId: credentials.clientId, clientSecret: credentials.clientSecret });
