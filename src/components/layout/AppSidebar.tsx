@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Activity, BarChart3, Bot, ChevronRight, History, Plug, SearchCheck, Settings, ShieldAlert, ShieldCheck, Sparkles, Workflow, Wrench } from "lucide-react";
+import { Activity, BarChart3, Bot,  History, Plug, SearchCheck, Settings, ShieldAlert, ShieldCheck, Sparkles, Workflow, Wrench } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar";
