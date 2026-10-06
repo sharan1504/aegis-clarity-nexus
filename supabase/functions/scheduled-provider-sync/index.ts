@@ -41,6 +41,14 @@ Deno.serve(async (req) => {
     : { data: [], error: null };
   if (githubStatusError) return Response.json({ ok: false, error: githubStatusError.message }, { status: 500 });
 
+  const { data: m365Connections, error: m365Error } = await supabase
+    .from('provider_connections')
+    .select('id,tenant_id,provider,status,last_sync_attempted_at')
+    .eq('provider', 'm365')
+    .eq('status', 'connected')
+    .limit(100);
+  if (m365Error) return Response.json({ ok: false, error: m365Error.message }, { status: 500 });
+
   const slot = new Date(Math.floor(Date.now() / 900000) * 900000).toISOString();
   const results: Array<Record<string, unknown>> = [];
   const enqueueSync = async (tenantId: string, integrationId: string, provider: string, syncIntervalMinutes: number | null = null) => {
@@ -74,6 +82,13 @@ Deno.serve(async (req) => {
     const lastAttempted = githubStatusByConnection.get(connection.id)?.last_attempted_at;
     if (lastAttempted && new Date(lastAttempted).getTime() > githubCutoff) continue;
     await enqueueSync(connection.tenant_id, connection.id, 'github');
+  }
+
+  const m365Cutoff = Date.now() - 60 * 60 * 1000;
+  for (const connection of m365Connections ?? []) {
+    const lastAttempted = connection.last_sync_attempted_at;
+    if (lastAttempted && new Date(lastAttempted).getTime() > m365Cutoff) continue;
+    await enqueueSync(connection.tenant_id, connection.id, 'm365', 60);
   }
 
   return Response.json({ ok: true, results });
