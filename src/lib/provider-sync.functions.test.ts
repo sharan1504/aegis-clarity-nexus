@@ -70,8 +70,8 @@ describe("provider evidence visibility", () => {
   it("persists a real Jira sync result and makes it visible to Copilot evidence loading alongside M365", async () => {
     const tables: Record<string, Row[]> = {
       provider_connections: [
-        { id: "jira-connection", provider: "jira", status: "connected", display_name: "Jira", last_sync_at: null },
-        { id: "m365-connection", provider: "m365", status: "connected", display_name: "Microsoft 365", last_sync_at: null },
+        { tenant_id: tenant, id: "jira-connection", provider: "jira", status: "connected", display_name: "Jira", last_sync_at: null },
+        { tenant_id: tenant, id: "m365-connection", provider: "m365", status: "connected", display_name: "Microsoft 365", last_sync_at: null },
       ],
       provider_sync_entities: [],
       github_synced_entities: [],
@@ -113,7 +113,7 @@ describe("provider evidence visibility", () => {
 
   it("unifies existing GitHub connector evidence with the generic evidence shape", async () => {
     const db = client({
-      provider_connections: [{ id: "github-connection", provider: "github", status: "connected", display_name: "GitHub", last_sync_at: "2026-10-06T10:00:00Z" }],
+      provider_connections: [{ tenant_id: tenant, id: "github-connection", provider: "github", status: "connected", display_name: "GitHub", last_sync_at: "2026-10-06T10:00:00Z" }],
       provider_sync_entities: [],
       github_synced_entities: [{
         connection_id: "github-connection",
