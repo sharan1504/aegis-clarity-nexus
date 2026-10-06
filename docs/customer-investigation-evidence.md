@@ -67,3 +67,8 @@ The response shown to the customer can remain concise. The evidence trail is the
 - What did Aegis tell the customer?
 
 Read-only investigations do not claim that a remediation was completed. Provider mutations remain subject to the existing approval/execution gateway.
+
+
+## Immutable audit provenance
+
+Each persisted investigation step and tool invocation now creates an append-only `audit_log` entry in the tenant's existing SHA-256 hash chain. The entry records the sanitized input/output/evidence payload available to the investigation record plus SHA-256 hashes of the input, output, evidence, arguments, and result. The existing `investigation_steps` and `tool_invocations` rows remain the detailed operational record; the audit entry provides immutable per-action provenance and integrity linkage.

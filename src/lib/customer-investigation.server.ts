@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sanitizeOutput } from "@/lib/guardrails/sanitize";
 
@@ -27,6 +28,22 @@ type ToolDescriptor = {
   toolName: string;
   arguments?: unknown;
 };
+
+
+function auditHash(value: unknown): string {
+  return crypto.createHash("sha256").update(JSON.stringify(value ?? null)).digest("hex");
+}
+async function recordInvestigationAudit(db: SupabaseClient, tenantId: string, action: "investigation.step_recorded" | "investigation.tool_called", entityId: string, payload: Record<string, unknown>) {
+  const { error } = await (db as any).from("audit_log").insert({
+    tenant_id: tenantId,
+    action,
+    entity_type: "customer_investigation",
+    entity_id: entityId,
+    detail: "Immutable per-action investigation provenance record.",
+    payload,
+  });
+  if (error) throw new Error(`Could not record investigation audit provenance: ${error.message}`);
+}
 
 const jsonSafe = (value: unknown, maxChars = 12000) => {
   const sanitized = sanitizeOutput(value);
@@ -95,6 +112,12 @@ export async function recordInvestigationStep(
     completed_at: new Date().toISOString(),
   });
   if (error) throw new Error(`Could not record investigation step: ${error.message}`);
+  await recordInvestigationAudit(db, tenantId, "investigation.step_recorded", investigationId, {
+    stepNumber: step.stepNumber, stepType: step.stepType, name: step.name,
+    provider: step.provider ?? null, toolName: step.toolName ?? null,
+    input: jsonSafe(step.input, 50000), output: jsonSafe(step.output, 50000), evidence: jsonSafe(step.evidence, 50000),
+    inputSha256: auditHash(step.input), outputSha256: auditHash(step.output), evidenceSha256: auditHash(step.evidence),
+  });
 }
 
 export async function recordToolInvocation(
@@ -123,6 +146,12 @@ export async function recordToolInvocation(
     authorization: { tenantScoped: true, userId: context.userId ?? null },
   }).select("id").single();
   if (error) throw new Error(`Could not record tool invocation: ${error.message}`);
+  await recordInvestigationAudit(db, context.tenantId, "investigation.tool_called", context.investigationId ?? context.conversationId ?? "tool-call", {
+    provider: tool.provider ?? null, serverName: tool.serverName ?? null, toolName: tool.toolName,
+    arguments: jsonSafe(tool.arguments, 50000), result: jsonSafe(tool.result, 50000),
+    argumentsSha256: auditHash(tool.arguments), resultSha256: auditHash(tool.result),
+    status: tool.status, startedAt: new Date(tool.startedAt).toISOString(), completedAt: new Date(completedAt).toISOString(),
+  });
   return data.id as string;
 }
 
