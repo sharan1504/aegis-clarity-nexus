@@ -11,6 +11,7 @@ import { ensureSalesforceAccessToken, withSalesforceAccessToken } from "@/lib/in
 import { ensureServiceNowAccessToken } from "@/lib/integrations/oauth-servicenow.server";
 import { ensureSlackAccessToken } from "@/lib/integrations/oauth-slack.server";
 import { Microsoft365LicenseConnector } from "@/lib/microsoft365/connector.server";
+import { normalizeProviderReportEntities } from "@/lib/provider-evidence";
 
 export type Provider = "github" | "slack" | "jira" | "salesforce" | "servicenow" | "m365";
 interface Credentials { accessToken?: string; cloudId?: string; instanceUrl?: string; tenant?: string; clientId?: string; clientSecret?: string; }
@@ -31,9 +32,9 @@ async function fetchProvider(provider: Exclude<Provider, "github">, credentials:
     if (!health.ok) throw new Error(health.message);
     const result = await connector.sync();
     return [
-      ...result.users.map((user) => ({ entityType: "user", entityKey: user.externalId, payload: user })),
-      ...result.licenses.map((license) => ({ entityType: "license", entityKey: license.externalId, payload: license })),
-      ...result.assignments.map((assignment) => ({ entityType: "license_assignment", entityKey: `${assignment.userExternalId}:${assignment.licenseExternalId}`, payload: assignment })),
+      ...result.users.map((user) => ({ entityType: "user", entityKey: user.externalId, payload: { ...user, snapshotAt: result.snapshot.syncedAt } })),
+      ...result.licenses.map((license) => ({ entityType: "license", entityKey: license.externalId, payload: { ...license, snapshotAt: result.snapshot.syncedAt } })),
+      ...result.assignments.map((assignment) => ({ entityType: "license_assignment", entityKey: `${assignment.userExternalId}:${assignment.licenseExternalId}`, payload: { ...assignment, snapshotAt: result.snapshot.syncedAt } })),
     ];
   }
   let token = credentials.accessToken;
@@ -267,17 +268,3 @@ export async function loadProviderReportData(supabase: any, userId: string, depa
   });
 }
 
-export function normalizeProviderReportEntities(genericEntities: any[], githubEntities: any[]) {
-  const normalizedGitHubEntities = githubEntities.map((row: any) => ({
-    provider: "github",
-    connection_id: row.connection_id,
-    entity_type: row.entity_type,
-    entity_key: row.entity_key,
-    payload: row.payload,
-    observed_at: row.synced_at,
-  }));
-  return [...genericEntities, ...normalizedGitHubEntities];
-}
-
-export interface CorrelatedSignal { title: string; detail: string; providers: string[]; timestamp: string; evidence: Array<{ provider: string; entityType: string; entityKey: string; observedAt: string }>; }
-export function deriveCorrelatedSignals(entities: any[]): CorrelatedSignal[] { const github = entities.filter((e) => e.provider === "github" && e.entity_type === "repository" && e.payload?.pushedAt); const jira = entities.filter((e) => e.provider === "jira" && e.entity_type === "issue" && (e.payload?.updated || e.payload?.created)); const signals: CorrelatedSignal[] = []; for (const repo of github) for (const issue of jira) { const repoAt = new Date(repo.payload.pushedAt).getTime(); const issueAt = new Date(issue.payload.updated ?? issue.payload.created).getTime(); if (!Number.isFinite(repoAt) || !Number.isFinite(issueAt) || Math.abs(repoAt - issueAt) > 24 * 60 * 60 * 1000) continue; signals.push({ title: `GitHub activity aligns temporally with Jira issue ${issue.payload.key}`, detail: `${repo.payload.name} was pushed near the time Jira issue ${issue.payload.key} was updated. This is a temporal correlation only; CenOps does not infer causation.`, providers: ["GitHub", "Jira"], timestamp: new Date(Math.max(repoAt, issueAt)).toISOString(), evidence: [{ provider: "GitHub", entityType: repo.entity_type, entityKey: repo.entity_key, observedAt: repo.observed_at }, { provider: "Jira", entityType: issue.entity_type, entityKey: issue.entity_key, observedAt: issue.observed_at }] }); if (signals.length >= 10) return signals; } return signals; }
