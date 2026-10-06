@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach } from "vitest"; // Active-run query chain is covered by the live fixture client
 
 import { loadCommandCenterData } from "./command-center.server";
 import { clearTenantContextCache } from "@/lib/tenant-context.server";
