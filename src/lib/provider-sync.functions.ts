@@ -149,7 +149,7 @@ export async function syncProviderReportDataInternal(input: {
       error_message: message.slice(0, 2000),
     }).eq("id", syncRunId).eq("tenant_id", tenantId);
     await updateConnectionEvidence(supabaseAdmin, tenantId, connection.id, {
-      status: "failed",
+      status: "connected",
       health_status: "unhealthy",
       health_checked_at: new Date().toISOString(),
       health_error: message.slice(0, 2000),
@@ -157,12 +157,16 @@ export async function syncProviderReportDataInternal(input: {
       sync_error: message.slice(0, 2000),
       last_error: message.slice(0, 2000),
     });
+    const { data: recentRuns } = await supabaseAdmin.from("provider_sync_runs").select("status,started_at").eq("tenant_id", tenantId).eq("connection_id", connection.id).order("started_at", { ascending: false }).limit(3);
+    const failureStreak = (recentRuns ?? []).reduce((count: number, row: any) => count === (recentRuns ?? []).indexOf(row) && row.status === "failed" ? count + 1 : count, 0);
     await recordOperationalIssueSafely(supabaseAdmin as any, {
       tenantId,
       source: "sync",
       severity: "high",
-      title: `${provider} provider sync failed`,
-      detail: `Provider synchronization failed for connection ${connection.id}. ${message}`,
+      title: failureStreak >= 3 ? `${provider} provider sync degraded` : `${provider} provider sync failed`,
+      detail: failureStreak >= 3
+        ? `Provider synchronization has failed ${failureStreak} consecutive times for connection ${connection.id}; scheduled retries are backed off until a successful sync.`
+        : `Provider synchronization failed for connection ${connection.id}. ${message}`,
       relatedId: syncRunId,
     });
     throw new Error(message);

@@ -90,3 +90,8 @@ Manual `Sync Now` remains the supported operational path for contract-backed pro
 ## Phase 1 evidence-sync status
 
 The investigation evidence layer reads `provider_sync_entities` for generic providers and also unions the existing GitHub connector store `github_synced_entities` for authorized GitHub connections. Jira, Slack, and Microsoft 365 use the generic tenant-scoped sync path and durable provider-sync queue. Providers outside the contract-backed set remain catalog-only / coming soon and do not fabricate fallback evidence; before their first successful sync the UI must report that evidence is not synced yet.
+
+
+### Provider sync degradation behavior
+
+Provider sync failures do not fabricate data or disconnect credentials. After three consecutive failed runs for a connection, the scheduler backs off that connection for six hours. The Integrations surface exposes the existing evidence-derived health as unhealthy and reports the consecutive failure count/backoff timestamp; successful sync resets the streak. Operational Console receives the existing tenant-scoped sync issue with degraded wording.

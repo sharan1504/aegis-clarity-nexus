@@ -30,6 +30,24 @@ Deno.serve(async (req) => {
     .or('last_sync_attempted_at.is.null,last_sync_attempted_at.lt.now()').limit(100);
   if (error) return Response.json({ ok: false, error: error.message }, { status: 500 });
 
+  const { data: providerConnections, error: providerConnectionsError } = await supabase
+    .from('provider_connections')
+    .select('id,tenant_id,provider,status,integration_id')
+    .eq('status', 'connected').limit(500);
+  if (providerConnectionsError) return Response.json({ ok: false, error: providerConnectionsError.message }, { status: 500 });
+  const { data: recentRuns, error: recentRunsError } = await supabase
+    .from('provider_sync_runs')
+    .select('connection_id,status,started_at,finished_at')
+    .order('started_at', { ascending: false }).limit(500);
+  if (recentRunsError) return Response.json({ ok: false, error: recentRunsError.message }, { status: 500 });
+  const failureStreakByConnection = new Map<string, number>();
+  const latestFailureByConnection = new Map<string, string>();
+  for (const run of recentRuns ?? []) {
+    if (!run.connection_id || failureStreakByConnection.has(run.connection_id)) continue;
+    if (run.status !== 'failed') continue;
+    failureStreakByConnection.set(run.connection_id, (failureStreakByConnection.get(run.connection_id) ?? 0) + 1);
+    if (!latestFailureByConnection.has(run.connection_id) && run.finished_at) latestFailureByConnection.set(run.connection_id, run.finished_at);
+  }
   const { data: githubConnections, error: githubError } = await supabase
     .from('provider_connections')
     .select('id,tenant_id,provider,status,updated_at')
@@ -70,6 +88,11 @@ Deno.serve(async (req) => {
   for (const integration of due ?? []) {
     if (!implementedProviders.has(integration.provider)) continue;
     const provider = integration.provider === 'microsoft365' ? 'm365' : integration.provider;
+    const connection = (providerConnections ?? []).find((candidate) => candidate.integration_id === integration.id);
+    const failureStreak = connection ? (failureStreakByConnection.get(connection.id) ?? 0) : 0;
+    const lastFailure = connection ? latestFailureByConnection.get(connection.id) : null;
+    const backoffUntil = lastFailure ? new Date(new Date(lastFailure).getTime() + 6 * 60 * 60 * 1000).getTime() : 0;
+    if (failureStreak >= 3 && backoffUntil > Date.now()) continue;
     await enqueueSync(integration.tenant_id, integration.id, provider, integration.sync_interval_minutes);
   }
   const githubStatusByConnection = new Map((githubStatuses ?? []).map((status) => [status.connection_id, status]));
