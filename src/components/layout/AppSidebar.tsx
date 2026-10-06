@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Activity, BarChart3, Bot, ChevronRight, History, Plug, SearchCheck, Settings, ShieldAlert, ShieldCheck, Sparkles, Workflow, Wrench } from "lucide-react";
+import { Activity, BarChart3, Bot, History, Plug, SearchCheck, Settings, ShieldAlert, ShieldCheck, Sparkles, Workflow, Wrench } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar";
@@ -10,26 +10,29 @@ import { ExploreChecklist } from "@/components/onboarding/ExploreChecklist";
 
 const nav = [
   { section: "Overview", items: [
-    { title: "CenOps Copilot", url: "/chat", icon: Sparkles },
     { title: "Command Center", url: "/", icon: Sparkles },
+    { title: "CenOps Copilot", url: "/chat", icon: Sparkles },
     { title: "Analytics", url: "/analytics", icon: BarChart3 },
-    { title: "Vulnerabilities", url: "/investigations", icon: SearchCheck },
+    { title: "Investigations", url: "/investigations", icon: SearchCheck },
   ] },
-  { section: "AI Operations", items: [
+  { section: "AI & Automation", items: [
     { title: "AI Agents", url: "/agents", icon: Bot },
     { title: "Agentic Studio", url: "/agentic-studio", icon: Workflow },
-    { title: "Agent Governance", url: "/agentic-studio/governance", icon: ShieldCheck },
     { title: "MCP Servers", url: "/integrations/mcp", icon: Wrench },
-    { title: "Approval Center", url: "/approvals", icon: ShieldCheck },
   ] },
-  { section: "Data & Systems", items: [
+  { section: "Operations", items: [
     { title: "Integrations", url: "/integrations", icon: Plug },
-    { title: "ITSM Routing", url: "/settings/itsm-routing", icon: Settings },
     { title: "Operational Console", url: "/operational-console", icon: Activity },
+    { title: "ITSM Routing", url: "/settings/itsm-routing", icon: Settings },
     { title: "Audit Viewer", url: "/audit", icon: History },
   ] },
-  { section: "Administration", items: [
+  { section: "Governance", items: [
+    { title: "Agent Governance", url: "/agentic-studio/governance", icon: ShieldCheck },
+    { title: "Approval Center", url: "/approvals", icon: ShieldCheck },
     { title: "Guardrails", url: "/governance", icon: ShieldAlert },
+  ] },
+  { section: "Administration", items: [
+    { title: "Settings", url: "/settings", icon: Settings },
   ] },
 ];
 
@@ -37,15 +40,10 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const path = useRouterState({ select: (r) => r.location.pathname });
-  const searchStr = useRouterState({ select: (r) => r.location.searchStr });
   const { tenantName, primaryDomain } = useTenantContext();
   const [openHighCritical, setOpenHighCritical] = useState(0);
-  const [organizationOpen, setOrganizationOpen] = useState(() => window.localStorage.getItem("cenops:organization-settings-open") !== "false");
   const loadIssues = useServerFn(listOperationalIssues);
   const workspaceName = tenantName ?? "Workspace";
-  const organizationActive = path === "/settings" || path === "/users";
-  const organizationSection = new URLSearchParams(searchStr).get("section") ?? "workspace";
-  const toggleOrganization = () => setOrganizationOpen((current) => { const next = !current; window.localStorage.setItem("cenops:organization-settings-open", String(next)); return next; });
   const isActive = (url: string) => url === "/" ? path === "/" : (url === "/agentic-studio" || url === "/settings" ? path === url : path.startsWith(url));
 
   useEffect(() => {
@@ -68,8 +66,6 @@ export function AppSidebar() {
         {!collapsed && <SidebarGroupLabel className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/70">{group.section}</SidebarGroupLabel>}
         <SidebarGroupContent><SidebarMenu className="gap-0.5">
           {group.items.map((item) => <SidebarMenuItem key={item.url}><SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title} className="h-9 rounded-lg px-3 text-[13px] font-medium text-sidebar-foreground/80 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground data-[active=true]:text-sidebar-foreground"><Link to={item.url} className="flex items-center gap-3"><item.icon className="h-[17px] w-[17px] shrink-0" />{!collapsed && <span className="flex min-w-0 flex-1 items-center gap-2"><span className="truncate">{item.title}</span>{item.url === "/operational-console" && openHighCritical > 0 && <Badge variant="destructive" className="ml-auto h-5 min-w-5 rounded-full px-1 text-[10px]">{openHighCritical}</Badge>}</span>}</Link></SidebarMenuButton></SidebarMenuItem>)}
-          {group.section === "Administration" && <SidebarMenuItem><SidebarMenuButton type="button" onClick={toggleOrganization} isActive={organizationActive} tooltip="Organization Settings" className="h-9 rounded-lg px-3 text-[13px] font-medium text-sidebar-foreground/80 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground data-[active=true]:text-sidebar-foreground"><Settings className="h-[17px] w-[17px] shrink-0" />{!collapsed && <span className="flex min-w-0 flex-1 items-center gap-2"><span className="truncate">Organization Settings</span><ChevronRight className={`ml-auto h-4 w-4 transition-transform ${organizationOpen ? "rotate-90" : ""}`} /></span>}</SidebarMenuButton></SidebarMenuItem>}
-          {group.section === "Administration" && organizationOpen && !collapsed && <div className="ml-7 mt-1 space-y-0.5 border-l pl-2">{[["Workspace Settings","/settings"],["Users","/users"],["Divisions","/settings?section=divisions"],["Groups","/settings?section=groups"],["Data Privacy","/settings?section=privacy"]].map(([title,url]) => <Link key={url} to={url as never} className={`flex h-8 items-center rounded-md px-2.5 text-xs ${((url === "/settings" && organizationSection === "workspace" && path === "/settings") || (url === "/users" && path === "/users") || (url.includes("section=divisions") && organizationSection === "divisions") || (url.includes("section=groups") && organizationSection === "groups") || (url.includes("section=privacy") && organizationSection === "privacy")) ? "bg-sidebar-accent text-sidebar-foreground" : "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"}`}>{title}</Link>)}</div>}
         </SidebarMenu></SidebarGroupContent>
       </SidebarGroup>)}
       <ExploreChecklist collapsed={collapsed} />
