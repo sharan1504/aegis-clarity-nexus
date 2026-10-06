@@ -40,7 +40,6 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const path = useRouterState({ select: (r) => r.location.pathname });
-  const searchStr = useRouterState({ select: (r) => r.location.searchStr });
   const { tenantName, primaryDomain } = useTenantContext();
   const [openHighCritical, setOpenHighCritical] = useState(0);
 import { Link, useRouterState } from "@tanstack/react-router";
