@@ -380,7 +380,7 @@ export const syncReportProvider = createServerFn({ method: "POST" }).middleware(
   }).select("id").single();
   if (runError || !run) throw runError ?? new Error("Could not create sync run.");
 
-  const result = await syncProviderReportDataInternal({
+  const result = await syncProviderConnection({
     tenantId,
     provider: data.provider,
     connectionId: connection.id,
