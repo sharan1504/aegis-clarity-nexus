@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { syncProviderReportDataInternal, type Provider } from "@/lib/provider-sync.functions";
+import { syncProviderConnection, type Provider } from "@/lib/provider-sync.functions";
 
 export const Route = createFileRoute("/api/internal/provider-sync")({
   server: {
