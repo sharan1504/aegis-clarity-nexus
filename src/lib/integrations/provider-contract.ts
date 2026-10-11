@@ -1,6 +1,6 @@
 import type { ProviderDefinition } from "./provider-registry";
 
-export type ConnectorStatus = "connected" | "pending" | "failed" | "disconnected";
+export type ConnectorStatus = "connected" | "pending" | "failed" | "degraded" | "disconnected";
 export type VerificationStatus = "verified" | "unverified" | "failed" | "unsupported";
 
 export interface ProviderSyncEvidence {
@@ -12,7 +12,7 @@ export interface ProviderSyncEvidence {
 }
 
 export interface ProviderHealthEvidence {
-  status: "healthy" | "unhealthy" | "unknown";
+  status: "healthy" | "unhealthy" | "degraded" | "unknown";
   checkedAt: string | null;
   error: string | null;
 }
