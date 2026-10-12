@@ -14,7 +14,7 @@ describe("provider integration removal contract", () => {
     expect(removalBlock).toContain('.eq("id", data.connectionId).eq("tenant_id", tenantId).maybeSingle()');
     expect(removalBlock).not.toContain('.eq("status", "connected")');
     expect(removalBlock).toContain('.from("provider_connections").delete()');
-    expect(removalBlock).toContain('return { ok: true as const, connectionId: data.connectionId };');
+    expect(removalBlock).toContain('return { ok: true as const };');
   });
 
   it("uses the generic integration audit entity and does not require GitHub App auth for removal", () => {
