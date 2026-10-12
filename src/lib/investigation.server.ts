@@ -1,6 +1,7 @@
 import { resolveTenant } from "@/lib/genesys/store.server";
 import { loadLiveWorkspaceData, type LiveRecommendation } from "@/lib/live-workspace.functions";
-import { loadProviderReportData, deriveCorrelatedSignals } from "@/lib/provider-sync.functions";
+import { loadProviderReportData } from "@/lib/provider-sync.functions";
+import { deriveCorrelatedSignals } from "@/lib/provider-evidence";
 import { DEMO_GENESYS, DEMO_VULNERABILITIES, DEMO_CHANGES } from "@/lib/demo-data";
 import { resolveTenantContext } from "@/lib/tenant-context.server";
 import { toSharedFinding, type SharedFinding } from "@/lib/evidence/finding";

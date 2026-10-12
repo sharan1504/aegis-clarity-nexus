@@ -3,7 +3,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { resolveTenant } from "@/lib/genesys/store.server";
 import { resolveDepartmentContext, getDepartmentProviders } from "@/lib/department-access.server";
 import { clearEvidenceCache, withEvidenceCache } from "@/lib/evidence-cache.server";
-import { recordOperationalIssueSafely } from "@/lib/operational-issues.server";
+import { recordOperationalIssueSafely, resolveOperationalIssue } from "@/lib/operational-issues.server";
 import { decryptCredentials } from "@/lib/integrations/credential-vault.server";
 import { syncGitHub } from "@/lib/integrations/github-connector.server";
 import { ensureJiraAccessToken } from "@/lib/integrations/oauth-jira.server";
@@ -11,6 +11,8 @@ import { ensureSalesforceAccessToken, withSalesforceAccessToken } from "@/lib/in
 import { ensureServiceNowAccessToken } from "@/lib/integrations/oauth-servicenow.server";
 import { ensureSlackAccessToken } from "@/lib/integrations/oauth-slack.server";
 import { Microsoft365LicenseConnector } from "@/lib/microsoft365/connector.server";
+import { getSyncFailureState } from "@/lib/provider-sync-circuit-breaker";
+import { normalizeProviderReportEntities } from "@/lib/provider-evidence";
 
 export type Provider = "github" | "slack" | "jira" | "salesforce" | "servicenow" | "m365";
 interface Credentials { accessToken?: string; cloudId?: string; instanceUrl?: string; tenant?: string; clientId?: string; clientSecret?: string; }
@@ -173,6 +175,185 @@ export async function syncProviderReportDataInternal(input: {
   }
 }
 
+export interface ProviderSyncRequest {
+  tenantId: string;
+  provider: Provider;
+  connectionId: string;
+  syncRunId?: string | null;
+  idempotencyKey?: string | null;
+}
+
+export async function syncProviderConnection(request: ProviderSyncRequest) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { tenantId, provider, connectionId } = request;
+  const { data: connection, error: connectionError } = await supabaseAdmin
+    .from("provider_connections")
+    .select("id,status,encrypted_credentials")
+    .eq("tenant_id", tenantId)
+    .eq("provider", provider)
+    .eq("id", connectionId)
+    .maybeSingle();
+  if (connectionError) throw connectionError;
+  if (!connection) throw new Error(`${provider} connection is not configured for this tenant.`);
+  if (connection.status !== "connected") throw new Error(`${provider} connection is ${connection.status}.`);
+  if (!connection.encrypted_credentials) throw new Error(`${provider} has no stored credentials.`);
+
+  const startedAt = new Date().toISOString();
+  let runId = request.syncRunId ?? null;
+  if (!runId) {
+    const { data: run, error: runError } = await supabaseAdmin
+      .from("provider_sync_runs")
+      .insert({
+        tenant_id: tenantId,
+        provider,
+        connection_id: connectionId,
+        idempotency_key: request.idempotencyKey ?? null,
+        status: "running",
+        started_at: startedAt,
+      })
+      .select("id")
+      .single();
+    if (runError || !run) throw runError ?? new Error("Could not create sync run.");
+    runId = run.id;
+  }
+
+  await updateConnectionEvidence(supabaseAdmin, tenantId, connectionId, {
+    last_sync_status: "running",
+    last_sync_attempted_at: startedAt,
+    sync_error: null,
+  });
+
+  try {
+    if (provider === "github") {
+      const result = await syncGitHub(tenantId, connectionId, "all", runId ?? undefined, request.idempotencyKey ?? undefined);
+      await updateConnectionEvidence(supabaseAdmin, tenantId, connectionId, {
+        status: "connected",
+        health_status: "healthy",
+        health_checked_at: result.lastSuccessfulAt,
+        health_error: null,
+        last_sync_at: result.lastSuccessfulAt,
+        last_sync_status: "success",
+        last_sync_successful_at: result.lastSuccessfulAt,
+        sync_record_count: result.recordsUpserted,
+        sync_error: null,
+        last_error: null,
+      });
+      await resolveOperationalIssue(supabaseAdmin as any, tenantId, "sync", connectionId, "Provider sync recovered successfully.");
+      clearEvidenceCache();
+      return { ok: true as const, provider, connectionId, records: result.recordsUpserted, finishedAt: result.lastSuccessfulAt };
+    }
+
+    const credentials = decryptCredentials<Credentials>(connection.encrypted_credentials);
+    const rows = await fetchProvider(provider, credentials, connectionId, tenantId);
+    const observedAt = new Date().toISOString();
+    const staleCount = await reconcileProviderEntities(
+      supabaseAdmin,
+      tenantId,
+      provider,
+      connectionId,
+      rows,
+      observedAt,
+    );
+
+    for (const row of rows) {
+      const { error } = await supabaseAdmin
+        .from("provider_sync_entities")
+        .upsert(
+          {
+            tenant_id: tenantId,
+            provider,
+            connection_id: connectionId,
+            entity_type: row.entityType,
+            entity_key: row.entityKey,
+            payload: row.payload,
+            observed_at: observedAt,
+            sync_run_id: runId,
+            stale: false,
+          },
+          { onConflict: "tenant_id,provider,connection_id,entity_type,entity_key" },
+        );
+      if (error) throw error;
+    }
+
+    const finishedAt = new Date().toISOString();
+    const { error: runUpdateError } = await supabaseAdmin
+      .from("provider_sync_runs")
+      .update({
+        status: "success",
+        finished_at: finishedAt,
+        records_seen: rows.length,
+        records_upserted: rows.length,
+        records_staled: staleCount,
+        error_message: null,
+      })
+      .eq("id", runId)
+      .eq("tenant_id", tenantId);
+    if (runUpdateError) throw runUpdateError;
+
+    await updateConnectionEvidence(supabaseAdmin, tenantId, connectionId, {
+      status: "connected",
+      health_status: "healthy",
+      health_checked_at: finishedAt,
+      health_error: null,
+      last_sync_at: finishedAt,
+      last_sync_status: "success",
+      last_sync_successful_at: finishedAt,
+      sync_record_count: rows.length,
+      sync_error: null,
+      last_error: null,
+    });
+    await resolveOperationalIssue(supabaseAdmin as any, tenantId, "sync", connectionId, "Provider sync recovered successfully.");
+    clearEvidenceCache();
+    return { ok: true as const, provider, connectionId, records: rows.length, stale: staleCount, finishedAt };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (runId) {
+      await supabaseAdmin
+        .from("provider_sync_runs")
+        .update({
+          status: "failed",
+          finished_at: new Date().toISOString(),
+          error_message: message.slice(0, 2000),
+        })
+        .eq("id", runId)
+        .eq("tenant_id", tenantId);
+    }
+    const { data: recentRuns } = await supabaseAdmin
+      .from("provider_sync_runs")
+      .select("status")
+      .eq("tenant_id", tenantId)
+      .eq("connection_id", connectionId)
+      .order("started_at", { ascending: false })
+      .limit(3);
+    const failureState = getSyncFailureState(recentRuns ?? []);
+    const healthStatus = failureState.degraded ? "degraded" : "unhealthy";
+    await updateConnectionEvidence(supabaseAdmin, tenantId, connectionId, {
+      status: "connected",
+      health_status: healthStatus,
+      health_checked_at: new Date().toISOString(),
+      health_error: message.slice(0, 2000),
+      last_sync_status: "failed",
+      sync_error: message.slice(0, 2000),
+      last_error: message.slice(0, 2000),
+    });
+    await recordOperationalIssueSafely(supabaseAdmin as any, {
+      tenantId,
+      source: "sync",
+      severity: failureState.degraded ? "warning" : "high",
+      title: failureState.degraded
+        ? `${provider} sync is degraded after ${failureState.failureStreak} consecutive failures`
+        : `${provider} provider sync failed`,
+      detail: failureState.degraded
+        ? `Provider synchronization has failed ${failureState.failureStreak} consecutive times for connection ${connectionId}. Scheduled retries are backed off until a successful sync.`
+        : `Provider synchronization failed for connection ${connectionId}. ${message}`,
+      relatedId: failureState.degraded ? connectionId : runId,
+      fingerprint: failureState.degraded ? `provider-sync-degraded:${connectionId}` : undefined,
+    });
+    throw new Error(message);
+  }
+}
+
+
 export const syncReportProvider = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { provider: Provider; connectionId?: string }) => ({ provider: input.provider, connectionId: input.connectionId ? String(input.connectionId).trim() : null })).handler(async ({ data, context }) => {
   const { tenantId, roles } = await resolveTenant(context.supabase, context.userId);
   if (!roles.some((r) => ["admin", "manager", "analyst"].includes(r))) throw new Error("Analyst access is required to synchronize provider report data.");
@@ -199,7 +380,7 @@ export const syncReportProvider = createServerFn({ method: "POST" }).middleware(
   }).select("id").single();
   if (runError || !run) throw runError ?? new Error("Could not create sync run.");
 
-  const result = await syncProviderReportDataInternal({
+  const result = await syncProviderConnection({
     tenantId,
     provider: data.provider,
     connectionId: connection.id,
@@ -239,7 +420,7 @@ export async function loadProviderReportData(supabase: any, userId: string, depa
       payload: row.payload,
       observed_at: row.synced_at,
     }));
-    const entityData = [...(genericEntities ?? []), ...githubEvidence];
+    const entityData = normalizeProviderReportEntities(genericEntities ?? [], githubEntities ?? []);
 
     const { data: runData } = providerNames.length
       ? await supabase.from("provider_sync_runs").select("provider,connection_id,status,started_at,finished_at,records_seen,error_message").eq("tenant_id", tenantId).in("provider", providerNames).order("started_at", { ascending: false }).limit(100)
