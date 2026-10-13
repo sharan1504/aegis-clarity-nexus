@@ -167,7 +167,14 @@ export const deleteWorkspaceGroup = createServerFn({ method: "POST" }).middlewar
   return { ok: true as const };
 });
 
-export const updatePrivacySettings = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { maskPii: boolean; allowAiProviderData: boolean; redactSecrets: boolean; aiActivityRetentionDays: number }) => ({ maskPii: Boolean(input.maskPii), allowAiProviderData: Boolean(input.allowAiProviderData), redactSecrets: Boolean(input.redactSecrets), aiActivityRetentionDays: Math.max(7, Math.min(3650, Number(input.aiActivityRetentionDays) || 90)) })).handler(async ({ data, context }) => {
+export const updatePrivacySettings = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { maskPii: boolean; allowAiProviderData: boolean; redactSecrets: boolean; aiActivityRetentionDays: number; retainExecutionEvidence?: boolean; executionEvidenceRetentionDays?: number }) => ({
+  maskPii: Boolean(input.maskPii),
+  allowAiProviderData: Boolean(input.allowAiProviderData),
+  redactSecrets: Boolean(input.redactSecrets),
+  aiActivityRetentionDays: Math.max(7, Math.min(3650, Number(input.aiActivityRetentionDays) || 90)),
+  retainExecutionEvidence: input.retainExecutionEvidence !== false,
+  executionEvidenceRetentionDays: Math.max(7, Math.min(3650, Number(input.executionEvidenceRetentionDays) || 90)),
+})).handler(async ({ data, context }) => {
   const { tenantId } = await requireAdmin(context);
   const db = dbOf(context.supabase);
   const { data: current, error: readError } = await db.from("tenants").select("analytics_settings").eq("id", tenantId).single();
