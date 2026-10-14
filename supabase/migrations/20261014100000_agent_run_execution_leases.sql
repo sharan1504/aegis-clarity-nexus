@@ -73,7 +73,7 @@ SECURITY DEFINER
 SET search_path = public, app_private
 AS $$
 DECLARE
-  v_released boolean;
+  v_rows integer;
 BEGIN
   IF NOT app_private.is_tenant_member(p_tenant_id) THEN
     RAISE EXCEPTION 'tenant access denied';
@@ -87,8 +87,8 @@ BEGIN
     AND tenant_id = p_tenant_id
     AND execution_lease_token = p_lease_token;
 
-  GET DIAGNOSTICS v_released = ROW_COUNT;
-  RETURN v_released;
+  GET DIAGNOSTICS v_rows = ROW_COUNT;
+  RETURN v_rows > 0;
 END;
 $$;
 
