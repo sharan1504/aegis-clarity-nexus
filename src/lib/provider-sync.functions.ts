@@ -12,6 +12,7 @@ import { ensureServiceNowAccessToken } from "@/lib/integrations/oauth-servicenow
 import { ensureSlackAccessToken } from "@/lib/integrations/oauth-slack.server";
 import { Microsoft365LicenseConnector } from "@/lib/microsoft365/connector.server";
 import { getSyncFailureState } from "@/lib/provider-sync-circuit-breaker";
+import { claimProviderSyncCapacity, releaseProviderSyncCapacity } from "@/lib/provider-governor.server";
 import { normalizeProviderReportEntities } from "@/lib/provider-evidence";
 
 export type Provider = "github" | "slack" | "jira" | "salesforce" | "servicenow" | "m365";
@@ -91,10 +92,16 @@ export async function syncProviderReportDataInternal(input: {
   if (!connection.encrypted_credentials) throw new Error(`${provider} has no stored credentials.`);
 
   const startedAt = new Date().toISOString();
+  let capacityToken: string | null = null;
   try {
+    const capacity = await claimProviderSyncCapacity(supabaseAdmin as any, { tenantId, provider, connectionId: connection.id, runId: syncRunId });
+    if (!capacity.acquired || !capacity.token) throw new Error(`Provider sync is backpressured (${capacity.reason ?? "capacity"}); retry after ${capacity.retryAfterSeconds ?? 1} second(s).`);
+    capacityToken = capacity.token;
     if (provider === "github") {
       const result = await syncGitHub(tenantId, connection.id, "all", syncRunId, idempotencyKey);
       await clearEvidenceCache(supabaseAdmin as any, tenantId);
+      await releaseProviderSyncCapacity(supabaseAdmin as any, capacityToken);
+      capacityToken = null;
       return { ok: true as const, provider, connectionId: connection.id, records: result.recordsUpserted, stale: result.staleCount, finishedAt: result.lastSuccessfulAt };
     }
 
@@ -142,8 +149,11 @@ export async function syncProviderReportDataInternal(input: {
       last_error: null,
     });
     await clearEvidenceCache(supabaseAdmin as any, tenantId);
+    await releaseProviderSyncCapacity(supabaseAdmin as any, capacityToken);
+    capacityToken = null;
     return { ok: true as const, provider, connectionId: connection.id, records: rows.length, stale: staleCount, finishedAt };
   } catch (error) {
+    if (capacityToken) { try { await releaseProviderSyncCapacity(supabaseAdmin as any, capacityToken); } catch (releaseError) { console.error("[provider-sync] capacity lease release failed", releaseError); } capacityToken = null; }
     const message = error instanceof Error ? error.message : String(error);
     await supabaseAdmin.from("provider_sync_runs").update({
       status: "failed",
@@ -199,6 +209,7 @@ export async function syncProviderConnection(request: ProviderSyncRequest) {
   if (!connection.encrypted_credentials) throw new Error(`${provider} has no stored credentials.`);
 
   const startedAt = new Date().toISOString();
+  let capacityToken: string | null = null;
   let runId = request.syncRunId ?? null;
   if (!runId) {
     const { data: run, error: runError } = await supabaseAdmin
@@ -224,6 +235,9 @@ export async function syncProviderConnection(request: ProviderSyncRequest) {
   });
 
   try {
+    const capacity = await claimProviderSyncCapacity(supabaseAdmin as any, { tenantId, provider, connectionId, runId });
+    if (!capacity.acquired || !capacity.token) throw new Error(`Provider sync is backpressured (${capacity.reason ?? "capacity"}); retry after ${capacity.retryAfterSeconds ?? 1} second(s).`);
+    capacityToken = capacity.token;
     if (provider === "github") {
       const result = await syncGitHub(tenantId, connectionId, "all", runId ?? undefined, request.idempotencyKey ?? undefined);
       await updateConnectionEvidence(supabaseAdmin, tenantId, connectionId, {
@@ -240,6 +254,8 @@ export async function syncProviderConnection(request: ProviderSyncRequest) {
       });
       await resolveOperationalIssue(supabaseAdmin as any, tenantId, "sync", connectionId, "Provider sync recovered successfully.");
       await clearEvidenceCache(supabaseAdmin as any, tenantId);
+      await releaseProviderSyncCapacity(supabaseAdmin as any, capacityToken);
+      capacityToken = null;
       return { ok: true as const, provider, connectionId, records: result.recordsUpserted, finishedAt: result.lastSuccessfulAt };
     }
 
@@ -304,8 +320,11 @@ export async function syncProviderConnection(request: ProviderSyncRequest) {
     });
     await resolveOperationalIssue(supabaseAdmin as any, tenantId, "sync", connectionId, "Provider sync recovered successfully.");
     await clearEvidenceCache(supabaseAdmin as any, tenantId);
+    await releaseProviderSyncCapacity(supabaseAdmin as any, capacityToken);
+    capacityToken = null;
     return { ok: true as const, provider, connectionId, records: rows.length, stale: staleCount, finishedAt };
   } catch (error) {
+    if (capacityToken) { try { await releaseProviderSyncCapacity(supabaseAdmin as any, capacityToken); } catch (releaseError) { console.error("[provider-sync] capacity lease release failed", releaseError); } capacityToken = null; }
     const message = error instanceof Error ? error.message : String(error);
     if (runId) {
       await supabaseAdmin
