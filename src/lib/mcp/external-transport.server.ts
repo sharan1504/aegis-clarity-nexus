@@ -1,12 +1,15 @@
+import https from "node:https";
 import net from "node:net";
+import type { LookupFunction } from "node:dns";
+import { lookup } from "node:dns/promises";
 
 const MAX_RESPONSE_BYTES = 1_048_576;
 const REQUEST_TIMEOUT_MS = 8_000;
-const BLOCKED_HOSTS = new Set(["localhost", "metadata.google.internal", "metadata.google.internal."]);
+const BLOCKED_HOSTS = new Set(["localhost", "metadata.google.internal"]);
 
 function ipv4Number(address: string): number | null {
   if (net.isIP(address) !== 4) return null;
-  return address.split(".").reduce((n, part) => (n * 256 + Number(part)) >>> 0, 0);
+  return address.split(".").reduce((n, part) => n * 256 + Number(part), 0);
 }
 
 function isBlockedIpv4(address: string): boolean {
@@ -18,17 +21,18 @@ function isBlockedIpv4(address: string): boolean {
     [0xc0586300, 24], [0xc0a80000, 16], [0xc6120000, 15], [0xc6336400, 24],
     [0xcb007100, 24], [0xe0000000, 4], [0xf0000000, 4],
   ];
-  return ranges.some(([base, bits]) => (value >>> (32 - bits)) === (base >>> (32 - bits)));
+  return ranges.some(([base, bits]) => Math.floor(value / 2 ** (32 - bits)) === Math.floor(base / 2 ** (32 - bits)));
 }
 
 function isBlockedIpv6(address: string): boolean {
   const value = address.toLowerCase().split("%")[0];
   if (net.isIP(value) !== 6) return true;
   if (value === "::" || value === "::1" || value.startsWith("fc") || value.startsWith("fd") ||
-      /^fe[89ab]/.test(value) || value.startsWith("ff")) return true;
-  const mapped = value.match(/^(?:::ffff:)(\d+\.\d+\.\d+\.\d+)$/);
-  if (mapped) return isBlockedIpv4(mapped[1]);
-  return false;
+      /^fe[89ab]/.test(value) || value.startsWith("ff") || value.startsWith("2001:db8") ||
+      value.startsWith("2002:") || value.startsWith("::ffff:")) return true;
+  // Remote MCP connections only accept globally scoped unicast IPv6 (2000::/3).
+  const first = Number.parseInt(value.split(":")[0] || "0", 16);
+  return !Number.isFinite(first) || first < 0x2000 || first > 0x3fff;
 }
 
 export function validateExternalMcpUrl(value: string): URL {
@@ -40,63 +44,143 @@ export function validateExternalMcpUrl(value: string): URL {
   if (!host || BLOCKED_HOSTS.has(host) || host.endsWith(".localhost") || host.endsWith(".local")) {
     throw new Error("External MCP URL must use a public, approved hostname.");
   }
-  const ipFamily = net.isIP(host);
-  if ((ipFamily === 4 && isBlockedIpv4(host)) || (ipFamily === 6 && isBlockedIpv6(host))) {
+  const family = net.isIP(host);
+  if ((family === 4 && isBlockedIpv4(host)) || (family === 6 && isBlockedIpv6(host))) {
     throw new Error("External MCP URL must not target a private, local, or reserved IP address.");
   }
   return url;
 }
 
-async function assertPublicDnsHost(host: string): Promise<void> {
-  if (net.isIP(host)) return;
-  const dns = await import("node:dns/promises");
+type PublicAddress = { address: string; family: 4 | 6 };
+async function resolvePublicAddress(hostname: string): Promise<PublicAddress> {
+  const host = hostname.replace(/^\[|\]$/g, "").replace(/\.$/, "");
+  const family = net.isIP(host);
+  if (family === 4) {
+    if (isBlockedIpv4(host)) throw new Error("External MCP URL must not target a private, local, or reserved IP address.");
+    return { address: host, family: 4 };
+  }
+  if (family === 6) {
+    if (isBlockedIpv6(host)) throw new Error("External MCP URL must not target a private, local, or reserved IP address.");
+    return { address: host, family: 6 };
+  }
   let addresses: Array<{ address: string; family: number }>;
-  try { addresses = await dns.lookup(host, { all: true, verbatim: true }); }
+  try { addresses = await lookup(host, { all: true, verbatim: true }); }
   catch { throw new Error("External MCP hostname could not be resolved safely."); }
-  if (!addresses.length || addresses.some(({ address, family }) =>
-    family === 4 ? isBlockedIpv4(address) : family === 6 ? isBlockedIpv6(address) : true
-  )) throw new Error("External MCP hostname resolves to a private, local, or reserved IP address.");
+  if (!addresses.length || addresses.some((item) => item.family === 4 ? isBlockedIpv4(item.address) : item.family === 6 ? isBlockedIpv6(item.address) : true)) {
+    throw new Error("External MCP hostname resolves to a private, local, or reserved IP address.");
+  }
+  const selected = addresses[0];
+  if (selected.family !== 4 && selected.family !== 6) throw new Error("External MCP hostname could not be resolved safely.");
+  return { address: selected.address, family: selected.family };
 }
+
+type JsonRpcEnvelope = Record<string, unknown> & { jsonrpc: "2.0"; id: string | number; result?: unknown; error?: unknown };
 
 async function postJsonRpc(urlValue: string, token: string | null, method: string, params: Record<string, unknown> = {}) {
   const url = validateExternalMcpUrl(urlValue);
-  await assertPublicDnsHost(url.hostname.replace(/^\[|\]$/g, ""));
-  const headers: Record<string, string> = { "content-type": "application/json", accept: "application/json" };
+  const hostname = url.hostname.replace(/^\[|\]$/g, "").replace(/\.$/, "");
+  const pinned = await resolvePublicAddress(hostname);
+  const id = crypto.randomUUID();
+  const payload = JSON.stringify({ jsonrpc: "2.0", id, method, params });
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+    accept: "application/json",
+    "content-length": String(Buffer.byteLength(payload, "utf8")),
+  };
   if (token) headers.authorization = "Bearer " + token;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    const response = await fetch(url, {
+
+  return new Promise<JsonRpcEnvelope>((resolve, reject) => {
+    let settled = false;
+    let responseBytes = 0;
+    const chunks: Buffer[] = [];
+    const finishError = (error: Error) => {
+      if (settled) return;
+      settled = true;
+      reject(error);
+    };
+    const request = https.request(url, {
       method: "POST",
       headers,
-      body: JSON.stringify({ jsonrpc: "2.0", id: crypto.randomUUID(), method, params }),
-      signal: controller.signal,
-      redirect: "manual",
+      rejectUnauthorized: true,
+      servername: net.isIP(hostname) ? undefined : hostname,
+      lookup: ((requestedHostname, options, callback) => {
+        // Pin the exact public DNS result checked above. Do not perform a second DNS lookup
+        // after validation; preserve the original hostname for the HTTP Host header and TLS SNI.
+        if (requestedHostname.replace(/^\[|\]$/g, "").replace(/\.$/, "").toLowerCase() !== hostname.toLowerCase()) {
+          callback(new Error("Unexpected hostname during external MCP connection."));
+          return;
+        }
+        if (typeof options === "object" && options !== null && "all" in options && options.all) {
+          callback(null, [{ address: pinned.address, family: pinned.family }]);
+        } else {
+          callback(null, pinned.address, pinned.family);
+        }
+      }) as LookupFunction,
+    }, (response) => {
+      if ((response.statusCode ?? 0) >= 300 && (response.statusCode ?? 0) < 400) {
+        response.destroy();
+        request.destroy();
+        finishError(new Error("External MCP redirects are not allowed."));
+        return;
+      }
+      if ((Number(response.headers["content-length"] ?? 0) || 0) > MAX_RESPONSE_BYTES) {
+        response.destroy();
+        request.destroy();
+        finishError(new Error("External MCP response exceeded the size limit."));
+        return;
+      }
+      if ((response.statusCode ?? 0) < 200 || (response.statusCode ?? 0) >= 300) {
+        response.resume();
+        finishError(new Error("External MCP request failed (" + response.statusCode + ")."));
+        return;
+      }
+      if (!(response.headers["content-type"] ?? "").toLowerCase().includes("application/json")) {
+        response.destroy();
+        request.destroy();
+        finishError(new Error("External MCP server must return application/json; streaming transports are not enabled."));
+        return;
+      }
+      response.on("data", (chunk: Buffer | string) => {
+        const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+        responseBytes += bytes.length;
+        if (responseBytes > MAX_RESPONSE_BYTES) {
+          response.destroy();
+          request.destroy();
+          finishError(new Error("External MCP response exceeded the size limit."));
+          return;
+        }
+        chunks.push(bytes);
+      });
+      response.on("end", () => {
+        if (settled) return;
+        let parsed: unknown;
+        try { parsed = JSON.parse(Buffer.concat(chunks).toString("utf8")); }
+        catch { finishError(new Error("External MCP server returned invalid JSON.")); return; }
+        if (!parsed || typeof parsed !== "object") {
+          finishError(new Error("External MCP server returned an invalid JSON-RPC response."));
+          return;
+        }
+        const record = parsed as Record<string, unknown>;
+        if (record.jsonrpc !== "2.0" || record.id !== id || ("result" in record) === ("error" in record)) {
+          finishError(new Error("External MCP server returned an invalid JSON-RPC envelope."));
+          return;
+        }
+        settled = true;
+        resolve(record as JsonRpcEnvelope);
+      });
+      response.on("error", (error) => finishError(error));
     });
-    if (response.status >= 300 && response.status < 400) throw new Error("External MCP redirects are not allowed.");
-    const contentLength = Number(response.headers.get("content-length") ?? 0);
-    if (contentLength > MAX_RESPONSE_BYTES) throw new Error("External MCP response exceeded the size limit.");
-    if (!response.ok) throw new Error("External MCP request failed (" + response.status + ").");
-    const contentType = response.headers.get("content-type") ?? "";
-    if (!contentType.toLowerCase().includes("application/json")) {
-      throw new Error("External MCP server must return application/json; streaming transports are not enabled.");
-    }
-    const body = await response.text();
-    if (Buffer.byteLength(body, "utf8") > MAX_RESPONSE_BYTES) throw new Error("External MCP response exceeded the size limit.");
-    let payload: unknown;
-    try { payload = JSON.parse(body); } catch { throw new Error("External MCP server returned invalid JSON."); }
-    if (!payload || typeof payload !== "object") throw new Error("External MCP server returned an invalid JSON-RPC response.");
-    const record = payload as Record<string, unknown>;
-    if (record.jsonrpc !== "2.0" || !("result" in record && record.id) && !("error" in record)) {
-      throw new Error("External MCP server returned an invalid JSON-RPC envelope.");
-    }
-    return record;
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") throw new Error("External MCP request timed out.");
-    throw error;
-  } finally {
-    clearTimeout(timer);
-  }
+    const timer = setTimeout(() => {
+      request.destroy(new Error("External MCP request timed out."));
+    }, REQUEST_TIMEOUT_MS);
+    request.on("error", (error) => {
+      clearTimeout(timer);
+      if (error.message.includes("timed out")) finishError(new Error("External MCP request timed out."));
+      else finishError(error);
+    });
+    request.on("close", () => clearTimeout(timer));
+    request.end(payload);
+  });
 }
 
 export async function listExternalMcpTools(url: string, token: string | null) {
