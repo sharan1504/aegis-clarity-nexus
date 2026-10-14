@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { MAX_PROVIDER_INSTANCES } from "./provider-instance-limit";
+import { providerReadiness } from "./provider-contract";
 import type { ProviderDefinition } from "./provider-registry";
 
 export type CatalogProvider = ProviderDefinition & {
@@ -53,11 +54,13 @@ export function ProviderAvailabilityBadge({ provider }: { provider: CatalogProvi
 }
 
 export function ProviderContractHint({ provider }: { provider: CatalogProvider }) {
-  return (
-    <span className="text-xs text-muted-foreground">
-      {provider.capabilities.includes("read") && provider.capabilities.includes("sync") ? "Read / sync" : "Catalog only"}
-    </span>
-  );
+  const readiness = providerReadiness(provider.id);
+  const label = readiness === "production_connector"
+    ? "Production connector"
+    : readiness === "auth_only"
+      ? "Auth available / contract incomplete"
+      : "Catalog only / Preview";
+  return <span className="text-xs text-muted-foreground">{label}</span>;
 }
 
 export function CatalogSearch({ value, onChange, placeholder = "Search integrations" }: {
@@ -84,7 +87,7 @@ export function filterProviders(providers: CatalogProvider[], query: string, cat
 
 export function ProviderCatalogCard({ provider }: { provider: CatalogProvider }) {
   const navigate = useNavigate();
-  const available = provider.availability === "available";
+  const available = provider.availability === "available" && providerReadiness(provider.id) === "production_connector";
   const installedCount = provider.connections.length;
   const atCap = installedCount >= MAX_PROVIDER_INSTANCES;
 
@@ -218,17 +221,27 @@ export function ProviderDetailsHeader({ provider }: { provider: CatalogProvider 
 }
 
 export function CapabilityList({ provider }: { provider: CatalogProvider }) {
+  const readiness = providerReadiness(provider.id);
   return (
     <div className="grid gap-3 sm:grid-cols-3">
       {["read", "sync", "write"].map((capability) => {
-        const enabled = provider.capabilities.includes(capability as never);
+        const enabled = readiness === "production_connector" &&
+          (capability === "read" || capability === "sync") &&
+          provider.capabilities.includes(capability as never);
+        const label = capability === "write" ? "Governed write" : capability;
         return (
           <div key={capability} className="rounded-lg border p-3">
             <div className="flex items-center gap-2 text-sm font-medium">
               {enabled ? <CheckCircle2 className="h-4 w-4 text-success" /> : <XCircle className="h-4 w-4 text-muted-foreground" />}
-              {capability[0].toUpperCase() + capability.slice(1)}
+              {label[0].toUpperCase() + label.slice(1)}
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">{enabled ? "Declared capability" : "Not declared"}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {enabled ? "Contract-backed capability" : capability === "write"
+                ? "Only enabled through a governed approval path when implemented"
+                : readiness === "auth_only" ? "Contract incomplete"
+                : readiness === "catalog_only" ? "Preview only"
+                : "Not declared"}
+            </p>
           </div>
         );
       })}

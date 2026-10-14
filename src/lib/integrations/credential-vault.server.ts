@@ -1,9 +1,26 @@
 import crypto from "node:crypto";
 
+export interface CredentialEncryptionHealth {
+  configured: boolean;
+  valid: boolean;
+}
+
+export function getCredentialEncryptionHealth(
+  env: NodeJS.ProcessEnv = process.env,
+): CredentialEncryptionHealth {
+  const keyHex = env.AEGIS_CREDENTIAL_ENCRYPTION_KEY;
+  const configured = typeof keyHex === "string" && keyHex.length > 0;
+  return {
+    configured,
+    valid: configured && /^[0-9a-fA-F]{64}$/.test(keyHex),
+  };
+}
+
 function encryptionKey(): Buffer {
+  const health = getCredentialEncryptionHealth();
   const keyHex = process.env.AEGIS_CREDENTIAL_ENCRYPTION_KEY;
-  if (!keyHex || !/^[0-9a-fA-F]{64}$/.test(keyHex)) {
-    throw new Error("AEGIS_CREDENTIAL_ENCRYPTION_KEY is not configured on the server.");
+  if (!health.valid || !keyHex) {
+    throw new Error("Credential encryption is not configured correctly on the server. Set AEGIS_CREDENTIAL_ENCRYPTION_KEY to a stable 64-character hexadecimal key.");
   }
   return Buffer.from(keyHex, "hex");
 }
@@ -23,7 +40,6 @@ export function decryptCredentials<T>(value: string): T {
   decipher.setAuthTag(Buffer.from(tagRaw, "base64url"));
   return JSON.parse(Buffer.concat([decipher.update(Buffer.from(ciphertextRaw, "base64url")), decipher.final()]).toString("utf8")) as T;
 }
-
 
 export interface CredentialKeyProvider {
   currentKeyId(): Promise<string>;

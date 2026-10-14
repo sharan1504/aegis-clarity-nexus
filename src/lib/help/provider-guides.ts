@@ -149,6 +149,7 @@ export function buildProviderHelpTopic(provider: ProviderDefinition): HelpTopic 
       s("Capabilities", "Current production capability boundary:", capabilitiesFor(provider)),
       s("Governed actions", governedActions(provider)),
       s("Official documentation", "Use the vendor documentation below for provider-side configuration:", undefined, undefined, links),
+      s("CenOps credential encryption", "CenOps must have the server-side AEGIS_CREDENTIAL_ENCRYPTION_KEY configured as a stable 64-character hexadecimal key before it can encrypt provider credentials. This key must never be placed in a VITE_ variable or exposed in the browser. Administrators can check readiness in the connection panel; the key value is never displayed."),
       s("Troubleshooting", "If the connection does not complete, review the provider-specific troubleshooting guidance below and verify the credentials, permissions, redirect URI and provider-side configuration.", setup.troubleshooting.filter((item) => !/AEGIS_CREDENTIAL_ENCRYPTION_KEY|VITE_|production contract|provider_not_implemented|production readiness|catalog card|OAuth callback|stored credential|lastSuccessfulAt|Connected/i.test(item))),
     ],
     relatedRoutes: [
