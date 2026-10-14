@@ -42,7 +42,7 @@ describe("external MCP transport safety", () => {
 
   it("rejects DNS resolution that exceeds the configured timeout", async () => {
     vi.useFakeTimers();
-    const lookup = new Promise<string>((resolve) => { setTimeout(() => resolve("late"), 10_000); });
+    const lookup = new Promise<string>(() => {});
     const pending = withDnsTimeout(lookup, 25);
     await vi.advanceTimersByTimeAsync(25);
     await expect(pending).rejects.toThrow("DNS lookup timed out");
