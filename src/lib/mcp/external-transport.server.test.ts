@@ -42,11 +42,17 @@ describe("external MCP transport safety", () => {
 
   it("rejects DNS resolution that exceeds the configured timeout", async () => {
     vi.useFakeTimers();
-    const lookup = new Promise<string>(() => {});
-    const pending = withDnsTimeout(lookup, 25);
-    await vi.advanceTimersByTimeAsync(25);
-    await expect(pending).rejects.toThrow("DNS lookup timed out");
-    vi.useRealTimers();
+    try {
+      const lookup = new Promise<string>(() => {});
+      const pending = withDnsTimeout(lookup, 25);
+      // Attach the rejection assertion before advancing fake time so Vitest observes
+      // the expected rejection in the same tick in which the timeout fires.
+      const assertion = expect(pending).rejects.toThrow("DNS lookup timed out");
+      await vi.advanceTimersByTimeAsync(25);
+      await assertion;
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("accepts a syntactically valid HTTPS public host", () => {
