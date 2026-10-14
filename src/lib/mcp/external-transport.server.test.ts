@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import https from "node:https";
 import { EventEmitter } from "node:events";
-import { callExternalMcpTool, listExternalMcpTools, validateExternalMcpUrl } from "./external-transport.server";
+import { callExternalMcpTool, listExternalMcpTools, validateExternalMcpUrl, withDnsTimeout } from "./external-transport.server";
 
 function stubHttps(response: { statusCode: number; headers?: Record<string, string>; body?: string }) {
   vi.spyOn(https, "request").mockImplementation(((input: any, options: any, callback: any) => {
@@ -38,6 +38,21 @@ describe("external MCP transport safety", () => {
     "https://service.local/mcp",
   ])("rejects unsafe MCP URL %s", (url) => {
     expect(() => validateExternalMcpUrl(url)).toThrow();
+  });
+
+  it("rejects DNS resolution that exceeds the configured timeout", async () => {
+    vi.useFakeTimers();
+    try {
+      const lookup = new Promise<string>(() => {});
+      const pending = withDnsTimeout(lookup, 25);
+      // Attach the rejection assertion before advancing fake time so Vitest observes
+      // the expected rejection in the same tick in which the timeout fires.
+      const assertion = expect(pending).rejects.toThrow("DNS lookup timed out");
+      await vi.advanceTimersByTimeAsync(25);
+      await assertion;
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("accepts a syntactically valid HTTPS public host", () => {
