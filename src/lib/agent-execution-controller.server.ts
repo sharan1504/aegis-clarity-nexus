@@ -49,13 +49,19 @@ export async function checkpointAgentRun(
   tenantId: string,
   runId: string,
   checkpoint: unknown,
+  leaseToken?: string,
 ): Promise<void> {
-  const { error } = await (supabase as any)
+  let query = (supabase as any)
     .from("agent_runs")
     .update({ checkpoint, checkpointed_at: new Date().toISOString() })
     .eq("id", runId)
     .eq("tenant_id", tenantId);
+  if (leaseToken) query = query.eq("execution_lease_token", leaseToken);
+  const { data, error } = await query.select("id").maybeSingle();
   if (error) throw new Error(`Unable to persist agent checkpoint: ${error.message}`);
+  if (!data) throw new Error(leaseToken
+    ? "Agent run execution lease was lost before checkpoint persistence."
+    : "Agent run was not found while persisting its checkpoint.");
 }
 
 export function sanitizeTracePayload(value: unknown): unknown {
