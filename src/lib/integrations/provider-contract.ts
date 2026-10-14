@@ -2,6 +2,7 @@ import type { ProviderDefinition } from "./provider-registry";
 
 export type ConnectorStatus = "connected" | "pending" | "failed" | "degraded" | "disconnected";
 export type VerificationStatus = "verified" | "unverified" | "failed" | "unsupported";
+export type ProviderReadiness = "production_connector" | "auth_only" | "catalog_only";
 
 export interface ProviderSyncEvidence {
   status: "success" | "failed" | "never";
@@ -25,7 +26,6 @@ export interface ProviderConnectionEvidence {
   sync: ProviderSyncEvidence;
 }
 
-/** The only place where a generic provider connection becomes connected. */
 export function deriveConnectorStatus(input: ProviderConnectionEvidence): ConnectorStatus {
   if (input.configuredStatus === "disconnected") return "disconnected";
   if (!input.credentialPresent) return "failed";
@@ -47,17 +47,20 @@ export interface ProviderConnectorContract {
   executeApprovedAction: (...args: never[]) => Promise<{ ok: false; errorCode: "provider_action_unsupported" }>;
 }
 
-/** Providers with a real read/sync path through the production contract. */
 export const CONTRACT_IMPLEMENTED_PROVIDERS = new Set([
-  "genesys",
-  "github",
-  "jira",
-  "slack",
-  "salesforce",
-  "servicenow",
-  "m365",
+  "genesys", "github", "jira", "slack", "salesforce", "servicenow", "m365",
 ]);
 
 export function isContractImplementedProvider(provider: string): boolean {
   return CONTRACT_IMPLEMENTED_PROVIDERS.has(provider);
+}
+
+export function providerReadiness(provider: string): ProviderReadiness {
+  if (isContractImplementedProvider(provider)) return "production_connector";
+  const knownAuthProviders = new Set([
+    "aws", "azure", "gcp", "google-workspace", "freshworks", "zendesk", "zoho", "hubspot",
+    "gitlab", "confluence", "rubrik", "veeam", "cohesity", "crowdstrike", "microsoft-defender",
+    "okta", "datadog", "newrelic", "splunk", "pagerduty", "workday", "sap", "oracle", "snowflake", "mongodb",
+  ]);
+  return knownAuthProviders.has(provider) ? "auth_only" : "catalog_only";
 }
