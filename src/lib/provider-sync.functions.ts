@@ -94,7 +94,7 @@ export async function syncProviderReportDataInternal(input: {
   try {
     if (provider === "github") {
       const result = await syncGitHub(tenantId, connection.id, "all", syncRunId, idempotencyKey);
-      clearEvidenceCache();
+      await clearEvidenceCache(supabaseAdmin as any, tenantId);
       return { ok: true as const, provider, connectionId: connection.id, records: result.recordsUpserted, stale: result.staleCount, finishedAt: result.lastSuccessfulAt };
     }
 
@@ -141,7 +141,7 @@ export async function syncProviderReportDataInternal(input: {
       sync_error: null,
       last_error: null,
     });
-    clearEvidenceCache();
+    await clearEvidenceCache(supabaseAdmin as any, tenantId);
     return { ok: true as const, provider, connectionId: connection.id, records: rows.length, stale: staleCount, finishedAt };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -239,7 +239,7 @@ export async function syncProviderConnection(request: ProviderSyncRequest) {
         last_error: null,
       });
       await resolveOperationalIssue(supabaseAdmin as any, tenantId, "sync", connectionId, "Provider sync recovered successfully.");
-      clearEvidenceCache();
+      await clearEvidenceCache(supabaseAdmin as any, tenantId);
       return { ok: true as const, provider, connectionId, records: result.recordsUpserted, finishedAt: result.lastSuccessfulAt };
     }
 
@@ -303,7 +303,7 @@ export async function syncProviderConnection(request: ProviderSyncRequest) {
       last_error: null,
     });
     await resolveOperationalIssue(supabaseAdmin as any, tenantId, "sync", connectionId, "Provider sync recovered successfully.");
-    clearEvidenceCache();
+    await clearEvidenceCache(supabaseAdmin as any, tenantId);
     return { ok: true as const, provider, connectionId, records: rows.length, stale: staleCount, finishedAt };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -432,7 +432,7 @@ export async function loadProviderReportData(supabase: any, userId: string, depa
       runs: runData ?? [],
       department: { key: department.departmentKey, name: department.departmentName, unrestricted: department.unrestricted },
     };
-  });
+  }, supabase as any);
 }
 
 export interface CorrelatedSignal { title: string; detail: string; providers: string[]; timestamp: string; evidence: Array<{ provider: string; entityType: string; entityKey: string; observedAt: string }>; }
