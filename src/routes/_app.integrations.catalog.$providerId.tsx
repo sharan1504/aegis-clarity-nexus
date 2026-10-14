@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Loader2, ShieldCheck, XCircle } from "lucide-react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { getProviderCatalog, connectProvider, prepareAwsConnection } from "@/lib/integrations/provider-functions";
+import { getCredentialEncryptionStatus } from "@/lib/integrations/credential-encryption.functions";
+import { providerReadiness } from "@/lib/integrations/provider-contract";
 import type { ProviderId } from "@/lib/integrations/production-connectors.server";
 import { startGenesysOAuth } from "@/lib/integrations-genesys.functions";
 import { startGitHubAppInstall } from "@/lib/integrations/github-app.functions";
@@ -65,6 +67,10 @@ function ProviderForm({ target, form, set }: { target: Provider; form: FormState
 }
 function ProviderConnectPanel({ target, connectionId }: { target: Provider; connectionId?: string }) {
   const navigate = useNavigate();
+  const encryptionStatus = useServerFn(getCredentialEncryptionStatus);
+  const encryptionHealth = useQuery({ queryKey: ["credential-encryption-health"], queryFn: () => encryptionStatus(), staleTime: 30_000 });
+  const encryptionReady = encryptionHealth.data?.valid === true;
+  const productionConnector = providerReadiness(target.id) === "production_connector";
   const existingConnection = connectionId ? target.connections.find((connection) => connection.id === connectionId) : undefined;
   const [form, setForm] = useState<FormState>({
     ...EMPTY,
@@ -116,6 +122,9 @@ function ProviderConnectPanel({ target, connectionId }: { target: Provider; conn
 
   const mutation = useMutation<ConnectionResult, Error>({
     mutationFn: async () => {
+      if (!productionConnector) throw new Error("This provider is not yet approved as a production connector. Review its catalog status and setup guide.");
+      if (encryptionHealth.isPending) throw new Error("Checking credential-encryption readiness. Try again in a moment.");
+      if (!encryptionReady) throw new Error("Credential encryption is unavailable. An administrator must configure AEGIS_CREDENTIAL_ENCRYPTION_KEY as a stable 64-character hexadecimal key on the server before connecting integrations.");
       if (limitReached) throw new Error("Maximum of 5 instances allowed for this provider in this workspace.");
 
       const redirect = (result: unknown): string | undefined => {
@@ -525,6 +534,10 @@ function ProviderConnectPanel({ target, connectionId }: { target: Provider; conn
         </div>
       </div>
       {limitReached && <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">Maximum of {MAX_PROVIDER_INSTANCES} instances allowed for this provider in this workspace.</div>}
+      {!productionConnector && <div role="status" className="rounded-md border bg-muted/40 p-3 text-sm">This provider is {providerReadiness(target.id) === "auth_only" ? "authenticated/catalogued but its complete production read-and-sync contract is not verified." : "catalog-only / preview."} The connection form is disabled so it cannot be mistaken for a supported live integration.</div>}
+      {encryptionHealth.data && !encryptionReady && <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">Credential encryption is not ready. Verify the server-side AEGIS_CREDENTIAL_ENCRYPTION_KEY setting (64 hexadecimal characters). The key itself is never displayed.</div>}
+      {encryptionHealth.isError && <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">Credential-encryption health could not be verified. Confirm administrator access and server configuration before connecting.</div>}
+      {encryptionHealth.isPending && <p className="text-xs text-muted-foreground">Checking credential encryption readiness…</p>}
       <ProviderForm target={target} form={form} set={set} />
       {error && <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}
       {success && <div className="rounded-md border border-success/30 bg-success/10 p-3 text-sm text-success">Connection accepted by the existing provider flow. Final Connected state will only appear after evidence-derived health and sync checks succeed.</div>}
@@ -532,7 +545,7 @@ function ProviderConnectPanel({ target, connectionId }: { target: Provider; conn
         <Button
           type="button"
           onClick={submit}
-          disabled={mutation.isPending || target.availability !== "available" || limitReached}
+          disabled={mutation.isPending || target.availability !== "available" || !productionConnector || !encryptionReady || encryptionHealth.isPending || encryptionHealth.isError || limitReached}
         >
           {mutation.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
           {mutation.isPending ? "Connecting…" : limitReached ? "Limit reached" : target.id === "github" ? "Authorize GitHub App" : editing ? "Save changes" : ["genesys", "jira", "salesforce", "slack", "servicenow", "hubspot", "zendesk", "gitlab", "freshworks", "zoho", "confluence", "snowflake", "sap", "workday"].includes(target.id) ? "Authorize " + target.name : "Connect & verify"}
@@ -557,7 +570,7 @@ function ProviderDetailsPage() {
     });
   }
 
-  if (!provider) return <Card><CardContent className="py-12 text-center"><XCircle className="mx-auto h-8 w-8 text-destructive" /><p className="mt-3 font-medium">Provider not found</p><p className="mt-1 text-sm text-muted-foreground">We could not find provider <code className="rounded bg-muted px-1.5 py-0.5">{providerId}</code> in the current catalog.</p><Button asChild className="mt-4"><Link to="/integrations/catalog">Back to catalog</Link></Button></CardContent></Card>; const selectedConnection = connectionId ? provider.connections.find((connection) => connection.id === connectionId) : undefined; return <div className="space-y-6"><PageHeader title={provider.name} description="Review provider requirements, capabilities, and connection details." /><ProviderDetailsHeader provider={provider} /><div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]"><div><Card><CardHeader><CardTitle>Capabilities</CardTitle></CardHeader><CardContent><div className="space-y-4"><CapabilityList provider={provider} /><div className="rounded-lg border bg-muted/30 p-4 text-sm"><div className="flex items-center gap-2 font-medium"><ShieldCheck className="h-4 w-4" />Contract status</div><p className="mt-1 text-muted-foreground">{provider.capabilities.includes("read") && provider.capabilities.includes("sync") ? "Provider is represented as read/sync capable in the registry. Actual Connected status remains evidence-derived." : "Provider is registry-only for this flow."}</p></div><div><h3 className="text-sm font-medium">Prerequisites</h3><ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground"><li>Tenant administrator or manager access in CenOps.</li><li>{provider.auth} credentials or authorization access for the provider.</li><li>Required provider-side scopes: {provider.scopes.join(", ")}.</li></ul></div></div></CardContent></Card></div><div><Card><CardHeader><CardTitle>{mode === "connect" ? selectedConnection ? "Edit integration" : "Install / connect" : "Ready to connect"}</CardTitle></CardHeader><CardContent><p className="text-sm text-muted-foreground">{provider.availability === "available" ? selectedConnection ? `Editing ${selectedConnection.display_name || provider.name} (${selectedConnection.environment}).` : "Continue to the dedicated connection step. The provider cannot be switched mid-flow." : "This provider is currently marked coming soon and cannot be connected."}</p>{mode !== "connect" && provider.availability === "available" && <Button asChild className="mt-4 w-full"><Link to="/integrations/catalog/$providerId" params={{ providerId: provider.id }} search={{ mode: "connect" }}>Install / Connect</Link></Button>}</CardContent></Card></div></div>{mode === "connect" && <ProviderConnectPanel target={provider} connectionId={connectionId} />}</div>; }
+  if (!provider) return <Card><CardContent className="py-12 text-center"><XCircle className="mx-auto h-8 w-8 text-destructive" /><p className="mt-3 font-medium">Provider not found</p><p className="mt-1 text-sm text-muted-foreground">We could not find provider <code className="rounded bg-muted px-1.5 py-0.5">{providerId}</code> in the current catalog.</p><Button asChild className="mt-4"><Link to="/integrations/catalog">Back to catalog</Link></Button></CardContent></Card>; const selectedConnection = connectionId ? provider.connections.find((connection) => connection.id === connectionId) : undefined; return <div className="space-y-6"><PageHeader title={provider.name} description="Review provider requirements, capabilities, and connection details." /><ProviderDetailsHeader provider={provider} /><div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]"><div><Card><CardHeader><CardTitle>Capabilities</CardTitle></CardHeader><CardContent><div className="space-y-4"><CapabilityList provider={provider} /><div className="rounded-lg border bg-muted/30 p-4 text-sm"><div className="flex items-center gap-2 font-medium"><ShieldCheck className="h-4 w-4" />Contract status</div><p className="mt-1 text-muted-foreground">{providerReadiness(provider.id) === "production_connector" ? "Production connector. Connected status still requires valid credentials, healthy provider evidence, and successful synchronization." : providerReadiness(provider.id) === "auth_only" ? "Authentication support exists, but the production read/sync contract is incomplete. Do not rely on it for live investigations." : "Catalog / preview only. Production connection and live evidence are not available."}</p></div><div><h3 className="text-sm font-medium">Prerequisites</h3><ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground"><li>Tenant administrator or manager access in CenOps.</li><li>{provider.auth} credentials or authorization access for the provider.</li><li>Required provider-side scopes: {provider.scopes.join(", ")}.</li></ul></div></div></CardContent></Card></div><div><Card><CardHeader><CardTitle>{mode === "connect" ? selectedConnection ? "Edit integration" : "Install / connect" : "Ready to connect"}</CardTitle></CardHeader><CardContent><p className="text-sm text-muted-foreground">{provider.availability === "available" ? selectedConnection ? `Editing ${selectedConnection.display_name || provider.name} (${selectedConnection.environment}).` : "Continue to the dedicated connection step. The provider cannot be switched mid-flow." : "This provider is currently marked coming soon and cannot be connected."}</p>{mode !== "connect" && provider.availability === "available" && <Button asChild className="mt-4 w-full"><Link to="/integrations/catalog/$providerId" params={{ providerId: provider.id }} search={{ mode: "connect" }}>Install / Connect</Link></Button>}</CardContent></Card></div></div>{mode === "connect" && <ProviderConnectPanel target={provider} connectionId={connectionId} />}</div>; }
 
 export const Route = createFileRoute("/_app/integrations/catalog/$providerId")({
   validateSearch: (search: Record<string, unknown>) => ({ mode: search.mode === "connect" ? "connect" as const : "details" as const, connectionId: typeof search.connectionId === "string" ? search.connectionId : undefined }),

@@ -110,27 +110,69 @@ function ChatPage() {
     return () => { active = false; };
   }, []);
   const mutation = useMutation({
-    mutationFn: async ({ activeSessionId, next, title }: { activeSessionId: string; next: EnterpriseChatMessage[]; title?: string }) => {
-      const responsePromise = chat({ data: { sessionId: activeSessionId, messages: next, depth } });
+    mutationFn: async ({ activeSessionId, next, title }: { activeSessionId: string; next: EnterpriseChatMessage[]; title?: string; optimisticId: string; content: string }) => {
+      let targetSessionId = activeSessionId;
+      const execute = () => chat({ data: { sessionId: targetSessionId, messages: next, depth } });
+      let result;
+      try {
+        result = await execute();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "";
+        if (message !== "Chat session not found.") throw error;
+        const replacement = await createSession({ data: { departmentKey } });
+        targetSessionId = replacement.session.id;
+        if (title) await renameSession({ data: { sessionId: targetSessionId, title } });
+        result = await execute();
+        return { ...result, sessionId: targetSessionId };
+      }
+      if (!result.ok && result.error === "Chat session not found.") {
+        const replacement = await createSession({ data: { departmentKey } });
+        targetSessionId = replacement.session.id;
+        if (title) await renameSession({ data: { sessionId: targetSessionId, title } });
+        result = await execute();
+        return { ...result, sessionId: targetSessionId };
+      }
       const titlePromise = title
-        ? renameSession({ data: { sessionId: activeSessionId, title } }).catch((error) => {
+        ? renameSession({ data: { sessionId: targetSessionId, title } }).catch((error) => {
             toast.error(error instanceof Error ? error.message : "Could not name chat.");
           })
         : Promise.resolve();
-      const [result] = await Promise.all([responsePromise, titlePromise]);
+      await titlePromise;
       return result;
     },
-    onSuccess: async (result) => { if (result.ok) { if (result.sessionId) setSessionId(result.sessionId); setMessages((current) => [...current, { role: "assistant", content: cleanAssistantText(result.answer ?? "Analysis complete."), result: result as Result }]); await refreshHistory(); } else toast.error(result.error); },
+    onSuccess: async (result, variables) => {
+      if (result.ok) {
+        if (result.sessionId) setSessionId(result.sessionId);
+        setMessages((current) => [...current, { role: "assistant", content: cleanAssistantText(result.answer ?? "Analysis complete."), result: result as Result }]);
+        await refreshHistory();
+      } else {
+        setMessages((current) => current.filter((message) => message.id !== variables.optimisticId));
+        setInput(variables.content);
+        toast.error(result.error);
+      }
+    },
+    onError: (error, variables) => {
+      setMessages((current) => current.filter((message) => message.id !== variables.optimisticId));
+      setInput(variables.content);
+      toast.error(error instanceof Error ? error.message : "Message could not be sent.");
+    },
   });
   const send = (text: string) => {
-  const content = text.trim();
-  if (!content || mutation.isPending || !sessionId) return;
-  const isFirstMessage = messages.length === 0;
-  const next = boundCopilotContext([...messages.map((m) => ({ role: m.role, content: m.content })), { role: "user" as const, content }], CLIENT_CONTEXT_LIMIT);
-  setMessages((current) => [...current, { role: "user", content }]);
-  setInput("");
-  mutation.mutate({ activeSessionId: sessionId, next, title: isFirstMessage ? buildChatTitle(content) : undefined });
-};
+    const content = text.trim();
+    if (!content || mutation.isPending || !sessionId) return;
+    const isFirstMessage = messages.length === 0;
+    const optimisticId = crypto.randomUUID();
+    const next = boundCopilotContext([...messages.map((m) => ({ role: m.role, content: m.content })), { role: "user" as const, content }], CLIENT_CONTEXT_LIMIT);
+    setMessages((current) => [...current, { role: "user", content, id: optimisticId }]);
+    setInput("");
+    mutation.mutate({
+      activeSessionId: sessionId,
+      next,
+      title: isFirstMessage ? buildChatTitle(content) : undefined,
+      optimisticId,
+      content,
+    });
+  };
   const handleInputKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); send(input); } };
   const openSession = async (id: string) => { try { const result = await loadSession({ data: { sessionId: id } }); setSessionId(result.session.id); setDepartmentKey(result.session.departmentKey); setMessages(result.messages.map((m: StoredChatMessage) => ({ role: m.role, content: cleanAssistantText(m.content), result: m.result as Result | undefined, id: m.id, createdAt: m.createdAt }))); setHistoryQuery(""); } catch (error) { toast.error(error instanceof Error ? error.message : "Could not open chat."); } };
   const remove = async (id: string) => { try { await removeSession({ data: { sessionId: id } }); const remaining = await refreshHistory(); if (id === sessionId) { if (remaining[0]) await openSession(remaining[0].id); else await startNewChat(); } setPendingDelete(null); toast.success("Chat history deleted"); } catch (error) { toast.error(error instanceof Error ? error.message : "Could not delete chat."); } };
