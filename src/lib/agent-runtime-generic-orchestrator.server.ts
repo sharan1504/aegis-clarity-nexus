@@ -108,7 +108,7 @@ export async function orchestrateGenericReadOnlyRun(supabase: any, userId: strin
           capability: item.tool.capability,
           provider: item.tool.provider,
           observedAt: new Date().toISOString(),
-          result,
+          result: sanitizeTracePayload(result),
         } as JsonValue);
       }
     } catch (error) {
