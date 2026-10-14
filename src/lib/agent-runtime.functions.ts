@@ -172,9 +172,43 @@ export const orchestrateAgentRun = createServerFn({ method: "POST" })
   });
 export const executeAgentRun = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((input: { runId: string; changeRecordId: string }) => ({ runId: String(input.runId ?? "").trim(), changeRecordId: String(input.changeRecordId ?? "").trim() })).handler(async ({ data, context }) => { try { if (!data.runId || !data.changeRecordId) throw new Error("A run id and approved change record id are required."); const tenant = await resolveTenantContext(context.supabase, context.userId); await assertAgentRunOperator(context.supabase, tenant.tenantId, context.userId, data.runId); const actor = await resolveActor(context.supabase, context.userId); const outcome = await executeApprovedAgentRun(context.supabase, actor, data, async ({ supabase, actor: executionActor, change }) => {
       if (change.provider !== "github") throw new Error(`Provider mutation is not implemented for ${change.provider ?? "this provider"}; execution was denied rather than simulated.`);
-      const result = await executeApprovedAction(supabase, executionActor, change.rowId);
-      if (!result.ok) throw new Error(result.reasons.join(" "));
-      return result.result;
+      const { data: claim, error: claimError } = await (supabase as any).rpc("claim_agent_mutation", {
+        p_tenant_id: executionActor.tenantId,
+        p_run_id: data.runId,
+        p_change_record_id: change.rowId,
+        p_lease_seconds: 300,
+      });
+      if (claimError) throw new Error(`Unable to claim idempotent agent mutation: ${claimError.message}`);
+      if (claim?.status === "succeeded" && claim.receipt) return claim.receipt;
+      if (!claim?.acquired || !claim?.leaseToken) {
+        throw new Error(claim?.reason ?? "Agent mutation cannot be retried safely; reconcile the previous provider attempt first.");
+      }
+      const leaseToken = String(claim.leaseToken);
+      try {
+        const result = await executeApprovedAction(supabase, executionActor, change.rowId);
+        if (!result.ok) {
+          await (supabase as any).rpc("release_agent_mutation_claim", {
+            p_tenant_id: executionActor.tenantId, p_run_id: data.runId,
+            p_change_record_id: change.rowId, p_lease_token: leaseToken,
+          });
+          throw new Error(result.reasons.join(" "));
+        }
+        const { data: completed, error: completionError } = await (supabase as any).rpc("complete_agent_mutation", {
+          p_tenant_id: executionActor.tenantId, p_run_id: data.runId,
+          p_change_record_id: change.rowId, p_lease_token: leaseToken,
+          p_receipt: result.result,
+        });
+        if (completionError) throw new Error(`Provider action completed but its idempotency receipt could not be persisted: ${completionError.message}`);
+        if (completed !== true) throw new Error("Provider action completed but its idempotency lease was lost; reconcile before retrying.");
+        return result.result;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Provider action outcome is uncertain.";
+        await (supabase as any).rpc("mark_agent_mutation_unknown", {
+          p_tenant_id: executionActor.tenantId, p_run_id: data.runId,
+          p_change_record_id: change.rowId, p_lease_token: leaseToken, p_error: message,
+        });
+        throw error;
+      }
     }); const run = await loadRun(context.supabase, tenant.tenantId, data.runId); if (!outcome.ok) { const failed = transitionAgentRun(run, { type: "fail", error: outcome.reasons.join(" ") }); await persistRun(context.supabase, tenant.tenantId, failed); await appendEvent(context.supabase, { runId: data.runId, tenantId: tenant.tenantId, actorId: context.userId, eventType: "run_failed", step: "execute", outcome: "failed", payload: { decision: outcome.decision, reasons: outcome.reasons, requiredActions: outcome.requiredActions } }); return { ok: false as const, decision: outcome.decision, reasons: outcome.reasons, requiredActions: outcome.requiredActions, run: failed }; } await requireAgentBudget(context.supabase, tenant.tenantId, data.runId, "step");
     const executing = transitionAgentRun(run, { type: "complete_step", step: "execute", value: outcome.result });
     await requireAgentBudget(context.supabase, tenant.tenantId, data.runId, "step");
