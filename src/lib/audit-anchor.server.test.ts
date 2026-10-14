@@ -4,20 +4,6 @@ import { deliverPendingAuditAnchors } from "./audit-anchor.server";
 
 function anchorDb(rows: any[]) {
   const updates: any[] = [];
-  const query: any = {
-    select: () => query,
-    in: () => query,
-    order: () => query,
-    limit: async () => ({ data: rows, error: null }),
-    update: (value: any) => {
-      const updateQuery: any = {
-        eq: (_column: string, _value: unknown) => updateQuery,
-        then: undefined,
-      };
-      updates.push(value);
-      return updateQuery;
-    },
-  };
   // Supabase builders are thenables; update chains resolve after the final eq().
   const from = vi.fn(() => ({
     select: () => query,
