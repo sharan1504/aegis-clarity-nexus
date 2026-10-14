@@ -56,7 +56,6 @@ export async function orchestrateGenericReadOnlyRun(supabase: any, userId: strin
   }
 
   await assertAgentRunNotCancelled(supabase, run.tenantId, runId);
-  await assertAgentRunNotCancelled(supabase, run.tenantId, runId);
   await requireAgentBudget(supabase, run.tenantId, runId, "step");
   next = transitionAgentRun(next, {
     type: "complete_step",
@@ -113,7 +112,7 @@ export async function orchestrateGenericReadOnlyRun(supabase: any, userId: strin
         } as JsonValue);
       }
     } catch (error) {
-      warnings.push(item.tool.name + ": " + (error instanceof Error ? error.message : "tool invocation failed"));
+      warnings.push(item.tool.name + ": " + String(sanitizeTracePayload(error instanceof Error ? error.message : "tool invocation failed")));
     }
   }
 
