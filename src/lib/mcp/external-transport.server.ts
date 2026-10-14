@@ -5,6 +5,7 @@ import { lookup } from "node:dns/promises";
 
 const MAX_RESPONSE_BYTES = 1_048_576;
 const REQUEST_TIMEOUT_MS = 8_000;
+const DNS_TIMEOUT_MS = 3_000;
 const BLOCKED_HOSTS = new Set(["localhost", "metadata.google.internal"]);
 
 function ipv4Number(address: string): number | null {
@@ -52,6 +53,20 @@ export function validateExternalMcpUrl(value: string): URL {
 }
 
 type PublicAddress = { address: string; family: 4 | 6 };
+
+export async function withDnsTimeout<T>(operation: Promise<T>, timeoutMs = DNS_TIMEOUT_MS): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("External MCP DNS lookup timed out.")), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 async function resolvePublicAddress(hostname: string): Promise<PublicAddress> {
   const host = hostname.replace(/^\[|\]$/g, "").replace(/\.$/, "");
   const family = net.isIP(host);
@@ -64,7 +79,7 @@ async function resolvePublicAddress(hostname: string): Promise<PublicAddress> {
     return { address: host, family: 6 };
   }
   let addresses: Array<{ address: string; family: number }>;
-  try { addresses = await lookup(host, { all: true, verbatim: true }); }
+  try { addresses = await withDnsTimeout(lookup(host, { all: true, verbatim: true })); }
   catch { throw new Error("External MCP hostname could not be resolved safely."); }
   if (!addresses.length || addresses.some((item) => item.family === 4 ? isBlockedIpv4(item.address) : item.family === 6 ? isBlockedIpv6(item.address) : true)) {
     throw new Error("External MCP hostname resolves to a private, local, or reserved IP address.");
