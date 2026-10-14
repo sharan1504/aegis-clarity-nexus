@@ -92,8 +92,9 @@ export async function syncProviderReportDataInternal(input: {
   if (!connection.encrypted_credentials) throw new Error(`${provider} has no stored credentials.`);
 
   const startedAt = new Date().toISOString();
+  let capacityToken: string | null = null;
   try {
-    const capacity = await claimProviderSyncCapacity(supabaseAdmin as any, { tenantId, provider, connectionId, runId });
+    const capacity = await claimProviderSyncCapacity(supabaseAdmin as any, { tenantId, provider, connectionId: connection.id, runId: syncRunId });
     if (!capacity.acquired || !capacity.token) {
       throw new Error(`Provider sync is backpressured (${capacity.reason ?? "capacity"}); retry after ${capacity.retryAfterSeconds ?? 1} second(s).`);
     }
@@ -101,6 +102,8 @@ export async function syncProviderReportDataInternal(input: {
     if (provider === "github") {
       const result = await syncGitHub(tenantId, connection.id, "all", syncRunId, idempotencyKey);
       await clearEvidenceCache(supabaseAdmin as any, tenantId);
+      await releaseProviderSyncCapacity(supabaseAdmin as any, capacityToken);
+      capacityToken = null;
       return { ok: true as const, provider, connectionId: connection.id, records: result.recordsUpserted, stale: result.staleCount, finishedAt: result.lastSuccessfulAt };
     }
 
@@ -148,6 +151,8 @@ export async function syncProviderReportDataInternal(input: {
       last_error: null,
     });
     await clearEvidenceCache(supabaseAdmin as any, tenantId);
+    await releaseProviderSyncCapacity(supabaseAdmin as any, capacityToken);
+    capacityToken = null;
     return { ok: true as const, provider, connectionId: connection.id, records: rows.length, stale: staleCount, finishedAt };
   } catch (error) {
     if (capacityToken) {
