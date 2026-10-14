@@ -4,21 +4,23 @@ import { deliverPendingAuditAnchors } from "./audit-anchor.server";
 
 function anchorDb(rows: any[]) {
   const updates: any[] = [];
-  // Supabase builders are thenables; update chains resolve after the final eq().
-  const from = vi.fn(() => ({
-    select: () => query,
-    in: () => query,
-    order: () => query,
-    limit: async () => ({ data: rows, error: null }),
-    update: (value: any) => {
-      const updateQuery: any = {
-        eq: () => updateQuery,
-        then: (resolve: (value: unknown) => unknown) => Promise.resolve({ error: null }).then(resolve),
-      };
-      updates.push(value);
-      return updateQuery;
-    },
-  }));
+  const from = vi.fn(() => {
+    const query: any = {
+      select: () => query,
+      in: () => query,
+      order: () => query,
+      limit: async () => ({ data: rows, error: null }),
+      update: (value: any) => {
+        const updateQuery: any = {
+          eq: () => updateQuery,
+          then: (resolve: (value: unknown) => unknown) => Promise.resolve({ error: null }).then(resolve),
+        };
+        updates.push(value);
+        return updateQuery;
+      },
+    };
+    return query;
+  });
   return { db: { from }, updates };
 }
 
