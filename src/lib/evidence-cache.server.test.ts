@@ -101,4 +101,24 @@ describe("withEvidenceCache", () => {
     expect(loads).toBe(2);
     expect(shared.rpc).toHaveBeenCalledWith("invalidate_evidence_cache", { p_tenant_id: "tenant-a" });
   });
+  it("falls back to local cache while the shared-cache migration is unavailable", async () => {
+    const client = {
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({ data: null, error: { code: "PGRST205", message: "table evidence_cache_versions not found in schema cache" } }),
+          }),
+        }),
+      }),
+      rpc: async () => ({ data: null, error: { code: "PGRST202", message: "function invalidate_evidence_cache not found" } }),
+    } as any;
+    let loads = 0;
+    const loader = async () => ({ value: ++loads });
+    const first = await withEvidenceCache("tenant-a", "workspace", "user-a", loader, client);
+    const second = await withEvidenceCache("tenant-a", "workspace", "user-a", loader, client);
+    expect(second).toEqual(first);
+    expect(loads).toBe(1);
+    await expect(clearEvidenceCache(client, "tenant-a")).resolves.toBeUndefined();
+  });
+
 });
