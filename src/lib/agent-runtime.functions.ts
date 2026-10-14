@@ -76,7 +76,7 @@ export const orchestrateAgentRun = createServerFn({ method: "POST" })
       const { data: claim, error: claimError } = await (context.supabase as any).rpc("claim_agent_run_execution", {
         p_run_id: data.runId,
         p_tenant_id: tenant.tenantId,
-        p_lease_seconds: 120,
+        p_lease_seconds: 300,
       });
       if (claimError) throw new Error(`Unable to claim agent run execution: ${claimError.message}`);
       if (!claim?.acquired || !claim?.leaseToken) {
@@ -106,7 +106,7 @@ export const orchestrateAgentRun = createServerFn({ method: "POST" })
         evidenceCount: result.run.evidence.length,
         policyVerdict: result.run.policyVerdict,
         approval: result.run.approval,
-      });
+      }, leaseToken ?? undefined);
       try {
         await recordAgentLearningOutcome(context.supabase, {
           tenantId: tenant.tenantId,
