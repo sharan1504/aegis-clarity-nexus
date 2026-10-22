@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getCommandCenterData, type CommandCenterData } from "@/lib/command-center.functions";
 import { getOnboardingStatus } from "@/lib/onboarding.functions";
+import { listActiveAgentRuns, stopAgentRun } from "@/lib/agent-runtime.functions";
 import { createCustomDashboard, deleteCustomDashboard, listCustomDashboards, toggleCustomDashboardStar, type DashboardConfig } from "@/lib/custom-dashboards.functions";
 import { pageHead } from "@/lib/seo";
 
@@ -46,10 +47,44 @@ function DashboardPage() {
   const refresh = async () => {
     setLoading(true);
     try {
-      const [command, onboarding, saved, active] = await Promise.all([load(), loadOnboarding(), loadDashboards(), loadActiveAgentRuns()]);
-      setData(command); setSetup(onboarding); setDashboards(saved.dashboards as Dashboard[]); setActiveRuns(active.runs);
-    } catch (error) { toast.error("Command Center unavailable", { description: error instanceof Error ? error.message : "Try again." }); }
-    finally { setLoading(false); }
+      // The Command Center's core operational data must not be hidden by an
+      // optional widget request (onboarding, saved dashboards, or active runs).
+      const [commandResult, onboardingResult, dashboardsResult, activeRunsResult] = await Promise.allSettled([
+        load(),
+        loadOnboarding(),
+        loadDashboards(),
+        loadActiveAgentRuns(),
+      ]);
+
+      if (commandResult.status === "rejected") throw commandResult.reason;
+      setData(commandResult.value);
+
+      if (onboardingResult.status === "fulfilled") {
+        setSetup(onboardingResult.value);
+      } else {
+        setSetup(null);
+        console.error("[command-center] onboarding status unavailable", onboardingResult.reason);
+      }
+
+      if (dashboardsResult.status === "fulfilled") {
+        setDashboards(dashboardsResult.value.dashboards as Dashboard[]);
+      } else {
+        setDashboards([]);
+        console.error("[command-center] saved dashboards unavailable", dashboardsResult.reason);
+      }
+
+      if (activeRunsResult.status === "fulfilled") {
+        setActiveRuns(activeRunsResult.value.runs);
+      } else {
+        setActiveRuns([]);
+        console.error("[command-center] active agent runs unavailable", activeRunsResult.reason);
+      }
+    } catch (error) {
+      console.error("[command-center] refresh failed", error);
+      toast.error("Command Center unavailable", { description: error instanceof Error ? error.message : "Try again." });
+    } finally {
+      setLoading(false);
+    }
   };
   useEffect(() => { void refresh(); const id = window.setInterval(() => void refresh(), 60000); return () => window.clearInterval(id); }, [load, loadOnboarding, loadDashboards]);
 
